@@ -83,9 +83,12 @@
     return rows;
   }
 
-  async function importV46() {
+  async function importV46(currentUser) {
     var status = await request('/api/v47/status');
-    if (!status.needs_import || !context.isAdmin()) return status;
+    // BX24.isAdmin() can be unavailable/false in an embedded local-app frame.
+    // The backend verifies user.admin through the REST API and remains the
+    // authority for the import permission.
+    if (!status.needs_import || !currentUser || currentUser.role !== 'admin') return status;
     var pairs = await Promise.all(entities.map(async function (entity) {
       return [entity, await bitrixRows('entity.item.get', {ENTITY: entity, SORT: {ID: 'DESC'}})];
     }));
@@ -101,7 +104,7 @@
       await waitForContext();
       refreshAuth();
       var current = await request('/api/v47/session');
-      await importV46();
+      await importV46(current);
       window.__RTMV47_USER__ = current;
       return current;
     })();
