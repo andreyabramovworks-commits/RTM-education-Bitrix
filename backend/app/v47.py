@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field as PydanticField
 from sqlalchemy import delete
 from sqlmodel import Session, select
 
-from app.bitrix_auth import BitrixIdentity, require_admin, require_bitrix_identity
+from app.bitrix_auth import BitrixIdentity, bitrix_call, create_browser_session, require_admin, require_bitrix_identity
 from app.database import get_session
 from app.models import (
     AppUser,
@@ -304,7 +304,16 @@ def _assert_write(identity: BitrixIdentity, entity: str, properties: dict[str, A
 
 
 @router.get("/session")
-def session_info(identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)]) -> dict[str, Any]:
+def session_info(
+    response: Response,
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    if identity.access_token:
+        session_id, ttl = create_browser_session(identity)
+        response.set_cookie(
+            key="rtm_session", value=session_id, max_age=ttl, httponly=True,
+            secure=True, samesite="lax", path="/",
+        )
     return {
         "id": identity.user.id,
         "bitrix_user_id": identity.user.bitrix_user_id,
@@ -312,6 +321,30 @@ def session_info(identity: Annotated[BitrixIdentity, Depends(require_bitrix_iden
         "role": identity.user.role,
         "is_bitrix_admin": identity.user.is_bitrix_admin,
     }
+
+
+class BitrixCallPayload(BaseModel):
+    method: str
+    params: dict[str, Any] = PydanticField(default_factory=dict)
+
+
+@router.post("/bitrix")
+def proxy_bitrix_call(
+    payload: BitrixCallPayload,
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    allowed = {
+        "profile", "user.current", "user.get", "department.get", "user.admin",
+        "tasks.task.add", "im.notify.personal.add",
+        "disk.storage.getlist", "disk.storage.getchildren", "disk.folder.getchildren",
+        "disk.file.get", "disk.file.getExternalLink", "disk.storage.uploadfile", "disk.folder.uploadfile",
+    }
+    if payload.method not in allowed:
+        raise HTTPException(status_code=403, detail="Bitrix24 method is not allowed")
+    privileged = {"tasks.task.add", "im.notify.personal.add", "disk.storage.uploadfile", "disk.folder.uploadfile"}
+    if payload.method in privileged and identity.user.role not in {"admin", "editor"}:
+        raise HTTPException(status_code=403, detail="Editor role is required")
+    return {"data": bitrix_call(identity, payload.method, payload.params)}
 
 
 @router.get("/status")

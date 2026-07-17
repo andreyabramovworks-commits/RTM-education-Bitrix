@@ -91,3 +91,30 @@ html,body,#app{background:#f6f8fb!important;color:#0f172a!important;}
 .rtm-canvas-toolbar>*{flex:0 0 auto!important}
 .rtm-canvas-toolbar .rtm-canvas-save-state{margin-left:auto!important;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rtm-canvas-toolbar .rtm-canvas-save{position:sticky;right:0;z-index:2;box-shadow:-10px 0 14px #fff}
+
+/* v48 interaction and responsive corrections */
+.course-ref-body>div:first-child{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.profile-system-status{margin-top:18px}
+.profile-status-list{display:flex;flex-wrap:wrap;gap:10px}
+.profile-status-list span{padding:7px 11px;border-radius:999px;background:#fee2e2;color:#991b1b;font-size:12px}
+.profile-status-list span.ok{background:#dcfce7;color:#166534}
+.rtm-canvas-toolbar{justify-content:flex-start;min-height:52px!important}
+.rtm-canvas-toolbar button,.rtm-canvas-import,.rtm-font-select{width:42px!important;min-width:42px!important;height:38px!important;min-height:38px!important;padding:0!important;display:inline-grid!important;place-items:center!important;border-radius:0!important;font-size:18px!important}
+.rtm-canvas-toolbar>*+*{margin-left:-1px}
+.rtm-canvas-toolbar .rtm-font-select{width:118px!important;padding:0 5px!important}
+.rtm-canvas-toolbar .rtm-font-select select{width:100%;max-width:none!important;font-size:12px}
+.rtm-canvas-toolbar .rtm-canvas-save{width:auto!important;min-width:154px!important;padding:0 16px!important;border-radius:10px!important;margin-left:auto!important}
+.rtm-reader-complete{position:absolute;left:24px;bottom:22px;z-index:20;padding:12px 22px;border:2px dashed #1e3a5f;border-radius:14px;background:#a5d8ff;color:#1971c2;font:700 18px Excalifont,Virgil,sans-serif;box-shadow:0 4px 14px rgba(15,23,42,.18);cursor:pointer}
+#v46ReaderSvg>div>div:last-child{z-index:25!important}
+body:not(.is-reading-article){overflow:auto!important}
+
+@media(max-width:800px){
+  body.is-reading-article .topbar{display:none!important}
+  body.is-reading-article #userMaterialView.is-excalidraw-article{height:100dvh!important}
+  body.is-reading-article #userMaterialView.is-excalidraw-article>.view-head{top:max(8px,env(safe-area-inset-top))!important;left:8px!important}
+  body.is-reading-article #userMaterialView.is-excalidraw-article>.view-head #uMaterialStatus{display:none!important}
+  body.is-reading-article #v46ReaderSvg>div>div:last-child{position:fixed!important;right:10px!important;bottom:max(12px,env(safe-area-inset-bottom))!important;display:flex!important;z-index:30000!important}
+  body.is-reading-article .rtm-reader-complete{position:fixed;left:10px;bottom:max(12px,env(safe-area-inset-bottom));z-index:30000;padding:10px 14px;font-size:16px}
+  .rtm-canvas-toolbar{padding:7px!important;gap:0!important}
+  .rtm-canvas-toolbar .rtm-canvas-save{min-width:135px!important;font-size:13px!important}
+}

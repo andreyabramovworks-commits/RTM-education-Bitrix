@@ -48,15 +48,17 @@
   }
 
   async function request(path, options, retry) {
-    if (!auth) refreshAuth();
     options = options || {};
-    options.headers = Object.assign({}, options.headers || {}, {
-      'Authorization': 'Bearer ' + auth.access_token,
-      'X-Bitrix-Domain': auth.domain,
-      'Content-Type': 'application/json'
-    });
+    options.credentials = 'same-origin';
+    var headers = {'Content-Type': 'application/json'};
+    if (auth && auth.access_token) {
+      headers.Authorization = 'Bearer ' + auth.access_token;
+      headers['X-Bitrix-Domain'] = auth.domain;
+    }
+    options.headers = Object.assign({}, options.headers || {}, headers);
     var response = await fetch(path, options);
     if (response.status === 401 && retry !== false) {
+      if (!context) throw new Error('Bitrix24 session expired. Open the application inside Bitrix24 again.');
       await context.call('profile', {});
       refreshAuth();
       return request(path, options, false);
@@ -112,10 +114,10 @@
   async function ensureReady() {
     if (readyPromise) return readyPromise;
     readyPromise = (async function () {
-      await waitForContext();
-      refreshAuth();
+      context = findContext();
+      if (context) refreshAuth();
       var current = await request('/api/v47/session');
-      await importV46();
+      if (context) await importV46();
       window.__RTMV47_USER__ = current;
       return current;
     })();
@@ -130,7 +132,15 @@
       });
     },
     callMethod: function (method, params, callback) {
-      waitForContext().then(function () { return context.call(method, params || {}); }).then(function (payload) {
+      var active = findContext();
+      if (!active) {
+        request('/api/v47/bitrix', {method: 'POST', body: JSON.stringify({method: method, params: params || {}})})
+          .then(function (payload) { callback(resultFacade({data: payload.data, more: false})); })
+          .catch(function (error) { callback(resultFacade({error: 'BITRIX_CALL_FAILED', errorDescription: String(error.message || error)})); });
+        return;
+      }
+      context = active;
+      Promise.resolve(context.call(method, params || {})).then(function (payload) {
         callback(resultFacade(payload));
       }).catch(function (error) {
         callback(resultFacade({error: 'BITRIX_CALL_FAILED', errorDescription: String(error.message || error)}));
@@ -197,6 +207,9 @@
   };
 
   window.RTMV47 = {ready: ensureReady, request: request, version: window.__RTM_V48__ ? 'v48' : 'v47'};
+  window.RTMV47.bitrixCall = function (method, params) {
+    return request('/api/v47/bitrix', {method: 'POST', body: JSON.stringify({method: method, params: params || {}})}).then(function (payload) { return payload.data; });
+  };
 
   // v47 scene storage: PostgreSQL is authoritative. IndexedDB remains only a
   // short-lived unsent-draft safety net; application data is no longer merged
@@ -237,6 +250,44 @@
   }
   var renderAllV47Base = renderAll;
   renderAll = function () { renderAllV47Base(); applyV47Labels(); };
+  var renderProfileV47Base = renderProfile;
+  renderProfile = function () {
+    renderProfileV47Base();
+    Promise.all([
+      fetch('/api/health', {credentials: 'same-origin'}).then(function (r) { return r.ok; }).catch(function () { return false; }),
+      fetch('/api/ready', {credentials: 'same-origin'}).then(function (r) { return r.ok; }).catch(function () { return false; })
+    ]).then(function (checks) {
+      var server = document.querySelector('[data-profile-status="server"]');
+      var database = document.querySelector('[data-profile-status="database"]');
+      var bitrix = document.querySelector('[data-profile-status="bitrix"]');
+      if (server) { server.textContent = 'Сервер: ' + (checks[0] ? 'работает' : 'ошибка'); server.classList.toggle('ok', checks[0]); }
+      if (database) { database.textContent = 'PostgreSQL: ' + (checks[1] ? 'работает' : 'ошибка'); database.classList.toggle('ok', checks[1]); }
+      if (bitrix) { bitrix.textContent = 'Bitrix24: ' + (window.__RTMV47_USER__ ? 'подключён' : 'нет сессии'); bitrix.classList.toggle('ok', Boolean(window.__RTMV47_USER__)); }
+    });
+  };
+  function enhanceArticleReader() {
+    var host = document.getElementById('v46ReaderSvg');
+    if (!host || host.querySelector('.rtm-reader-complete')) return;
+    document.body.classList.add('is-reading-article');
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'rtm-reader-complete';
+    button.textContent = 'Завершить';
+    button.onclick = function () { if (window.finishCurrentArticle) window.finishCurrentArticle(); };
+    host.appendChild(button);
+  }
+  new MutationObserver(enhanceArticleReader).observe(document.documentElement, {childList: true, subtree: true});
+  window.addEventListener('error', function () { document.body.classList.remove('is-busy'); });
+  window.addEventListener('unhandledrejection', function () { document.body.classList.remove('is-busy'); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && !state.syncing) idle(); });
+  document.addEventListener('click', function (event) {
+    var link = event.target && event.target.closest && event.target.closest('.toplink[data-user-view]');
+    if (!link || link.dataset.userView !== 'learn') return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showUserView('learn');
+    showUserCourses();
+  }, true);
   new MutationObserver(applyV47Labels).observe(document.documentElement, {childList: true, subtree: true});
   document.addEventListener('click', function (event) {
     var button = event.target && event.target.closest && event.target.closest('button');

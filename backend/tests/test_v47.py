@@ -36,6 +36,15 @@ app.dependency_overrides[require_admin] = admin_override
 client = TestClient(app)
 
 
+def test_session_bootstrap_sets_secure_http_only_cookie() -> None:
+    response = client.get("/api/v47/session")
+    assert response.status_code == 200
+    cookie = response.headers.get("set-cookie", "")
+    assert "rtm_session=" in cookie
+    assert "HttpOnly" in cookie
+    assert "Secure" in cookie
+
+
 def test_imports_only_last_five_projects_and_adds_demo() -> None:
     now = datetime.now(timezone.utc)
     projects = []

@@ -408,6 +408,23 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     });
   };
 
+  const transformSelectedText = (transform: (text: string) => string) => {
+    const api = apiRef.current;
+    if (!api) return;
+    const selected = new Set(selectedTextElements().map((el: any) => el.id));
+    if (!selected.size) { window.alert("Сначала выделите текст"); return; }
+    const next = api.getSceneElements().map((el: any) => selected.has(el.id)
+      ? { ...el, text: transform(String(el.text || "")), originalText: transform(String(el.originalText || el.text || "")), version: Number(el.version || 1) + 1, versionNonce: Math.floor(Math.random() * 2147483647), updated: Date.now() }
+      : el);
+    api.updateScene({ elements: next });
+  };
+
+  const decorateText = (mark: "underline" | "strike") => transformSelectedText((text) => {
+    const code = mark === "underline" ? "\u0332" : "\u0336";
+    return Array.from(text.replace(/[\u0332\u0336]/g, "")).map((char) => char === "\n" ? char : char + code).join("");
+  });
+  const makeList = (ordered: boolean) => transformSelectedText((text) => text.split("\n").map((line, index) => `${ordered ? `${index + 1}.` : "•"} ${line.replace(/^(?:•|\d+\.)\s*/, "")}`).join("\n"));
+
   useEffect(() => {
     lastElementsRef.current = (initial.elements || []).map((el: any) => [el.id, el.version, el.versionNonce, el.isDeleted ? 1 : 0].join(":" )).join("|");
     const updateOrigin = () => {
@@ -496,6 +513,13 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     if (media) addMedia(media);
   };
 
+  const requestMediaUrl = () => {
+    const url = window.prompt("Вставьте HTTPS-ссылку на видео или аудио");
+    if (!url) return;
+    const kind = /\.(?:mp3|m4a|ogg|wav|aac|flac)(?:$|[?#])/i.test(url) ? "audio" : "video";
+    addMedia({ kind, url, title: kind === "audio" ? "Аудио" : "Видео" });
+  };
+
   const save = async () => {
     setSaveState("Сохраняю…");
     try { await options.onManualSave?.(); changed.current = false; setSaveState(""); }
@@ -536,18 +560,20 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   return (
     <div className={`rtm-canvas-shell ${readOnly ? "is-reader" : "is-admin"} ${editorFullscreen ? "is-editor-fullscreen" : ""}`} style={{ "--rtm-canvas-brand": brand } as React.CSSProperties}>
       {!readOnly && <div className="rtm-canvas-toolbar" aria-label="RTM контент">
-        <button type="button" onClick={() => setDialog({ kind: "link", source: "url" })}>🔗 <span>Ссылка</span></button>
-        <button type="button" onClick={() => setDialog({ kind: "video", source: "url" })}>▶ <span>Видео</span></button>
-        <button type="button" onClick={() => setDialog({ kind: "audio", source: "url" })}>♫ <span>Аудио</span></button>
-        <button type="button" onClick={() => requestDisk("video")}>☁ <span>Bitrix.Диск</span></button>
-        <label className="rtm-font-select" title="Шрифт для выбранного текста"><span>Шрифт</span><select value={selectedFont} onChange={(event) => applyFont(Number(event.target.value))}><optgroup label="Штатные Excalidraw">{EXCALIDRAW_FONT_OPTIONS.map(([name, id]) => <option key={id} value={id}>{name}</option>)}</optgroup><optgroup label="Шрифты RTM">{RTM_FONT_OPTIONS.map(([name, id]) => <option key={id} value={id}>{name}</option>)}</optgroup></select></label>
         <button type="button" className="rtm-text-style" title="Жирный текст (Ctrl+B)" onClick={() => toggleTextStyle("bold")}><b>B</b></button>
         <button type="button" className="rtm-text-style" title="Курсив (Ctrl+I)" onClick={() => toggleTextStyle("italic")}><i>I</i></button>
-        <button type="button" className={shortcutsActive ? "is-active" : ""} aria-pressed={shortcutsActive} title="Передавать горячие клавиши редактору" onClick={() => { setCaptureShortcuts((value) => !value); requestAnimationFrame(() => stageRef.current?.focus({ preventScroll: true })); }}>⌨ <span>{shortcutsActive ? "Клавиши: редактор" : "Горячие клавиши"}</span></button>
-        <label className="rtm-canvas-import">⇧ <span>Импорт макета</span><input type="file" accept=".excalidraw,application/json" onChange={(event) => { handleImportFile(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>
-        <button type="button" aria-pressed={editorFullscreen} onClick={() => setEditorFullscreen((value) => !value)}>⛶ <span>{editorFullscreen ? "Свернуть" : "Редактор на весь экран"}</span></button>
+        <button type="button" className="rtm-text-style" title="Подчёркнутый текст" onClick={() => decorateText("underline")}><u>U</u></button>
+        <button type="button" className="rtm-text-style" title="Зачёркнутый текст" onClick={() => decorateText("strike")}><s>S</s></button>
+        <label className="rtm-font-select rtm-icon-control" title="Список шрифтов"><select aria-label="Список шрифтов" value={selectedFont} onChange={(event) => applyFont(Number(event.target.value))}><optgroup label="Штатные Excalidraw">{EXCALIDRAW_FONT_OPTIONS.map(([name, id]) => <option key={id} value={id}>{name}</option>)}</optgroup><optgroup label="Шрифты RTM">{RTM_FONT_OPTIONS.map(([name, id]) => <option key={id} value={id}>{name}</option>)}</optgroup></select></label>
+        <button type="button" title="Маркированный список" onClick={() => makeList(false)}>☷</button>
+        <button type="button" title="Нумерованный список" onClick={() => makeList(true)}>☰</button>
+        <button type="button" title="Ссылка на видео или аудио" onClick={requestMediaUrl}>▶</button>
+        <button type="button" title="Ссылка" onClick={() => setDialog({ kind: "link", source: "url" })}>＋</button>
+        <button type="button" title="Файл с ПК или Bitrix.Диска" onClick={() => requestDisk("video")}>⇩</button>
+        <label className="rtm-canvas-import" title="Импорт макета">◉<input type="file" accept=".excalidraw,application/json" onChange={(event) => { handleImportFile(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>
+        <button type="button" title={editorFullscreen ? "Свернуть" : "Развернуть редактор"} aria-pressed={editorFullscreen} onClick={() => setEditorFullscreen((value) => !value)}>⛶</button>
         {saveState && <span className={`rtm-canvas-save-state ${saveState.includes("Ошибка") || saveState.includes("ожидаю") ? "is-error" : ""}`}>{saveState}</span>}
-        <button type="button" className="rtm-canvas-save" onClick={save}>Сохранить</button>
+        <button type="button" className="rtm-canvas-save" onClick={save}>Сохранить статью</button>
       </div>}
       <div className="rtm-canvas-stage" ref={stageRef} tabIndex={-1} onPointerDown={() => stageRef.current?.focus({ preventScroll: true })}>
         <Excalidraw

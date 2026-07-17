@@ -2,22 +2,22 @@ import React, { useEffect, useState } from "react";
 
 const LEGACY_STYLES = [
   "/legacy/style.css?v=046.3",
-  "/legacy/excalidraw-dist/rtm-canvas.css?v=046.3",
+  "/legacy/excalidraw-dist/rtm-canvas.css?v=048.1",
   "/legacy/v040-layout.css?v=046.3",
   "/legacy/v040-inline.css?v=046.3",
-  "/legacy/v046-layout.css?v=046.3",
+  "/legacy/v046-layout.css?v=048.1",
 ];
 
 const LEGACY_SCRIPTS = [
   ["/legacy/v046-shell.js?v=046.3", false],
   ["/legacy/kb-data.js?v=046.3", false],
-  ["/legacy/app.js?v=046.3", false],
+  ["/legacy/app.js?v=048.1", false],
   ["/legacy/v037-overrides.js?v=046.3", false],
   ["/legacy/v039-patch.js?v=046.3", false],
   ["/legacy/v040-assets.js?v=046.3", false],
-  ["/legacy/excalidraw-dist/rtm-canvas.js?v=046.3", true],
-  ["/legacy/v046-canvas.js?v=048.0", false],
-  ["/legacy/v047-api.js?v=048.0", false],
+  ["/legacy/excalidraw-dist/rtm-canvas.js?v=048.1", true],
+  ["/legacy/v046-canvas.js?v=048.1", false],
+  ["/legacy/v047-api.js?v=048.1", false],
 ];
 
 function loadScript(src, module) {
