@@ -15,7 +15,10 @@
     }
 
     handle {
-        header X-Frame-Options "SAMEORIGIN"
+        header {
+            -X-Frame-Options
+            Content-Security-Policy "frame-ancestors 'self' https://rtm-group.bitrix24.ru"
+        }
         reverse_proxy frontend:80
     }
 
