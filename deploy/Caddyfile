@@ -1,19 +1,27 @@
 {$DOMAIN:localhost} {
     encode zstd gzip
 
+    handle /bitrix/* {
+        header {
+            -X-Frame-Options
+            Content-Security-Policy "frame-ancestors https://rtm-group.bitrix24.ru"
+        }
+        reverse_proxy backend:8000
+    }
+
     handle /api/* {
+        header X-Frame-Options "SAMEORIGIN"
         reverse_proxy backend:8000
     }
 
     handle {
+        header X-Frame-Options "SAMEORIGIN"
         reverse_proxy frontend:80
     }
 
     header {
         -Server
-        X-Frame-Options "SAMEORIGIN"
         X-Content-Type-Options "nosniff"
         Referrer-Policy "strict-origin-when-cross-origin"
     }
 }
-

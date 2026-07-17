@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 
+from app.bitrix import bitrix_page
 from app.config import get_settings
 from app.database import engine
 
@@ -33,3 +34,12 @@ def readiness() -> dict[str, str]:
         raise HTTPException(status_code=503, detail="database is unavailable") from exc
     return {"status": "ready", "database": "ok"}
 
+
+@app.api_route("/bitrix/app", methods=["GET", "POST"], include_in_schema=False)
+def bitrix_application():
+    return bitrix_page()
+
+
+@app.api_route("/bitrix/install", methods=["GET", "POST"], include_in_schema=False)
+def bitrix_installation():
+    return bitrix_page(install=True)
