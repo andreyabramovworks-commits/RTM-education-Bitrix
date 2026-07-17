@@ -1,0 +1,82 @@
+import React, { useEffect, useState } from "react";
+
+const LEGACY_STYLES = [
+  "/legacy/style.css?v=046.3",
+  "/legacy/excalidraw-dist/rtm-canvas.css?v=046.3",
+  "/legacy/v040-layout.css?v=046.3",
+  "/legacy/v040-inline.css?v=046.3",
+  "/legacy/v046-layout.css?v=046.3",
+];
+
+const LEGACY_SCRIPTS = [
+  ["/legacy/v046-shell.js?v=046.3", false],
+  ["/legacy/kb-data.js?v=046.3", false],
+  ["/legacy/app.js?v=046.3", false],
+  ["/legacy/v037-overrides.js?v=046.3", false],
+  ["/legacy/v039-patch.js?v=046.3", false],
+  ["/legacy/v040-assets.js?v=046.3", false],
+  ["/legacy/excalidraw-dist/rtm-canvas.js?v=046.3", true],
+  ["/legacy/v046-canvas.js?v=048.0", false],
+  ["/legacy/v047-api.js?v=048.0", false],
+];
+
+function loadScript(src, module) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.dataset.rtmV48 = "true";
+    if (module) script.type = "module";
+    script.onload = resolve;
+    script.onerror = () => reject(new Error(`Не удалось загрузить ${src}`));
+    document.body.appendChild(script);
+  });
+}
+
+export function LegacyReactHost() {
+  const [markup, setMarkup] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    fetch("/legacy/index.html?v=048.0")
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.text();
+      })
+      .then((html) => {
+        const legacyDocument = new DOMParser().parseFromString(html, "text/html");
+        const app = legacyDocument.querySelector("#app");
+        if (!app) throw new Error("В разметке v47 отсутствует #app");
+        if (active) setMarkup(app.outerHTML);
+      })
+      .catch((cause) => active && setError(String(cause.message || cause)));
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!markup) return;
+    window.__RTM_V48__ = true;
+    window.__RTM_STANDALONE__ = true;
+
+    LEGACY_STYLES.forEach((href) => {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      link.dataset.rtmV48 = "true";
+      document.head.appendChild(link);
+    });
+
+    (async () => {
+      try {
+        for (const [src, module] of LEGACY_SCRIPTS) await loadScript(src, module);
+        document.documentElement.dataset.rtmVersion = "48";
+      } catch (cause) {
+        setError(String(cause.message || cause));
+      }
+    })();
+  }, [markup]);
+
+  if (error) return <div className="v48-load-error">Ошибка запуска v48: {error}</div>;
+  if (!markup) return <div className="v48-loading">Запускаем RTM обучение…</div>;
+  return <div className="v48-react-host" dangerouslySetInnerHTML={{ __html: markup }} />;
+}

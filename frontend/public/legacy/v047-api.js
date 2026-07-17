@@ -1,7 +1,7 @@
 /* RTM v47 server adapter. The v46 DOM and styles remain unchanged. */
 (function () {
   'use strict';
-  if (new URLSearchParams(location.search).get('v47') !== '1') return;
+  if (new URLSearchParams(location.search).get('v47') !== '1' && window.__RTM_V48__ !== true) return;
 
   var originalBX24 = window.BX24;
   var context = null;
@@ -19,10 +19,16 @@
   }
 
   function findContext() {
-    try {
-      var candidate = window.parent && window.parent.parent && window.parent.parent.RTM_BITRIX;
-      if (candidate && typeof candidate.call === 'function') return candidate;
-    } catch (_) {}
+    var frames = [window];
+    try { frames.push(window.parent); } catch (_) {}
+    try { frames.push(window.parent && window.parent.parent); } catch (_) {}
+    try { frames.push(window.parent && window.parent.parent && window.parent.parent.parent); } catch (_) {}
+    for (var index = 0; index < frames.length; index += 1) {
+      try {
+        var candidate = frames[index] && frames[index].RTM_BITRIX;
+        if (candidate && typeof candidate.call === 'function') return candidate;
+      } catch (_) {}
+    }
     return null;
   }
 
@@ -190,7 +196,7 @@
     $('#roleSave').onclick = async function () { await saveRole(userId, $('#roleSelect').value); closeModal(); await loadAll(); switchAdmin('users'); };
   };
 
-  window.RTMV47 = {ready: ensureReady, request: request, version: 'v47'};
+  window.RTMV47 = {ready: ensureReady, request: request, version: window.__RTM_V48__ ? 'v48' : 'v47'};
 
   // v47 scene storage: PostgreSQL is authoritative. IndexedDB remains only a
   // short-lived unsent-draft safety net; application data is no longer merged
@@ -222,10 +228,11 @@
   window.RTMV47.saveScene = saveServerScene;
 
   function applyV47Labels() {
+    var version = window.__RTM_V48__ ? 'v48' : 'v47';
     document.querySelectorAll('.v39-version-label').forEach(function (node) {
-      var expected = node.classList.contains('v39-admin-version') ? 'v47' : 'Версия v47';
+      var expected = node.classList.contains('v39-admin-version') ? version : 'Версия ' + version;
       if (node.textContent !== expected) node.textContent = expected;
-      node.title = 'Версия v47';
+      node.title = 'Версия ' + version;
     });
   }
   var renderAllV47Base = renderAll;
@@ -238,7 +245,11 @@
     event.stopImmediatePropagation();
     alert('Bitrix.Диск больше не используется для хранения приложения. Добавьте HTTPS-ссылку на материал.');
   }, true);
-  document.addEventListener('DOMContentLoaded', function () {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () {
     setTimeout(applyV47Labels, 0);
   });
+  else setTimeout(applyV47Labels, 0);
+  if (window.__RTM_V48__ && typeof window.__RTM_V48_INIT__ === 'function') {
+    setTimeout(function () { window.__RTM_V48_INIT__(); }, 0);
+  }
 })();

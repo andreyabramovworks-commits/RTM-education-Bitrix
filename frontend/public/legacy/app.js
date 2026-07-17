@@ -296,7 +296,9 @@ function courseChildren(courseId){return activeRows(state.items).filter(i=>Strin
 function continueCourse(){let course=findItem(state.courseId); if(!course)return; let children=courseChildren(course.ID); let next=children.find(m=>!isDone(m.ID,materialKind(m)))||children[0]; if(next)openUserMaterial(next);}
 function adjacentMat(dir){let current=$('#userMaterialView')?.dataset.id; let list=courseChildren(state.courseId); let idx=list.findIndex(i=>String(i.ID)===String(current)); let next=list[idx+dir]; if(next)openUserMaterial(next);}
 function routeDeepLink(){let p=new URLSearchParams(location.search), kind=p.get('rtm_open'), id=p.get('id')||p.get('course')||p.get('material'); if(!id)return; setMode('user'); if(kind==='course'||p.get('course')){let c=findItem(id); if(c)openUserCourse(c); return;} let m=findItem(id); if(m){if(m.PROPERTY_VALUES.parentId){let c=findItem(m.PROPERTY_VALUES.parentId); if(c)openUserCourse(c)} openUserMaterial(m)}}
-document.addEventListener('DOMContentLoaded',init);
+if(window.__RTM_V48__)window.__RTM_V48_INIT__=init;
+else if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);
+else init();
 
 
 

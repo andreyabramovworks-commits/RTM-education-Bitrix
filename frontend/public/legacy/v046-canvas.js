@@ -86,7 +86,8 @@ async function flushLocal(manual){var records=await pendingRecordsAll();if(!reco
 function scheduleRemoteSync(){if(pendingDbCount||pendingRecords().length)flushLocal(false)}
 setInterval(scheduleRemoteSync,15000);
 window.addEventListener('online',scheduleRemoteSync);window.addEventListener('focus',scheduleRemoteSync);document.addEventListener('visibilitychange',function(){if(!document.hidden)scheduleRemoteSync()});
-document.addEventListener('DOMContentLoaded',function(){dbAll().then(function(rows){pendingDbCount=rows.length;syncNotice();scheduleRemoteSync()});var button=$('#globalSyncBtn');if(button)button.addEventListener('click',function(){setTimeout(function(){flushLocal(true)},100)})});
+function initV46Canvas(){dbAll().then(function(rows){pendingDbCount=rows.length;syncNotice();scheduleRemoteSync()});var button=$('#globalSyncBtn');if(button)button.addEventListener('click',function(){setTimeout(function(){flushLocal(true)},100)})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initV46Canvas);else initV46Canvas();
 
 window.RTMV46={renderArticlePages:renderArticlePages,saveCurrentArticlePage:saveCurrentArticlePage,renderUserArticle:renderUserArticle,readStoredScene:storedScene,resolveScene:resolveScene,pickDiskMedia:pickDisk,flushLocalScenes:flushLocal,sceneHasComplete:sceneHasComplete,confirmCompletion:confirmCompletion,insertComplete:insertComplete};
 window.RTMV45=window.RTMV46;
