@@ -261,12 +261,29 @@
     throw new Error('Нет сохранённого содержимого страницы');
   };
   cleanup = async function () { return true; };
+  window.RTMV47.readScene = function (articleId, page, index) {
+    return serverScene(articleId, pid(page, index));
+  };
+  window.RTMV47.saveScene = writeRemote;
+
+  function applyV47Labels() {
+    document.querySelectorAll('.v39-version-label').forEach(function (node) {
+      var expected = node.classList.contains('v39-admin-version') ? 'v47' : 'Версия v47';
+      if (node.textContent !== expected) node.textContent = expected;
+      node.title = 'Версия v47';
+    });
+  }
+  var renderAllV47Base = renderAll;
+  renderAll = function () { renderAllV47Base(); applyV47Labels(); };
+  new MutationObserver(applyV47Labels).observe(document.documentElement, {childList: true, subtree: true});
+  document.addEventListener('click', function (event) {
+    var button = event.target && event.target.closest && event.target.closest('button');
+    if (!button || button.textContent.indexOf('Bitrix.Диск') === -1) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    alert('Bitrix.Диск больше не используется для хранения приложения. Добавьте HTTPS-ссылку на материал.');
+  }, true);
   document.addEventListener('DOMContentLoaded', function () {
-    setTimeout(function () {
-      document.querySelectorAll('.v39-version-label').forEach(function (node) {
-        node.textContent = node.classList.contains('v39-admin-version') ? 'v47' : 'Версия v47';
-        node.title = 'Версия v47';
-      });
-    }, 0);
+    setTimeout(applyV47Labels, 0);
   });
 })();
