@@ -6,7 +6,8 @@ if [[ "${EUID}" -ne 0 ]]; then
     exit 1
 fi
 
-cat > /etc/ssh/sshd_config.d/99-rtm-hardening.conf <<'EOF'
+rm -f /etc/ssh/sshd_config.d/99-rtm-hardening.conf
+cat > /etc/ssh/sshd_config.d/00-rtm-hardening.conf <<'EOF'
 PermitRootLogin no
 PasswordAuthentication no
 KbdInteractiveAuthentication no
@@ -18,4 +19,3 @@ EOF
 sshd -t
 systemctl reload ssh
 echo "SSH password and root login disabled."
-
