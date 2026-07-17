@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, Text, UniqueConstraint
+from sqlalchemy import JSON, BigInteger, Boolean, Column, DateTime, Text, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -42,7 +42,7 @@ class Project(SQLModel, table=True):
     legacy_id: str | None = Field(default=None, index=True, unique=True, max_length=80)
     title: str = Field(max_length=300)
     description: str = Field(default="", sa_column=Column(Text, nullable=False))
-    position: int = Field(default=0)
+    position: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
     archived: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
     created_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
@@ -58,7 +58,7 @@ class Course(SQLModel, table=True):
     description: str = Field(default="", sa_column=Column(Text, nullable=False))
     status: str = Field(default="draft", max_length=30)
     settings: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
-    position: int = Field(default=0)
+    position: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
     created_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
 
@@ -71,7 +71,7 @@ class CourseSection(SQLModel, table=True):
     course_id: int = Field(foreign_key="courses.id", index=True)
     legacy_key: str = Field(default="nosection", max_length=120)
     title: str = Field(max_length=300)
-    position: int = Field(default=0)
+    position: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
 
 
 class Article(SQLModel, table=True):
@@ -85,7 +85,7 @@ class Article(SQLModel, table=True):
     status: str = Field(default="draft", max_length=30)
     required: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
     points: int = Field(default=0)
-    position: int = Field(default=0)
+    position: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
 
 
 class ExcalidrawScene(SQLModel, table=True):
@@ -98,7 +98,7 @@ class ExcalidrawScene(SQLModel, table=True):
     title: str = Field(default="", max_length=300)
     scene: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     legacy_meta: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
-    position: int = Field(default=0)
+    position: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
     revision: int = Field(default=0)
     updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
 
@@ -113,7 +113,7 @@ class KnowledgeTest(SQLModel, table=True):
     status: str = Field(default="draft", max_length=30)
     settings: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     questions: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
-    position: int = Field(default=0)
+    position: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
 
 
 class Assignment(SQLModel, table=True):
