@@ -88,6 +88,46 @@ def test_projection_updates_and_server_scene_survives_article_edit() -> None:
         assert stored.scene == scene
 
 
+def test_project_level_article_scene_is_shared_with_student() -> None:
+    project_id = client.post("/api/v47/legacy/rtm_prj", json={"name": "Root project", "properties": {}}).json()["id"]
+    article_id = client.post("/api/v47/legacy/rtm_items", json={
+        "name": "Root article",
+        "properties": {
+            "type": "article",
+            "projectId": project_id,
+            "parentId": "root",
+            "meta": '{"pages":[{"id":"root-page","title":"Shared board"}]}',
+        },
+    }).json()["id"]
+    scene = {
+        "type": "excalidraw",
+        "version": 2,
+        "elements": [{"id": "shared", "type": "rectangle"}],
+        "appState": {},
+        "files": {},
+    }
+    saved = client.put(f"/api/v47/scenes/{article_id}/root-page", json={"scene": scene})
+    assert saved.status_code == 200
+
+    def student_override():
+        with Session(engine) as session:
+            user = session.exec(select(AppUser).where(AppUser.bitrix_user_id == "student-reader")).first()
+            if user is None:
+                user = AppUser(bitrix_user_id="student-reader", first_name="Reader", role="student")
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+            return BitrixIdentity(user=user, access_token="test", domain="rtm-group.bitrix24.ru")
+
+    app.dependency_overrides[require_bitrix_identity] = student_override
+    try:
+        loaded = client.get(f"/api/v47/scenes/{article_id}/root-page")
+        assert loaded.status_code == 200
+        assert loaded.json()["scene"] == scene
+    finally:
+        app.dependency_overrides[require_bitrix_identity] = admin_override
+
+
 def test_student_cannot_create_course() -> None:
     def student_override():
         with Session(engine) as session:

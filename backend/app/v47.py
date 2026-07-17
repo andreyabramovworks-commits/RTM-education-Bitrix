@@ -43,6 +43,23 @@ class LegacyWrite(BaseModel):
     properties: dict[str, Any] = PydanticField(default_factory=dict)
 
 
+def _find_article(session: Session, legacy_id: str) -> Article | None:
+    article = session.exec(select(Article).where(Article.legacy_id == legacy_id)).first()
+    if article is not None:
+        return article
+    # Self-heal projections created by older deployments before project-level
+    # materials were supported by the normalized schema.
+    source = session.exec(select(LegacyRecord).where(
+        LegacyRecord.entity == "rtm_items",
+        LegacyRecord.legacy_id == legacy_id,
+    )).first()
+    if source is None or source.properties.get("type") != "article":
+        return None
+    sync_normalized(session)
+    session.commit()
+    return session.exec(select(Article).where(Article.legacy_id == legacy_id)).first()
+
+
 class ImportedUser(BaseModel):
     ID: str | int
     NAME: str = ""
@@ -404,7 +421,7 @@ def get_scene(
     session: Annotated[Session, Depends(get_session)],
     _: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
 ) -> dict[str, Any]:
-    article = session.exec(select(Article).where(Article.legacy_id == article_legacy_id)).first()
+    article = _find_article(session, article_legacy_id)
     if article is None:
         raise HTTPException(status_code=404, detail="Article not found")
     scene = session.exec(select(ExcalidrawScene).where(
@@ -425,7 +442,7 @@ def put_scene(
     identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
 ) -> dict[str, Any]:
     _assert_write(identity, "rtm_items", {})
-    article = session.exec(select(Article).where(Article.legacy_id == article_legacy_id)).first()
+    article = _find_article(session, article_legacy_id)
     if article is None:
         raise HTTPException(status_code=404, detail="Article not found")
     scene = session.exec(select(ExcalidrawScene).where(

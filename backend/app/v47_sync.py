@@ -100,6 +100,54 @@ def sync_normalized(session: Session) -> None:
             desired_sections.add(section.id)
             section_map[(legacy_id, key)] = section
 
+    def root_container(source: LegacyRecord) -> tuple[str, Course] | None:
+        """Give project-level articles/tests a normalized home.
+
+        The legacy editor intentionally allows materials directly under a
+        project.  The normalized schema requires a course and a section, so a
+        hidden system course preserves that hierarchy without changing the
+        legacy UI.
+        """
+        project_legacy_id = str(source.properties.get("projectId") or "")
+        project = project_map.get(project_legacy_id)
+        if not project:
+            return None
+        container_key = f"__project_root__:{project_legacy_id}"
+        course = course_map.get(container_key)
+        if course is None:
+            course = course_rows.get(container_key) or Course(
+                project_id=project.id,
+                legacy_id=container_key,
+                title="Материалы проекта",
+            )
+            course.project_id = project.id
+            course.title = "Материалы проекта"
+            course.description = "Системный контейнер материалов вне курсов"
+            course.status = "system"
+            course.settings = {"system": True, "hidden": True}
+            course.position = -1
+            course.updated_at = utcnow()
+            session.add(course)
+            session.flush()
+            course_map[container_key] = course
+
+        section = section_map.get((container_key, "nosection"))
+        if section is None:
+            section = session.exec(select(CourseSection).where(
+                CourseSection.course_id == course.id,
+                CourseSection.legacy_key == "nosection",
+            )).first() or CourseSection(
+                course_id=course.id,
+                legacy_key="nosection",
+                title="Без секции",
+            )
+            section.position = 0
+            session.add(section)
+            session.flush()
+            section_map[(container_key, "nosection")] = section
+        desired_sections.add(section.id)
+        return container_key, course
+
     article_sources = {row.legacy_id: row for row in active_items if row.properties.get("type") == "article"}
     article_rows = {row.legacy_id: row for row in session.exec(select(Article)).all() if row.legacy_id}
     article_map: dict[str, Article] = {}
@@ -108,7 +156,10 @@ def sync_normalized(session: Session) -> None:
         parent = str(source.properties.get("parentId") or "")
         course = course_map.get(parent)
         if not course:
-            continue
+            container = root_container(source)
+            if not container:
+                continue
+            parent, course = container
         meta = _json(source.properties.get("meta"))
         section_key = str(meta.get("sectionId") or "nosection")
         section = section_map.get((parent, section_key)) or section_map.get((parent, "nosection"))
@@ -152,7 +203,10 @@ def sync_normalized(session: Session) -> None:
         parent = str(source.properties.get("parentId") or "")
         course = course_map.get(parent)
         if not course:
-            continue
+            container = root_container(source)
+            if not container:
+                continue
+            parent, course = container
         meta = _json(source.properties.get("meta"))
         section_key = str(meta.get("sectionId") or "nosection")
         section = section_map.get((parent, section_key)) or section_map.get((parent, "nosection"))
