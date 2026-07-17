@@ -205,66 +205,21 @@
     }
   }
 
-  localRecord = function () { return null; };
-  pendingRecords = function () { return []; };
-  stageLocal = function (articleId, page, index, scene) {
-    var record = {articleId: String(articleId), pageId: pid(page, index), index: Number(index || 0), scene: clean(scene), savedAt: Date.now(), pending: true, error: ''};
-    pendingDbCount = Math.max(1, pendingDbCount);
-    var recordKey = key(articleId, page, index), write = dbPut(record);
-    draftWrites.set(recordKey, write);
-    write.finally(function () { if (draftWrites.get(recordKey) === write) draftWrites.delete(recordKey); });
-    emitSave(recordKey, 'local', '');
-  };
-  storeLocal = function (articleId, page, index, scene, error) {
-    var record = {articleId: String(articleId), pageId: pid(page, index), index: Number(index || 0), scene: clean(scene), savedAt: Date.now(), pending: true, error: String(error && error.message || error || '')};
-    pendingDbCount = Math.max(1, pendingDbCount);
-    dbPut(record);
-    emitSave(key(articleId, page, index), 'local', 'Сохранено как черновик — ожидаю сервер');
-  };
-  clearLocal = async function (articleId, page, index) {
-    var pageId = pid(page, index), recordKey = key(articleId, page, index), write = draftWrites.get(recordKey);
-    if (write) await write.catch(function () {});
-    await dbDelete(articleId, pageId);
-  };
-  resolveScene = async function (articleId, page, index) {
-    var pageId = pid(page, index), draft = await dbGet(articleId, pageId);
-    if (draft && draft.scene) return draft.scene;
-    return (await serverScene(articleId, pageId)) || page.canvasBackup || null;
-  };
-  writeRemote = async function (articleId, page, index, scene) {
-    scene = clean(scene);
-    if (!scene) return null;
-    var pageId = pid(page, index);
-    emitSave(key(articleId, page, index), 'saving', 'Сохраняю сцену на сервере…');
+  async function saveServerScene(articleId, page, index, scene) {
+    if (!scene || !Array.isArray(scene.elements)) return null;
+    var pageId = String(page && page.id || ('page_' + Number(index || 0)));
     var saved = await request('/api/v47/scenes/' + encodeURIComponent(articleId) + '/' + encodeURIComponent(pageId), {
       method: 'PUT',
-      body: JSON.stringify({scene: scene, title: title(scene, page.title || '')})
+      body: JSON.stringify({scene: scene, title: String(page && page.title || '')})
     });
     page.canvasRef = {format: 'server-v47', pageId: pageId, revision: String(saved.revision), updatedAt: saved.updated_at};
     page.canvasBackup = null;
-    emitSave(key(articleId, page, index), 'remote', 'Сцена сохранена на сервере');
     return {revision: saved.revision, scene: scene, server: true};
-  };
-  persistScene = async function (articleId, page, index, scene) {
-    try { return await writeRemote(articleId, page, index, scene); }
-    catch (error) { storeLocal(articleId, page, index, scene, error); throw error; }
-  };
-  storedScene = function (articleId, page, index) {
-    return pending.get(key(articleId, page, index)) || page.canvasBackup || null;
-  };
-  resolveReaderScene = async function (article, page, index) {
-    var scene = await serverScene(article.ID, pid(page, index));
-    if (scene) return scene;
-    await waitCanvas();
-    var fallback = htmlScene(article, page);
-    if (fallback && Array.isArray(fallback.elements) && fallback.elements.length) return fallback;
-    throw new Error('Нет сохранённого содержимого страницы');
-  };
-  cleanup = async function () { return true; };
+  }
   window.RTMV47.readScene = function (articleId, page, index) {
-    return serverScene(articleId, pid(page, index));
+    return serverScene(articleId, String(page && page.id || ('page_' + Number(index || 0))));
   };
-  window.RTMV47.saveScene = writeRemote;
+  window.RTMV47.saveScene = saveServerScene;
 
   function applyV47Labels() {
     document.querySelectorAll('.v39-version-label').forEach(function (node) {
