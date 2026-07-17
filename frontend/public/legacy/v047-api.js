@@ -68,11 +68,14 @@
     var rows = [], start = 0;
     for (var guard = 0; guard < 50; guard += 1) {
       var page;
-      try { page = await context.call(method, Object.assign({}, params || {}, {start: start})); }
-      catch (error) {
-        if (/NOT_FOUND|not found/i.test(String(error && error.message || error))) return [];
-        throw error;
-      }
+      try {
+        page = await Promise.race([
+          context.call(method, Object.assign({}, params || {}, {start: start})),
+          new Promise(function (_, reject) {
+            setTimeout(function () { reject(new Error('Bitrix24 request timeout')); }, 8000);
+          })
+        ]);
+      } catch (_) { return []; }
       var data = page.data;
       if (data && Array.isArray(data.result)) data = data.result;
       if (!Array.isArray(data)) data = data ? [data] : [];
