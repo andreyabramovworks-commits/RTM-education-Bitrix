@@ -18,4 +18,5 @@ jobs:
         run: cp .env.example .env && docker compose config --quiet
       - name: Build application images
         run: docker compose build backend frontend
-
+      - name: Run backend tests
+        run: docker compose run --rm --no-deps backend pytest -q

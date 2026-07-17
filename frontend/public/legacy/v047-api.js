@@ -1,0 +1,191 @@
+/* RTM v47 server adapter. The v46 DOM and styles remain unchanged. */
+(function () {
+  'use strict';
+  if (new URLSearchParams(location.search).get('v47') !== '1') return;
+
+  var originalBX24 = window.BX24;
+  var context = null;
+  var auth = null;
+  var readyPromise = null;
+  var entities = ['rtm_prj', 'rtm_items', 'rtm_assigns', 'rtm_progress', 'rtm_events', 'rtm_attempts', 'rtm_roles', 'rtm_canvas'];
+
+  function resultFacade(payload) {
+    return {
+      error: function () { return payload.error || null; },
+      error_description: function () { return payload.errorDescription || ''; },
+      data: function () { return payload.data; },
+      more: function () { return Boolean(payload.more); }
+    };
+  }
+
+  function findContext() {
+    try {
+      var candidate = window.parent && window.parent.parent && window.parent.parent.RTM_BITRIX;
+      if (candidate && typeof candidate.call === 'function') return candidate;
+    } catch (_) {}
+    return null;
+  }
+
+  async function waitForContext() {
+    for (var attempt = 0; attempt < 80; attempt += 1) {
+      context = findContext();
+      if (context) return context;
+      await new Promise(function (resolve) { setTimeout(resolve, 100); });
+    }
+    throw new Error('Bitrix24 context is unavailable');
+  }
+
+  function refreshAuth() {
+    auth = context && context.getAuth && context.getAuth();
+    if (!auth || !auth.access_token || !auth.domain) throw new Error('Bitrix24 authorization is unavailable');
+    return auth;
+  }
+
+  async function request(path, options, retry) {
+    if (!auth) refreshAuth();
+    options = options || {};
+    options.headers = Object.assign({}, options.headers || {}, {
+      'Authorization': 'Bearer ' + auth.access_token,
+      'X-Bitrix-Domain': auth.domain,
+      'Content-Type': 'application/json'
+    });
+    var response = await fetch(path, options);
+    if (response.status === 401 && retry !== false) {
+      await context.call('profile', {});
+      refreshAuth();
+      return request(path, options, false);
+    }
+    if (!response.ok) {
+      var detail = '';
+      try { detail = (await response.json()).detail || ''; } catch (_) {}
+      throw new Error(detail || ('API HTTP ' + response.status));
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  async function bitrixRows(method, params) {
+    var rows = [], start = 0;
+    for (var guard = 0; guard < 50; guard += 1) {
+      var page;
+      try { page = await context.call(method, Object.assign({}, params || {}, {start: start})); }
+      catch (error) {
+        if (/NOT_FOUND|not found/i.test(String(error && error.message || error))) return [];
+        throw error;
+      }
+      var data = page.data;
+      if (data && Array.isArray(data.result)) data = data.result;
+      if (!Array.isArray(data)) data = data ? [data] : [];
+      rows = rows.concat(data);
+      if (!page.more || !data.length) break;
+      start += 50;
+    }
+    return rows;
+  }
+
+  async function importV46() {
+    var status = await request('/api/v47/status');
+    if (!status.needs_import || !context.isAdmin()) return status;
+    var pairs = await Promise.all(entities.map(async function (entity) {
+      return [entity, await bitrixRows('entity.item.get', {ENTITY: entity, SORT: {ID: 'DESC'}})];
+    }));
+    var entityData = {};
+    pairs.forEach(function (pair) { entityData[pair[0]] = pair[1]; });
+    var users = await bitrixRows('user.get', {FILTER: {ACTIVE: true}});
+    return request('/api/v47/import', {method: 'POST', body: JSON.stringify({entities: entityData, users: users})});
+  }
+
+  async function ensureReady() {
+    if (readyPromise) return readyPromise;
+    readyPromise = (async function () {
+      await waitForContext();
+      refreshAuth();
+      var current = await request('/api/v47/session');
+      await importV46();
+      window.__RTMV47_USER__ = current;
+      return current;
+    })();
+    return readyPromise;
+  }
+
+  window.BX24 = {
+    init: function (callback) {
+      ensureReady().then(function () { callback(); }).catch(function (error) {
+        console.error('RTM v47 initialization failed', error);
+        if (originalBX24 && originalBX24.init) originalBX24.init(callback);
+      });
+    },
+    callMethod: function (method, params, callback) {
+      waitForContext().then(function () { return context.call(method, params || {}); }).then(function (payload) {
+        callback(resultFacade(payload));
+      }).catch(function (error) {
+        callback(resultFacade({error: 'BITRIX_CALL_FAILED', errorDescription: String(error.message || error)}));
+      });
+    },
+    isAdmin: function () { return Boolean(context && context.isAdmin()); },
+    getDomain: function () { return auth && auth.domain || ''; },
+    getAuth: function () { return auth || false; }
+  };
+
+  get = async function (entity) {
+    await ensureReady();
+    return request('/api/v47/legacy/' + encodeURIComponent(entity));
+  };
+  add = async function (entity, name, properties) {
+    await ensureReady();
+    var result = await request('/api/v47/legacy/' + encodeURIComponent(entity), {
+      method: 'POST', body: JSON.stringify({name: name, properties: properties || {}})
+    });
+    return String(result.id);
+  };
+  upd = async function (entity, id, name, properties) {
+    await ensureReady();
+    return request('/api/v47/legacy/' + encodeURIComponent(entity) + '/' + encodeURIComponent(id), {
+      method: 'PUT', body: JSON.stringify({name: name, properties: properties || {}})
+    });
+  };
+  del = async function (entity, id) {
+    await ensureReady();
+    return request('/api/v47/legacy/' + encodeURIComponent(entity) + '/' + encodeURIComponent(id), {method: 'DELETE'});
+  };
+  ensureOnce = async function () { await ensureReady(); schemaChecked = true; };
+  readSnapshot = async function () { return {}; };
+  saveSnapshot = async function () { return true; };
+  getUsersAll = async function () { await ensureReady(); return request('/api/v47/users'); };
+  getAppRole = function (user) {
+    var bitrixId = String(user && (user.ID || user.id) || '0');
+    var row = (state.users || []).find(function (candidate) { return String(candidate.ID) === bitrixId; });
+    var role = row && row.ROLE || (window.__RTMV47_USER__ && String(window.__RTMV47_USER__.bitrix_user_id) === bitrixId ? window.__RTMV47_USER__.role : 'student');
+    return role === 'admin' ? 'admin' : role === 'editor' ? 'moderator' : 'employee';
+  };
+  isBitrixAdmin = function (user) { return getAppRole(user) === 'admin'; };
+  roleLabel = function (role) {
+    return {admin: 'Администратор', moderator: 'Редактор / преподаватель', employee: 'Ученик'}[role] || 'Ученик';
+  };
+  saveRole = async function (userId, legacyRole) {
+    var role = legacyRole === 'moderator' ? 'editor' : 'student';
+    await request('/api/v47/users/' + encodeURIComponent(userId) + '/role', {
+      method: 'PUT', body: JSON.stringify({role: role})
+    });
+    var user = (state.users || []).find(function (candidate) { return String(candidate.ID) === String(userId); });
+    if (user) user.ROLE = role;
+  };
+  roleModal = function (userId) {
+    var user = userById(userId), role = getAppRole(user);
+    modal('<h2>' + esc(fullName(user)) + '</h2><p class="muted">Роль определяет доступ внутри приложения.</p>' +
+      '<select id="roleSelect"><option value="employee" ' + (role === 'employee' ? 'selected' : '') + '>Ученик</option>' +
+      '<option value="moderator" ' + (role === 'moderator' ? 'selected' : '') + '>Редактор / преподаватель</option></select>' +
+      '<div class="inline-actions"><button onclick="window.closeModal()">Отмена</button><button class="primary" id="roleSave">Сохранить</button></div>');
+    $('#roleSave').onclick = async function () { await saveRole(userId, $('#roleSelect').value); closeModal(); await loadAll(); switchAdmin('users'); };
+  };
+
+  window.RTMV47 = {ready: ensureReady, request: request, version: 'v47'};
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(function () {
+      document.querySelectorAll('.v39-version-label').forEach(function (node) {
+        node.textContent = node.classList.contains('v39-admin-version') ? 'v47' : 'Версия v47';
+        node.title = 'Версия v47';
+      });
+    }, 0);
+  });
+})();

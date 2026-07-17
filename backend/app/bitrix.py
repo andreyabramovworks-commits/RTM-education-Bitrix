@@ -82,6 +82,19 @@ def bitrix_page(*, install: bool = False) -> HTMLResponse:
       }}
 
       BX24.init(() => {{
+        window.RTM_BITRIX = {{
+          isAdmin: () => typeof BX24.isAdmin === 'function' && BX24.isAdmin(),
+          getAuth: () => BX24.getAuth(),
+          call: (method, params = {{}}) => new Promise((resolve, reject) => {{
+            BX24.callMethod(method, params, result => {{
+              if (result.error()) {{
+                reject(new Error(`${{result.error()}}: ${{result.error_description() || ''}}`));
+                return;
+              }}
+              resolve({{data: result.data(), more: Boolean(result.more && result.more())}});
+            }});
+          }})
+        }};
         BX24.callMethod('app.info', {{}}, appResult => {{
           if (appResult.error()) {{
             mark('portal', 'Bitrix24', 'bad', appResult.error_description());

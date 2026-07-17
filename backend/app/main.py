@@ -4,6 +4,7 @@ from sqlalchemy import text
 from app.bitrix import bitrix_page
 from app.config import get_settings
 from app.database import engine
+from app.v47 import router as v47_router
 
 settings = get_settings()
 
@@ -13,6 +14,7 @@ app = FastAPI(
     docs_url="/docs" if settings.app_env != "production" else None,
     redoc_url=None,
 )
+app.include_router(v47_router)
 
 
 @app.get("/api/health", tags=["system"])
