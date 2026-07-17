@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import json
+import time
 from typing import Annotated, Any
 from uuid import uuid4
 
@@ -21,6 +22,7 @@ from app.models import (
     Project,
     utcnow,
 )
+from app.v47_sync import sync_normalized
 
 router = APIRouter(prefix="/api/v47", tags=["v47"])
 SUPPORTED_ENTITIES = {
@@ -56,6 +58,11 @@ class ImportPayload(BaseModel):
 
 class RoleUpdate(BaseModel):
     role: str
+
+
+class SceneWrite(BaseModel):
+    scene: dict[str, Any]
+    title: str = ""
 
 
 def _legacy_dict(record: LegacyRecord) -> dict[str, Any]:
@@ -317,7 +324,7 @@ def import_v46(
         _ensure_user(session, user)
     _seed_demo(session)
     session.flush()
-    _rebuild_normalized(session)
+    sync_normalized(session)
     session.commit()
     return {"imported_records": imported, "users": len(payload.users), "projects": len(filtered.get("rtm_prj", [])), "demo": True}
 
@@ -345,6 +352,8 @@ def create_legacy(
         raise HTTPException(status_code=404, detail="Unknown entity")
     _assert_write(identity, entity, payload.properties)
     record = _upsert_legacy(session, entity, LegacyRecordInput(NAME=payload.name, PROPERTY_VALUES=payload.properties))
+    session.flush()
+    sync_normalized(session)
     session.commit()
     return {"id": record.legacy_id}
 
@@ -365,6 +374,8 @@ def update_legacy(
     record.properties = payload.properties
     record.updated_at = utcnow()
     session.add(record)
+    session.flush()
+    sync_normalized(session)
     session.commit()
     return {"updated": True}
 
@@ -380,8 +391,56 @@ def delete_legacy(
     record = session.exec(select(LegacyRecord).where(LegacyRecord.entity == entity, LegacyRecord.legacy_id == legacy_id)).first()
     if record:
         session.delete(record)
+        session.flush()
+        sync_normalized(session)
         session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/scenes/{article_legacy_id}/{page_key}")
+def get_scene(
+    article_legacy_id: str,
+    page_key: str,
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    article = session.exec(select(Article).where(Article.legacy_id == article_legacy_id)).first()
+    if article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    scene = session.exec(select(ExcalidrawScene).where(
+        ExcalidrawScene.article_id == article.id,
+        ExcalidrawScene.page_key == page_key,
+    )).first()
+    if scene is None or not scene.scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    return {"scene": scene.scene, "title": scene.title, "revision": scene.revision, "updated_at": scene.updated_at}
+
+
+@router.put("/scenes/{article_legacy_id}/{page_key}")
+def put_scene(
+    article_legacy_id: str,
+    page_key: str,
+    payload: SceneWrite,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    _assert_write(identity, "rtm_items", {})
+    article = session.exec(select(Article).where(Article.legacy_id == article_legacy_id)).first()
+    if article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    scene = session.exec(select(ExcalidrawScene).where(
+        ExcalidrawScene.article_id == article.id,
+        ExcalidrawScene.page_key == page_key,
+    )).first()
+    if scene is None:
+        scene = ExcalidrawScene(article_id=article.id, page_key=page_key)
+    scene.scene = payload.scene
+    scene.title = payload.title or scene.title or article.title
+    scene.revision = max(int(time.time() * 1000), scene.revision + 1)
+    scene.updated_at = utcnow()
+    session.add(scene)
+    session.commit()
+    return {"saved": True, "revision": scene.revision, "updated_at": scene.updated_at}
 
 
 @router.get("/users")

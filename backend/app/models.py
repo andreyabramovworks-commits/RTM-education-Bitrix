@@ -99,7 +99,7 @@ class ExcalidrawScene(SQLModel, table=True):
     scene: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     legacy_meta: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     position: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
-    revision: int = Field(default=0)
+    revision: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
     updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
 
 
@@ -121,8 +121,11 @@ class Assignment(SQLModel, table=True):
     __table_args__ = (UniqueConstraint("user_id", "course_id", name="uq_assignment_user_course"),)
 
     id: int | None = Field(default=None, primary_key=True)
+    legacy_id: str | None = Field(default=None, index=True, unique=True, max_length=100)
     user_id: int = Field(foreign_key="app_users.id", index=True)
-    course_id: int = Field(foreign_key="courses.id", index=True)
+    course_id: int | None = Field(default=None, foreign_key="courses.id", index=True)
+    target_type: str = Field(default="course", max_length=30)
+    target_id: int = Field(default=0, index=True)
     due_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
     assigned_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
 
@@ -145,6 +148,7 @@ class TestAttempt(SQLModel, table=True):
     __tablename__ = "test_attempts"
 
     id: int | None = Field(default=None, primary_key=True)
+    legacy_id: str | None = Field(default=None, index=True, unique=True, max_length=100)
     user_id: int = Field(foreign_key="app_users.id", index=True)
     test_id: int = Field(foreign_key="knowledge_tests.id", index=True)
     answers: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))

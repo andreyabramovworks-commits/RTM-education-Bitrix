@@ -7,7 +7,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from app.bitrix_auth import BitrixIdentity, require_admin, require_bitrix_identity
 from app.database import get_session
 from app.main import app
-from app.models import AppUser, LegacyRecord
+from app.models import AppUser, Article, ExcalidrawScene, LegacyRecord
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -63,6 +63,47 @@ def test_imports_only_last_five_projects_and_adds_demo() -> None:
     ids = {row["ID"] for row in rows.json()}
     assert "1" not in ids
     assert {"2", "3", "4", "5", "6", "v47_demo_project"} <= ids
+
+
+def test_projection_updates_and_server_scene_survives_article_edit() -> None:
+    project_id = client.post("/api/v47/legacy/rtm_prj", json={"name": "Projection", "properties": {}}).json()["id"]
+    course_id = client.post("/api/v47/legacy/rtm_items", json={
+        "name": "Course",
+        "properties": {"type": "course", "projectId": project_id, "meta": '{"sections":[{"id":"intro","title":"Intro"}]}'},
+    }).json()["id"]
+    article_payload = {
+        "name": "Article",
+        "properties": {"type": "article", "projectId": project_id, "parentId": course_id, "meta": '{"sectionId":"intro","pages":[{"id":"page-a","title":"Page"}]}'},
+    }
+    article_id = client.post("/api/v47/legacy/rtm_items", json=article_payload).json()["id"]
+    scene = {"type": "excalidraw", "version": 2, "elements": [{"id": "one", "type": "text"}], "appState": {}, "files": {}}
+    assert client.put(f"/api/v47/scenes/{article_id}/page-a", json={"scene": scene, "title": "Page"}).status_code == 200
+    assert client.get(f"/api/v47/scenes/{article_id}/page-a").json()["scene"] == scene
+    article_payload["name"] = "Article renamed"
+    assert client.put(f"/api/v47/legacy/rtm_items/{article_id}", json=article_payload).status_code == 200
+    with Session(engine) as session:
+        article = session.exec(select(Article).where(Article.legacy_id == article_id)).one()
+        stored = session.exec(select(ExcalidrawScene).where(ExcalidrawScene.article_id == article.id)).one()
+        assert article.title == "Article renamed"
+        assert stored.scene == scene
+
+
+def test_student_cannot_create_course() -> None:
+    def student_override():
+        with Session(engine) as session:
+            user = session.exec(select(AppUser).where(AppUser.bitrix_user_id == "student-1")).first()
+            if user is None:
+                user = AppUser(bitrix_user_id="student-1", first_name="Student", role="student")
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+            return BitrixIdentity(user=user, access_token="test", domain="rtm-group.bitrix24.ru")
+    app.dependency_overrides[require_bitrix_identity] = student_override
+    try:
+        response = client.post("/api/v47/legacy/rtm_items", json={"name": "Denied", "properties": {"type": "course"}})
+        assert response.status_code == 403
+    finally:
+        app.dependency_overrides[require_bitrix_identity] = admin_override
 
 
 def test_legacy_create_round_trip() -> None:

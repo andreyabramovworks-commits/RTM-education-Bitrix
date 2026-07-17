@@ -58,7 +58,9 @@
     if (!response.ok) {
       var detail = '';
       try { detail = (await response.json()).detail || ''; } catch (_) {}
-      throw new Error(detail || ('API HTTP ' + response.status));
+      var apiError = new Error(detail || ('API HTTP ' + response.status));
+      apiError.status = response.status;
+      throw apiError;
     }
     if (response.status === 204) return null;
     return response.json();
@@ -157,6 +159,9 @@
   ensureOnce = async function () { await ensureReady(); schemaChecked = true; };
   readSnapshot = async function () { return {}; };
   saveSnapshot = async function () { return true; };
+  readCache = function () { return {}; };
+  writeCache = function () { return true; };
+  persistNow = async function () { return true; };
   getUsersAll = async function () { await ensureReady(); return request('/api/v47/users'); };
   getAppRole = function (user) {
     var bitrixId = String(user && (user.ID || user.id) || '0');
@@ -186,6 +191,76 @@
   };
 
   window.RTMV47 = {ready: ensureReady, request: request, version: 'v47'};
+
+  // v47 scene storage: PostgreSQL is authoritative. IndexedDB remains only a
+  // short-lived unsent-draft safety net; application data is no longer merged
+  // from localStorage or written to Bitrix.Disk.
+  async function serverScene(articleId, pageId) {
+    try {
+      var result = await request('/api/v47/scenes/' + encodeURIComponent(articleId) + '/' + encodeURIComponent(pageId));
+      return result.scene || null;
+    } catch (error) {
+      if (error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  localRecord = function () { return null; };
+  pendingRecords = function () { return []; };
+  stageLocal = function (articleId, page, index, scene) {
+    var record = {articleId: String(articleId), pageId: pid(page, index), index: Number(index || 0), scene: clean(scene), savedAt: Date.now(), pending: true, error: ''};
+    pendingDbCount = Math.max(1, pendingDbCount);
+    var recordKey = key(articleId, page, index), write = dbPut(record);
+    draftWrites.set(recordKey, write);
+    write.finally(function () { if (draftWrites.get(recordKey) === write) draftWrites.delete(recordKey); });
+    emitSave(recordKey, 'local', '');
+  };
+  storeLocal = function (articleId, page, index, scene, error) {
+    var record = {articleId: String(articleId), pageId: pid(page, index), index: Number(index || 0), scene: clean(scene), savedAt: Date.now(), pending: true, error: String(error && error.message || error || '')};
+    pendingDbCount = Math.max(1, pendingDbCount);
+    dbPut(record);
+    emitSave(key(articleId, page, index), 'local', 'Сохранено как черновик — ожидаю сервер');
+  };
+  clearLocal = async function (articleId, page, index) {
+    var pageId = pid(page, index), recordKey = key(articleId, page, index), write = draftWrites.get(recordKey);
+    if (write) await write.catch(function () {});
+    await dbDelete(articleId, pageId);
+  };
+  resolveScene = async function (articleId, page, index) {
+    var pageId = pid(page, index), draft = await dbGet(articleId, pageId);
+    if (draft && draft.scene) return draft.scene;
+    return (await serverScene(articleId, pageId)) || page.canvasBackup || null;
+  };
+  writeRemote = async function (articleId, page, index, scene) {
+    scene = clean(scene);
+    if (!scene) return null;
+    var pageId = pid(page, index);
+    emitSave(key(articleId, page, index), 'saving', 'Сохраняю сцену на сервере…');
+    var saved = await request('/api/v47/scenes/' + encodeURIComponent(articleId) + '/' + encodeURIComponent(pageId), {
+      method: 'PUT',
+      body: JSON.stringify({scene: scene, title: title(scene, page.title || '')})
+    });
+    page.canvasRef = {format: 'server-v47', pageId: pageId, revision: String(saved.revision), updatedAt: saved.updated_at};
+    page.canvasBackup = null;
+    emitSave(key(articleId, page, index), 'remote', 'Сцена сохранена на сервере');
+    return {revision: saved.revision, scene: scene, server: true};
+  };
+  persistScene = async function (articleId, page, index, scene) {
+    try { return await writeRemote(articleId, page, index, scene); }
+    catch (error) { storeLocal(articleId, page, index, scene, error); throw error; }
+  };
+  storedScene = function (articleId, page, index) {
+    return pending.get(key(articleId, page, index)) || page.canvasBackup || null;
+  };
+  resolveReaderScene = async function (article, page, index) {
+    var scene = await serverScene(article.ID, pid(page, index));
+    if (scene) return scene;
+    await waitCanvas();
+    var fallback = htmlScene(article, page);
+    if (fallback && Array.isArray(fallback.elements) && fallback.elements.length) return fallback;
+    throw new Error('Нет сохранённого содержимого страницы');
+  };
+  cleanup = async function () { return true; };
   document.addEventListener('DOMContentLoaded', function () {
     setTimeout(function () {
       document.querySelectorAll('.v39-version-label').forEach(function (node) {
