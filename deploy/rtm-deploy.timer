@@ -1,0 +1,12 @@
+[Unit]
+Description=Check GitHub for RTM Education updates every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+RandomizedDelaySec=10
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+

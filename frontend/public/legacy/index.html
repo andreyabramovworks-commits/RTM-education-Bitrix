@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <title>RTM &#x43E;&#x431;&#x443;&#x447;&#x435;&#x43D;&#x438;&#x435;</title>
+  <script>window.process=window.process||{env:{NODE_ENV:'production'}};window.__RTM_STANDALONE__=new URLSearchParams(location.search).get('rtm_fullscreen')==='1';if(!window.__RTM_STANDALONE__)document.write('<script src="//api.bitrix24.com/api/v1/"><\/script>');</script>
+  <script src="v046-shell.js?v=046.3"></script>
+  <link rel="stylesheet" href="style.css?v=046.3">
+  <link rel="stylesheet" href="excalidraw-dist/rtm-canvas.css?v=046.3">
+  <link rel="stylesheet" href="v040-layout.css?v=046.3">
+<link rel="stylesheet" href="v040-inline.css?v=046.3">
+  <link rel="stylesheet" href="v046-layout.css?v=046.3">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar" id="topbar">
+      <div class="brand">RTM<span>&#x43E;&#x431;&#x443;&#x447;&#x435;&#x43D;&#x438;&#x435; </span></div>
+
+      <nav class="user-nav" id="userNav">
+        <button class="toplink active" data-user-view="learn">&#x41E;&#x431;&#x443;&#x447;&#x435;&#x43D;&#x438;&#x435;</button>
+        <button class="toplink" data-user-view="kb">&#x411;&#x430;&#x437;&#x430; &#x437;&#x43D;&#x430;&#x43D;&#x438;&#x439;</button>
+        <button class="toplink" data-user-view="profile">&#x41F;&#x440;&#x43E;&#x444;&#x438;&#x43B;&#x44C;</button>
+        <button class="toplink" data-user-view="projects">&#x421;&#x43F;&#x438;&#x441;&#x43E;&#x43A; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x43E;&#x432;</button>
+      </nav>
+
+      <div class="top-spacer"></div>
+      <button class="sync-btn" id="globalSyncBtn" title="&#x421;&#x438;&#x43D;&#x445;&#x440;&#x43E;&#x43D;&#x438;&#x437;&#x438;&#x440;&#x43E;&#x432;&#x430;&#x442;&#x44C; &#x434;&#x430;&#x43D;&#x43D;&#x44B;&#x435;">&#x421;&#x438;&#x43D;&#x445;&#x440;&#x43E;&#x43D;&#x438;&#x437;&#x430;&#x446;&#x438;&#x44F;</button>
+      <button class="mode-switch" id="modeSwitch">&#x25A6; &#x420;&#x435;&#x436;&#x438;&#x43C;: &#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44C;</button>
+      <button class="v41-fullscreen-btn" id="v41AppFullscreen" type="button" aria-pressed="false" title="Открыть приложение на весь экран">⛶</button>
+      <button class="theme-btn" title="&#x41D;&#x430;&#x441;&#x442;&#x440;&#x43E;&#x439;&#x43A;&#x438; &#x432;&#x43D;&#x435;&#x448;&#x43D;&#x435;&#x433;&#x43E; &#x432;&#x438;&#x434;&#x430;">&#x263C;</button>
+    </header>
+
+    <section id="userApp" class="app-mode active">
+      <div id="userLearn" class="user-view active">
+        <div id="userCourseListView">
+          <div class="hero blue">
+            <h1>&#x41E;&#x431;&#x443;&#x447;&#x435;&#x43D;&#x438;&#x435;</h1>
+            <button id="userReloadBtn">&#x41E;&#x431;&#x43D;&#x43E;&#x432;&#x438;&#x442;&#x44C;</button>
+          </div>
+          <div class="user-container">
+            <div class="tabs">
+              <button class="tab active" data-user-course-tab="active">&#x410;&#x43A;&#x442;&#x438;&#x432;&#x43D;&#x44B;&#x435; <span id="uActiveCount">0</span></button>
+              <button class="tab" data-user-course-tab="completed">&#x417;&#x430;&#x432;&#x435;&#x440;&#x448;&#x435;&#x43D;&#x43D;&#x44B;&#x435; <span id="uCompletedCount">0</span></button>
+            </div>
+            <div id="userCoursesList" class="material-cards"></div>
+          </div>
+        </div>
+
+        <div id="userCourseView" class="user-container hidden">
+          <div class="view-head">
+            <button id="uBackToCourses">&#x2190; &#x41D;&#x430;&#x437;&#x430;&#x434;</button>
+            <span id="uCourseStatus" class="pill yellow">&#x412; &#x43F;&#x440;&#x43E;&#x446;&#x435;&#x441;&#x441;&#x435;</span>
+          </div>
+          <div class="course-hero-card">
+            <div class="cover-lg">&#x1F4D6;</div>
+            <div>
+              <span class="pill mint">&#x41A;&#x443;&#x440;&#x441;</span>
+              <h1 id="uCourseTitle">&#x41A;&#x443;&#x440;&#x441;</h1>
+              <p id="uCourseDesc" class="muted"></p>
+              <div id="uCourseDeadline" class="deadline hidden"></div>
+              <div class="progressbar"><div id="uCourseProgress"></div></div>
+              <p id="uCourseProgressText" class="muted"></p>
+              <div class="inline-actions">
+                <button class="primary" id="uContinueCourse">&#x41F;&#x440;&#x43E;&#x434;&#x43E;&#x43B;&#x436;&#x438;&#x442;&#x44C;</button>
+                <button id="uCompleteCourse">&#x41E;&#x442;&#x43C;&#x435;&#x442;&#x438;&#x442;&#x44C; &#x437;&#x430;&#x432;&#x435;&#x440;&#x448;&#x435;&#x43D;&#x43D;&#x44B;&#x43C;</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="two-col">
+            <div class="panel">
+              <div class="panel-title">&#x41C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x44B; &#x43A;&#x443;&#x440;&#x441;&#x430;</div>
+              <div id="uCourseStructure" class="course-structure"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-title">&#x422;&#x435;&#x441;&#x442;&#x44B; &#x43A;&#x443;&#x440;&#x441;&#x430;</div>
+              <div id="uCourseTests"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="userMaterialView" class="user-container hidden">
+          <div class="view-head">
+            <button id="uBackToCourse">&#x2190; &#x41D;&#x430;&#x437;&#x430;&#x434; &#x43A; &#x43A;&#x443;&#x440;&#x441;&#x443;</button>
+            <span id="uMaterialStatus" class="pill gray">&#x41C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;</span>
+          </div>
+          <div class="reader-card">
+            <h1 id="uMaterialTitle"></h1>
+            <div id="uMaterialBody" class="reader-content"></div>
+            <div class="inline-actions">
+              <button id="uPrevMaterial">&#x2190; &#x41F;&#x440;&#x435;&#x434;&#x44B;&#x434;&#x443;&#x449;&#x438;&#x439;</button>
+              <button class="primary" id="uMarkMaterialDone">&#x417;&#x430;&#x432;&#x435;&#x440;&#x448;&#x438;&#x442;&#x44C; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;</button>
+              <button id="uNextMaterial">&#x421;&#x43B;&#x435;&#x434;&#x443;&#x44E;&#x449;&#x438;&#x439; &#x2192;</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="userKb" class="user-view">
+        <div class="hero pink kb-hero">
+          <h1>База знаний</h1>
+          <input id="kbSearch" placeholder="Введите вопрос или название материала">
+        </div>
+        <div class="user-container">
+          <div id="kbBreadcrumbs" class="kb-breadcrumbs"></div>
+          <div id="kbArticlesList" class="kb-tree-grid"></div>
+        </div>
+      </div>
+
+      <div id="userProjects" class="user-view">
+        <div class="hero pink">
+          <h1>Список материалов</h1>
+          <input id="projectListSearch" placeholder="Введите название проекта или материала">
+        </div>
+        <div class="user-container">
+          <div id="projectListArticles" class="material-cards"></div>
+        </div>
+      </div>
+      <div id="userProfile" class="user-view">
+        <div class="hero green">
+          <h1>&#x41F;&#x440;&#x43E;&#x444;&#x438;&#x43B;&#x44C;</h1>
+        </div>
+        <div class="user-container">
+          <div class="profile-grid">
+            <div class="panel profile-card">
+              <div class="avatar">&#x1F464;</div>
+              <h2 id="profileName">&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44C;</h2>
+              <p id="profileMeta" class="muted"></p>
+            </div>
+            <div class="stat"><b id="profActive">0</b><span>&#x410;&#x43A;&#x442;&#x438;&#x432;&#x43D;&#x44B;&#x435;</span></div>
+            <div class="stat"><b id="profCompleted">0</b><span>&#x417;&#x430;&#x432;&#x435;&#x440;&#x448;&#x435;&#x43D;&#x43D;&#x44B;&#x435;</span></div>
+            <div class="stat"><b id="profDone">0</b><span>&#x41F;&#x440;&#x43E;&#x439;&#x434;&#x435;&#x43D;&#x43E; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x43E;&#x432;</span></div>
+            <div class="stat"><b id="profScore">0%</b><span>&#x421;&#x440;&#x435;&#x434;&#x43D;&#x438;&#x439; &#x442;&#x435;&#x441;&#x442;</span></div>
+          </div>
+          <div id="profileLeaderboard" class="panel profile-leaderboard"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="adminApp" class="app-mode">
+      <div class="admin-shell">
+        <aside class="icon-rail">
+          <button class="rail-btn active" data-admin-view="dashboard" title="&#x414;&#x430;&#x448;&#x431;&#x43E;&#x440;&#x434;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h5v-5h4v5h5v-9.5"/></svg></button>
+          <button class="rail-btn " data-admin-view="materials" title="&#x423;&#x447;&#x435;&#x431;&#x43D;&#x44B;&#x435; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x44B;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21z"/><path d="M4 5.5V21"/><path d="M8 7h8"/></svg></button>
+          <button class="rail-btn " data-admin-view="users" title="&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x438;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="3"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 4.13a3 3 0 0 1 0 5.74"/></svg></button>
+          <button class="rail-btn " data-admin-view="database" title="&#x411;&#x430;&#x437;&#x430; &#x434;&#x430;&#x43D;&#x43D;&#x44B;&#x445;"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="7" ry="3"/><path d="M5 5v6c0 1.66 3.13 3 7 3s7-1.34 7-3V5"/><path d="M5 11v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6"/></svg></button>
+          <button class="rail-btn " data-admin-view="analytics" title="&#x410;&#x43D;&#x430;&#x43B;&#x438;&#x442;&#x438;&#x43A;&#x430;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V13"/><path d="M10 19V8"/><path d="M16 19v-5"/><path d="M21 19H3"/><rect x="3" y="13" width="3" height="6" rx="1"/><rect x="9" y="8" width="3" height="11" rx="1"/><rect x="15" y="14" width="3" height="5" rx="1"/></svg></button>
+          <button class="rail-btn " data-admin-view="events" title="&#x421;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x44F;"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></button>
+          <button class="rail-btn " data-admin-view="settings" title="&#x41D;&#x430;&#x441;&#x442;&#x440;&#x43E;&#x439;&#x43A;&#x438;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.04.04a2 2 0 0 1-2.83 2.83l-.04-.04A1.8 1.8 0 0 0 15 19.4a1.8 1.8 0 0 0-1 .6V20a2 2 0 0 1-4 0v-.06a1.8 1.8 0 0 0-1-.6 1.8 1.8 0 0 0-1.98.36l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-.6-1H4a2 2 0 0 1 0-4h.06a1.8 1.8 0 0 0 .6-1 1.8 1.8 0 0 0-.36-1.98l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.8 1.8 0 0 0 9 4.6a1.8 1.8 0 0 0 1-.6V4a2 2 0 0 1 4 0v.06a1.8 1.8 0 0 0 1 .6 1.8 1.8 0 0 0 1.98-.36l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04A1.8 1.8 0 0 0 19.4 9c.24.37.42.7.6 1H20a2 2 0 0 1 0 4h-.06c-.18.3-.36.63-.54 1Z"/></svg></button>
+          <button class="rail-btn " data-admin-view="info" title="&#x418;&#x43D;&#x444;&#x43E;&#x440;&#x43C;&#x430;&#x446;&#x438;&#x44F;"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10v6"/><path d="M12 7h.01"/></svg></button>
+        </aside>
+
+        <aside id="projectsPanel" class="projects-panel">
+          <div class="panel-label">&#x41F;&#x420;&#x41E;&#x415;&#x41A;&#x422;&#x42B; <button id="addProjectBtn" class="round-plus">+</button></div>
+          <input id="projectSearch" class="small-search" placeholder="&#x41F;&#x43E;&#x438;&#x441;&#x43A; &#x43F;&#x440;&#x43E;&#x435;&#x43A;&#x442;&#x430;">
+          <div id="projectsList" class="project-list"></div>
+          <div class="panel-label system-label">&#x421;&#x418;&#x421;&#x422;&#x415;&#x41C;&#x41D;&#x41E;&#x415;</div>
+          <button class="project-row" data-system-project="trash"><span class="project-mark"><svg class="tile-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6M14 11v6"/></svg></span><span class="project-name">&#x41A;&#x43E;&#x440;&#x437;&#x438;&#x43D;&#x430;</span></button>
+        </aside>
+
+        <main class="admin-main">
+          <div id="adminDashboard" class="admin-view active">
+            <div class="admin-page-head">
+              <div>
+                <h1>&#x414;&#x430;&#x448;&#x431;&#x43E;&#x440;&#x434;</h1>
+                <p class="muted">&#x421;&#x432;&#x43E;&#x434;&#x43A;&#x430; &#x43F;&#x43E; &#x43F;&#x43E;&#x440;&#x442;&#x430;&#x43B;&#x443; &#x43E;&#x431;&#x443;&#x447;&#x435;&#x43D;&#x438;&#x44F;</p>
+              </div>
+              <button id="dashboardRefresh">&#x41E;&#x431;&#x43D;&#x43E;&#x432;&#x438;&#x442;&#x44C;</button>
+            </div>
+
+            <div class="dashboard-grid">
+              <div class="dash-card chart-card">
+                <h3>&#x41E;&#x431;&#x443;&#x447;&#x430;&#x435;&#x43C;&#x43E;&#x441;&#x442;&#x44C; (&#x440;&#x430;&#x441;&#x43F;&#x440;&#x435;&#x434;&#x435;&#x43B;&#x435;&#x43D;&#x438;&#x435; &#x441;&#x442;&#x430;&#x442;&#x443;&#x441;&#x43E;&#x432;)</h3>
+                <div class="donut-wrap">
+                  <div id="donut" class="donut"></div>
+                  <div class="legend">
+                    <span><i class="green-dot"></i>&#x41F;&#x440;&#x43E;&#x439;&#x434;&#x435;&#x43D;&#x43E;</span>
+                    <span><i class="red-dot"></i>&#x41F;&#x440;&#x43E;&#x432;&#x430;&#x43B;&#x435;&#x43D;&#x43E;</span>
+                    <span><i class="orange-dot"></i>&#x412; &#x43F;&#x440;&#x43E;&#x446;&#x435;&#x441;&#x441;&#x435;</span>
+                    <span><i class="gray-dot"></i>&#x41D;&#x435; &#x43D;&#x430;&#x447;&#x430;&#x442;&#x43E;</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dash-card">
+                <div class="card-head">
+                  <h3>&#x41F;&#x43E;&#x441;&#x43B;&#x435;&#x434;&#x43D;&#x438;&#x435; &#x441;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x44F;</h3>
+                  <button id="openAllEventsBtn">&#x412;&#x441;&#x435; &#x441;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x44F;</button>
+                </div>
+                <div id="recentEventsList" class="event-list"></div>
+              </div>
+            </div>
+
+            <div class="stats-grid">
+              <div class="dash-stat"><span>&#x41C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x43E;&#x432; &#x432;&#x441;&#x435;&#x433;&#x43E;</span><b id="statMaterials">0</b></div>
+              <div class="dash-stat"><span>&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x435;&#x439; &#x432;&#x441;&#x435;&#x433;&#x43E;</span><b id="statUsers">0</b></div>
+              <div class="dash-stat"><span>&#x41F;&#x440;&#x43E;&#x439;&#x434;&#x435;&#x43D;&#x43E; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x43E;&#x432;</span><b id="statCompleted">0</b></div>
+              <div class="dash-stat"><span>&#x41C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x43E;&#x432; &#x432; &#x440;&#x430;&#x431;&#x43E;&#x442;&#x435;</span><b id="statInWork">0</b></div>
+            </div>
+
+            <div class="dash-card">
+              <div class="card-head">
+                <div>
+                  <h3>&#x41F;&#x43E;&#x441;&#x43B;&#x435;&#x434;&#x43D;&#x438;&#x435; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x44B;</h3>
+                  <p class="muted">5 &#x43F;&#x43E;&#x441;&#x43B;&#x435;&#x434;&#x43D;&#x438;&#x445; &#x441;&#x43E;&#x437;&#x434;&#x430;&#x43D;&#x43D;&#x44B;&#x445; &#x435;&#x434;&#x438;&#x43D;&#x438;&#x446; &#x43A;&#x43E;&#x43D;&#x442;&#x435;&#x43D;&#x442;&#x430;</p>
+                </div>
+                <button id="allMaterialsBtn">&#x412;&#x441;&#x435; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x44B;</button>
+              </div>
+              <div id="lastMaterialsList" class="last-materials"></div>
+            </div>
+          </div>
+
+          <div id="adminEvents" class="admin-view">
+            <div class="admin-page-head">
+              <div>
+                <h1>&#x421;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x44F;</h1>
+                <p class="muted">&#x41B;&#x435;&#x43D;&#x442;&#x430; &#x441;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x439; &#x43A;&#x43E;&#x43D;&#x442;&#x435;&#x43D;&#x442;&#x430; &#x43F;&#x43E; &#x43F;&#x43E;&#x440;&#x442;&#x430;&#x43B;&#x443;</p>
+              </div>
+              <button id="eventsRefresh">&#x41E;&#x431;&#x43D;&#x43E;&#x432;&#x438;&#x442;&#x44C;</button>
+            </div>
+            <div class="events-toolbar">
+              <input id="eventSearch" placeholder="&#x41F;&#x43E;&#x438;&#x441;&#x43A; &#x43F;&#x43E; &#x43F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44E;, &#x441;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x44E; &#x438;&#x43B;&#x438; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x443;">
+              <button id="eventsReportBtn">&#x21E9; &#x41E;&#x442;&#x447;&#x451;&#x442;</button>
+              <button>&#x2301;</button>
+            </div>
+            <div class="table-card">
+              <div class="table-top">
+                <h3>&#x421;&#x43F;&#x438;&#x441;&#x43E;&#x43A; &#x441;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x439;</h3>
+                <div><span id="eventsTotal">&#x412;&#x441;&#x435;&#x433;&#x43E;: 0</span> <select><option>20</option><option>50</option></select></div>
+              </div>
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>&#x414;&#x430;&#x442;&#x430;/&#x432;&#x440;&#x435;&#x43C;&#x44F;</th><th>&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44C;</th><th>&#x421;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x435;</th><th>&#x41C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;</th><th>&#x414;&#x43B;&#x438;&#x442;&#x435;&#x43B;&#x44C;&#x43D;&#x43E;&#x441;&#x442;&#x44C;</th>
+                  </tr>
+                </thead>
+                <tbody id="eventsTable"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="adminMaterials" class="admin-view">
+            <div id="materialsListView">
+              <div class="materials-card">
+                <div class="materials-toolbar">
+                  <div id="breadcrumb" class="breadcrumb">&#x41A;&#x43E;&#x440;&#x435;&#x43D;&#x44C;</div>
+                  <div class="toolbar-right">
+                    <button id="backFolderBtn" class="hidden">&#x2190; &#x41D;&#x430;&#x437;&#x430;&#x434;</button>
+                    <input id="materialSearch" placeholder="&#x41F;&#x43E;&#x438;&#x441;&#x43A;">
+                    <button id="createMaterialBtn" class="primary">&#x421;&#x43E;&#x437;&#x434;&#x430;&#x442;&#x44C;</button>
+                  </div>
+                </div>
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>&#x41D;&#x430;&#x437;&#x432;&#x430;&#x43D;&#x438;&#x435; &#x25B2;</th><th>&#x422;&#x438;&#x43F;</th><th>&#x421;&#x442;&#x430;&#x442;&#x443;&#x441;</th><th>&#x421;&#x43E;&#x437;&#x434;&#x430;&#x43D;</th><th>&#x418;&#x437;&#x43C;&#x435;&#x43D;&#x451;&#x43D;</th><th>&#x410;&#x432;&#x442;&#x43E;&#x440;</th><th>&#x420;&#x430;&#x437;&#x43C;&#x435;&#x440;</th><th>&#x414;&#x435;&#x439;&#x441;&#x442;&#x432;&#x438;&#x44F;</th>
+                    </tr>
+                  </thead>
+                  <tbody id="materialsTable"></tbody>
+                </table>
+                <div id="emptyFolder" class="empty-state hidden">&#x41F;&#x443;&#x441;&#x442;&#x43E;</div>
+              </div>
+            </div>
+
+            <div id="courseEditorView" class="editor-view hidden">
+              <div class="editor-top">
+                <button id="backFromCourseEditor">&#x2190; &#x41D;&#x430;&#x437;&#x430;&#x434;</button>
+                <h2 id="courseEditorTitle">&#x41D;&#x43E;&#x432;&#x44B;&#x439; &#x43A;&#x443;&#x440;&#x441;</h2>
+              </div>
+              <div class="draft-banner">
+                <span class="pill yellow" id="courseDraftPill">&#x427;&#x435;&#x440;&#x43D;&#x43E;&#x432;&#x438;&#x43A;</span>
+                <span id="courseSaveInfo">&#x410;&#x432;&#x442;&#x43E;&#x441;&#x43E;&#x445;&#x440;&#x430;&#x43D;&#x435;&#x43D;&#x438;&#x435; &#x432;&#x43A;&#x43B;&#x44E;&#x447;&#x435;&#x43D;&#x43E;. &#x418;&#x437;&#x43C;&#x435;&#x43D;&#x435;&#x43D;&#x438;&#x44F; &#x431;&#x443;&#x434;&#x443;&#x442; &#x43F;&#x440;&#x438;&#x43C;&#x435;&#x43D;&#x435;&#x43D;&#x44B; &#x43F;&#x43E;&#x441;&#x43B;&#x435; &#x43D;&#x430;&#x436;&#x430;&#x442;&#x438;&#x44F; &#xAB;&#x41E;&#x43F;&#x443;&#x431;&#x43B;&#x438;&#x43A;&#x43E;&#x432;&#x430;&#x442;&#x44C;&#xBB;.</span>
+                <button id="deleteCourseDraft">&#x423;&#x434;&#x430;&#x43B;&#x438;&#x442;&#x44C; &#x447;&#x435;&#x440;&#x43D;&#x43E;&#x432;&#x438;&#x43A;</button>
+              </div>
+              <div class="editor-tabs">
+                <button class="editor-tab active" data-course-tab-editor="content">&#x41A;&#x43E;&#x43D;&#x442;&#x435;&#x43D;&#x442;</button>
+                <button class="editor-tab" data-course-tab-editor="assign">&#x41D;&#x430;&#x437;&#x43D;&#x430;&#x447;&#x435;&#x43D;&#x438;&#x44F;</button>
+                <button class="editor-tab" data-course-tab-editor="settings">&#x41D;&#x430;&#x441;&#x442;&#x440;&#x43E;&#x439;&#x43A;&#x438;</button>
+                <div class="editor-actions">
+                  <button id="coursePreviewBtn">&#x41F;&#x440;&#x43E;&#x441;&#x43C;&#x43E;&#x442;&#x440;</button>
+                  <button id="coursePublishBtn" class="primary">&#x41E;&#x43F;&#x443;&#x431;&#x43B;&#x438;&#x43A;&#x43E;&#x432;&#x430;&#x442;&#x44C;</button>
+                </div>
+              </div>
+
+              <div id="courseTabContent" class="course-editor-tab active">
+                <div id="courseReadyBox" class="ready-box hidden"><b>&#x413;&#x43E;&#x442;&#x43E;&#x432; &#x43A; &#x43F;&#x443;&#x431;&#x43B;&#x438;&#x43A;&#x430;&#x446;&#x438;&#x438;</b><br>&#x421;&#x442;&#x440;&#x443;&#x43A;&#x442;&#x443;&#x440;&#x430; &#x43A;&#x443;&#x440;&#x441;&#x430; &#x437;&#x430;&#x43F;&#x43E;&#x43B;&#x43D;&#x435;&#x43D;&#x430; &#x43A;&#x43E;&#x440;&#x440;&#x435;&#x43A;&#x442;&#x43D;&#x43E;.</div>
+                <div class="course-structure-editor">
+                  <div class="structure-head">
+                    <h3>&#x421;&#x442;&#x440;&#x443;&#x43A;&#x442;&#x443;&#x440;&#x430; &#x43A;&#x443;&#x440;&#x441;&#x430;</h3>
+                    <div>
+                      <button id="addToCourseBtn" class="primary">&#x414;&#x43E;&#x431;&#x430;&#x432;&#x438;&#x442;&#x44C;</button>
+                      <button id="reorderSectionsBtn">&#x418;&#x437;&#x43C;&#x435;&#x43D;&#x438;&#x442;&#x44C; &#x43F;&#x43E;&#x440;&#x44F;&#x434;&#x43E;&#x43A; &#x441;&#x435;&#x43A;&#x446;&#x438;&#x439;</button>
+                    </div>
+                  </div>
+                  <div id="courseSectionsEditor"></div>
+                </div>
+              </div>
+
+              <div id="courseTabAssign" class="course-editor-tab">
+                <div class="settings-card">
+                  <h3>&#x41D;&#x430;&#x437;&#x43D;&#x430;&#x447;&#x435;&#x43D;&#x438;&#x44F; &#x43A;&#x443;&#x440;&#x441;&#x430;</h3>
+                  <p class="muted">&#x41A;&#x443;&#x440;&#x441; &#x43E;&#x442;&#x43E;&#x431;&#x440;&#x430;&#x436;&#x430;&#x435;&#x442;&#x441;&#x44F; &#x443; &#x43F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44F; &#x442;&#x43E;&#x43B;&#x44C;&#x43A;&#x43E; &#x43F;&#x43E;&#x441;&#x43B;&#x435; &#x43D;&#x430;&#x437;&#x43D;&#x430;&#x447;&#x435;&#x43D;&#x438;&#x44F;.</p>
+                  <div class="form-grid">
+                    <div>
+                      <label>&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44C; &#x411;&#x438;&#x442;&#x440;&#x438;&#x43A;&#x441;24</label>
+                      <select id="courseAssignUser" multiple size="8"></select>
+                    </div>
+                    <div>
+                      <label>&#x421;&#x440;&#x43E;&#x43A; &#x43F;&#x440;&#x43E;&#x445;&#x43E;&#x436;&#x434;&#x435;&#x43D;&#x438;&#x44F;</label>
+                      <input id="courseAssignDue" type="datetime-local">
+                    </div>
+                  </div>
+                  <label class="checkline"><input id="courseCreateTask" type="checkbox"> &#x421;&#x43E;&#x437;&#x434;&#x430;&#x442;&#x44C; &#x437;&#x430;&#x434;&#x430;&#x447;&#x443; &#x432; &#x411;&#x438;&#x442;&#x440;&#x438;&#x43A;&#x441;24 &#x441;&#x43E; &#x441;&#x441;&#x44B;&#x43B;&#x43A;&#x43E;&#x439; &#x43D;&#x430; &#x43A;&#x443;&#x440;&#x441;</label>
+                  <textarea id="courseTaskText" placeholder="&#x41E;&#x43F;&#x438;&#x441;&#x430;&#x43D;&#x438;&#x435; &#x437;&#x430;&#x434;&#x430;&#x447;&#x438; &#x434;&#x43B;&#x44F; &#x441;&#x43E;&#x442;&#x440;&#x443;&#x434;&#x43D;&#x438;&#x43A;&#x430;"></textarea>
+                  <button id="assignCourseBtn" class="primary">&#x41D;&#x430;&#x437;&#x43D;&#x430;&#x447;&#x438;&#x442;&#x44C;</button>
+                  <div id="courseAssignmentsList" class="mini-list"></div>
+                </div>
+              </div>
+
+              <div id="courseTabSettings" class="course-editor-tab">
+                <div class="settings-card">
+                  <h3>&#x41E;&#x441;&#x43D;&#x43E;&#x432;&#x43D;&#x43E;&#x435;</h3>
+                  <label>&#x41D;&#x430;&#x437;&#x432;&#x430;&#x43D;&#x438;&#x435; &#x43A;&#x443;&#x440;&#x441;&#x430;</label>
+                  <input id="courseNameInput">
+                  <label>&#x41A;&#x440;&#x430;&#x442;&#x43A;&#x43E;&#x435; &#x43E;&#x43F;&#x438;&#x441;&#x430;&#x43D;&#x438;&#x435;</label>
+                  <textarea id="courseDescInput"></textarea>
+                </div>
+                <div class="settings-card">
+                  <h3>&#x414;&#x43E;&#x43F;&#x43E;&#x43B;&#x43D;&#x438;&#x442;&#x435;&#x43B;&#x44C;&#x43D;&#x43E;</h3>
+                  <div class="form-grid">
+                    <div>
+                      <label>&#x41E;&#x447;&#x43A;&#x438; &#x437;&#x430; &#x437;&#x430;&#x432;&#x435;&#x440;&#x448;&#x435;&#x43D;&#x438;&#x435; &#x43A;&#x443;&#x440;&#x441;&#x430;</label>
+                      <input id="coursePointsInput" type="number" value="5">
+                      <p class="muted">&#x41E;&#x447;&#x43A;&#x438; &#x2013; &#x43C;&#x435;&#x442;&#x440;&#x438;&#x43A;&#x430; &#x433;&#x435;&#x439;&#x43C;&#x438;&#x444;&#x438;&#x43A;&#x430;&#x446;&#x438;&#x438;. &#x41D;&#x430;&#x447;&#x438;&#x441;&#x43B;&#x44F;&#x44E;&#x442;&#x441;&#x44F; &#x43F;&#x440;&#x438; &#x437;&#x430;&#x432;&#x435;&#x440;&#x448;&#x435;&#x43D;&#x438;&#x438; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x430;.</p>
+                    </div>
+                    <label class="check-card"><input id="courseCertificateInput" type="checkbox"> &#x412;&#x44B;&#x434;&#x430;&#x432;&#x430;&#x442;&#x44C; &#x441;&#x435;&#x440;&#x442;&#x438;&#x444;&#x438;&#x43A;&#x430;&#x442;<br><span>&#x41F;&#x43E;&#x441;&#x43B;&#x435; &#x443;&#x441;&#x43F;&#x435;&#x448;&#x43D;&#x43E;&#x433;&#x43E; &#x437;&#x430;&#x432;&#x435;&#x440;&#x448;&#x435;&#x43D;&#x438;&#x44F; &#x431;&#x443;&#x434;&#x435;&#x442; &#x441;&#x433;&#x435;&#x43D;&#x435;&#x440;&#x438;&#x440;&#x43E;&#x432;&#x430;&#x43D; PDF-&#x441;&#x435;&#x440;&#x442;&#x438;&#x444;&#x438;&#x43A;&#x430;&#x442;.</span></label>
+                  </div>
+                </div>
+                <div class="settings-card">
+                  <h3>&#x41F;&#x440;&#x430;&#x432;&#x438;&#x43B;&#x430; &#x43F;&#x440;&#x43E;&#x445;&#x43E;&#x436;&#x434;&#x435;&#x43D;&#x438;&#x44F;</h3>
+                  <label class="checkline"><input id="courseSequentialInput" type="checkbox"> &#x41F;&#x43E;&#x441;&#x43B;&#x435;&#x434;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44C;&#x43D;&#x43E;&#x435; &#x43F;&#x440;&#x43E;&#x445;&#x43E;&#x436;&#x434;&#x435;&#x43D;&#x438;&#x435; (&#x431;&#x43B;&#x43E;&#x43A;&#x438;&#x440;&#x43E;&#x432;&#x430;&#x442;&#x44C; &#x441;&#x43B;&#x435;&#x434;&#x443;&#x44E;&#x449;&#x438;&#x435; &#x443;&#x440;&#x43E;&#x43A;&#x438; &#x434;&#x43E; &#x437;&#x430;&#x432;&#x435;&#x440;&#x448;&#x435;&#x43D;&#x438;&#x44F; &#x442;&#x435;&#x43A;&#x443;&#x449;&#x435;&#x433;&#x43E;)</label>
+                </div>
+                <div class="settings-card">
+                  <h3>&#x421;&#x441;&#x44B;&#x43B;&#x43A;&#x430; &#x43D;&#x430; &#x43F;&#x440;&#x438;&#x43B;&#x43E;&#x436;&#x435;&#x43D;&#x438;&#x435;</h3>
+                  <button id="showCourseLinkBtn">&#x41F;&#x43E;&#x43A;&#x430;&#x437;&#x430;&#x442;&#x44C; &#x441;&#x441;&#x44B;&#x43B;&#x43A;&#x443;</button>
+                  <p class="muted">&#x421;&#x441;&#x44B;&#x43B;&#x43A;&#x430; &#x432;&#x43A;&#x43B;&#x44E;&#x447;&#x430;&#x435;&#x442; &#x43F;&#x430;&#x440;&#x430;&#x43C;&#x435;&#x442;&#x440; course &#x441; ID &#x43A;&#x443;&#x440;&#x441;&#x430;.</p>
+                  <pre id="courseLinkBox" class="hidden"></pre>
+                </div>
+              </div>
+            </div>
+
+            <div id="articleEditorView" class="editor-view hidden">
+              <div class="editor-top">
+                <button id="backFromArticleEditor">&#x2190; &#x41D;&#x430;&#x437;&#x430;&#x434;</button>
+                <h2 id="articleEditorTitle">&#x41D;&#x43E;&#x432;&#x430;&#x44F; &#x441;&#x442;&#x430;&#x442;&#x44C;&#x44F;</h2>
+              </div>
+              <div class="draft-banner">
+                <span class="pill yellow">&#x427;&#x435;&#x440;&#x43D;&#x43E;&#x432;&#x438;&#x43A;</span>
+                <span id="articleSaveInfo">&#x412;&#x441;&#x435; &#x438;&#x437;&#x43C;&#x435;&#x43D;&#x435;&#x43D;&#x438;&#x44F; &#x441;&#x43E;&#x445;&#x440;&#x430;&#x43D;&#x435;&#x43D;&#x44B;</span>
+                <button id="deleteArticleDraft">&#x423;&#x434;&#x430;&#x43B;&#x438;&#x442;&#x44C; &#x447;&#x435;&#x440;&#x43D;&#x43E;&#x432;&#x438;&#x43A;</button>
+              </div>
+              <div class="editor-tabs">
+                <button class="editor-tab active" data-article-editor-tab="content">&#x41A;&#x43E;&#x43D;&#x442;&#x435;&#x43D;&#x442;</button>
+                <button class="editor-tab" data-article-editor-tab="assign">&#x41D;&#x430;&#x437;&#x43D;&#x430;&#x447;&#x435;&#x43D;&#x438;&#x44F;</button>
+                <button class="editor-tab" data-article-editor-tab="settings">&#x41D;&#x430;&#x441;&#x442;&#x440;&#x43E;&#x439;&#x43A;&#x438;</button>
+                <div class="editor-actions">
+                  <button id="articlePreviewBtn">&#x41F;&#x440;&#x43E;&#x441;&#x43C;&#x43E;&#x442;&#x440;</button>
+                  <button id="articlePublishBtn" class="primary">&#x41E;&#x43F;&#x443;&#x431;&#x43B;&#x438;&#x43A;&#x43E;&#x432;&#x430;&#x442;&#x44C;</button>
+                </div>
+              </div>
+
+              <div id="articleTabContent" class="article-editor-tab active">
+                <div class="article-editor-layout">
+                  <div class="pages-panel">
+                    <div class="panel-head">
+                      <h3>&#x421;&#x442;&#x440;&#x430;&#x43D;&#x438;&#x446;&#x44B;</h3>
+                      <button id="addArticlePageBtn" class="round-plus purple">&#xFF0B;</button>
+                    </div>
+                    <div id="articlePagesList"></div>
+                  </div>
+                  <div class="rich-editor-card v40-canvas-card">
+                    <div class="format-toolbar">
+                      <select id="formatBlock">
+                        <option value="h1">&#x417;&#x430;&#x433;&#x43E;&#x43B;&#x43E;&#x432;&#x43E;&#x43A; 1</option>
+                        <option value="h2">&#x417;&#x430;&#x433;&#x43E;&#x43B;&#x43E;&#x432;&#x43E;&#x43A; 2</option>
+                        <option value="p">&#x41E;&#x431;&#x44B;&#x447;&#x43D;&#x44B;&#x439; &#x442;&#x435;&#x43A;&#x441;&#x442;</option>
+                      </select>
+                      <select id="fontName">
+                        <option value="Arial">Default</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Verdana">Verdana</option>
+                      </select>
+                      <select id="fontSizePt"></select>
+                      <button data-cmd="bold"><b>B</b></button>
+                      <button data-cmd="italic"><i>I</i></button>
+                      <button data-cmd="underline"><u>U</u></button>
+                      <button data-cmd="strikeThrough"><s>S</s></button>
+                      <button data-cmd="insertUnorderedList">&#x2022;</button>
+                      <button data-cmd="insertOrderedList">1.</button>
+                      <button data-cmd="justifyLeft">&#x2261;</button>
+                      <button data-cmd="justifyCenter">&#x2263;</button>
+                      <button data-cmd="justifyRight">&#x2261;</button>
+                      <input id="fontColor" type="color" value="#111827">
+                      <button id="insertLinkBtn">&#x1F517;</button>
+                    </div>
+                    <div id="articleContentEditable" class="rich-editor v40-html-fallback" contenteditable="true"><h1>&#x41D;&#x43E;&#x432;&#x430;&#x44F; &#x441;&#x442;&#x440;&#x430;&#x43D;&#x438;&#x446;&#x430;</h1><p><br></p></div>
+                    <div id="rtmArticleCanvas" class="v40-canvas-host" aria-label="Редактор Excalidraw"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="articleTabAssign" class="article-editor-tab">
+                <div class="settings-card">
+                  <h3>&#x41D;&#x430;&#x437;&#x43D;&#x430;&#x447;&#x435;&#x43D;&#x438;&#x44F; &#x441;&#x442;&#x430;&#x442;&#x44C;&#x438;</h3>
+                  <p id="articleAssignInfo" class="muted">&#x415;&#x441;&#x43B;&#x438; &#x441;&#x442;&#x430;&#x442;&#x44C;&#x44F; &#x43D;&#x430;&#x445;&#x43E;&#x434;&#x438;&#x442;&#x441;&#x44F; &#x432;&#x43D;&#x443;&#x442;&#x440;&#x438; &#x43A;&#x443;&#x440;&#x441;&#x430;, &#x43D;&#x430;&#x437;&#x43D;&#x430;&#x447;&#x435;&#x43D;&#x438;&#x435; &#x432;&#x44B;&#x43F;&#x43E;&#x43B;&#x43D;&#x44F;&#x435;&#x442;&#x441;&#x44F; &#x434;&#x43B;&#x44F; &#x432;&#x441;&#x435;&#x433;&#x43E; &#x43A;&#x443;&#x440;&#x441;&#x430;. &#x415;&#x441;&#x43B;&#x438; &#x441;&#x442;&#x430;&#x442;&#x44C;&#x44F; &#x43E;&#x442;&#x434;&#x435;&#x43B;&#x44C;&#x43D;&#x430;&#x44F;, &#x435;&#x451; &#x43C;&#x43E;&#x436;&#x43D;&#x43E; &#x43D;&#x430;&#x437;&#x43D;&#x430;&#x447;&#x438;&#x442;&#x44C; &#x43F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44E;.</p>
+                  <div class="form-grid">
+                    <div>
+                      <label>&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44C;</label>
+                      <select id="articleAssignUser" multiple size="8"></select>
+                    </div>
+                    <div>
+                      <label>&#x421;&#x440;&#x43E;&#x43A;</label>
+                      <input id="articleAssignDue" type="datetime-local">
+                    </div>
+                  </div>
+                  <button id="assignArticleBtn" class="primary">&#x41D;&#x430;&#x437;&#x43D;&#x430;&#x447;&#x438;&#x442;&#x44C; &#x441;&#x442;&#x430;&#x442;&#x44C;&#x44E;</button>
+                </div>
+              </div>
+
+              <div id="articleTabSettings" class="article-editor-tab">
+                <div class="settings-card">
+                  <h3>&#x41E;&#x441;&#x43D;&#x43E;&#x432;&#x43D;&#x43E;&#x435;</h3>
+                  <label>&#x41D;&#x430;&#x437;&#x432;&#x430;&#x43D;&#x438;&#x435; &#x441;&#x442;&#x430;&#x442;&#x44C;&#x438;</label>
+                  <input id="articleNameInput">
+                  <label>&#x41E;&#x43F;&#x438;&#x441;&#x430;&#x43D;&#x438;&#x435;</label>
+                  <textarea id="articleDescInput"></textarea>
+                  <label>&#x41E;&#x447;&#x43A;&#x438; &#x437;&#x430; &#x43F;&#x440;&#x43E;&#x445;&#x43E;&#x436;&#x434;&#x435;&#x43D;&#x438;&#x435;</label>
+                  <input id="articlePointsInput" type="number" value="1">
+                </div>
+              </div>
+            </div>
+
+            <div id="testEditorView" class="editor-view hidden">
+              <div class="editor-top">
+                <button id="backFromTestEditor">&#x2190; &#x41D;&#x430;&#x437;&#x430;&#x434;</button>
+                <h2 id="testEditorTitle">&#x41D;&#x43E;&#x432;&#x44B;&#x439; &#x442;&#x435;&#x441;&#x442;</h2>
+              </div>
+              <div class="editor-tabs">
+                <button class="editor-tab active" data-test-editor-tab="questions">&#x412;&#x43E;&#x43F;&#x440;&#x43E;&#x441;&#x44B;</button>
+                <button class="editor-tab" data-test-editor-tab="assign">&#x41D;&#x430;&#x437;&#x43D;&#x430;&#x447;&#x435;&#x43D;&#x438;&#x44F;</button>
+                <div class="editor-actions">
+                  <button id="addQuestionBtn" class="primary">&#x414;&#x43E;&#x431;&#x430;&#x432;&#x438;&#x442;&#x44C; &#x432;&#x43E;&#x43F;&#x440;&#x43E;&#x441;</button>
+                  <button id="publishTestBtn" class="primary">&#x41E;&#x43F;&#x443;&#x431;&#x43B;&#x438;&#x43A;&#x43E;&#x432;&#x430;&#x442;&#x44C;</button>
+                </div>
+              </div>
+              <div id="testQuestionsEditor" class="questions-editor"></div>
+              <div id="testTabAssign" class="test-editor-tab"></div>
+            </div>
+          </div>
+
+          <div id="adminUsers" class="admin-view users-view">
+            <div class="admin-page-head">
+              <div>
+                <h1>&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x438;</h1>
+                <p class="muted">&#x412;&#x441;&#x435;&#x433;&#x43E;: <span id="usersTotal">0</span></p>
+              </div>
+              <button id="usersSyncBtn">&#x421;&#x438;&#x43D;&#x445;&#x440;&#x43E;&#x43D;&#x438;&#x437;&#x438;&#x440;&#x43E;&#x432;&#x430;&#x442;&#x44C;</button>
+            </div>
+            <div class="users-sync-note">&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x438; &#x438; &#x43E;&#x442;&#x434;&#x435;&#x43B;&#x44B; &#x431;&#x435;&#x440;&#x443;&#x442;&#x441;&#x44F; &#x438;&#x437; &#x411;&#x438;&#x442;&#x440;&#x438;&#x43A;&#x441;24. &#x420;&#x43E;&#x43B;&#x438; &#x43F;&#x440;&#x438;&#x43B;&#x43E;&#x436;&#x435;&#x43D;&#x438;&#x44F; &#x445;&#x440;&#x430;&#x43D;&#x44F;&#x442;&#x441;&#x44F; &#x432; entity &#x438; &#x43D;&#x435; &#x442;&#x435;&#x440;&#x44F;&#x44E;&#x442;&#x441;&#x44F; &#x43F;&#x440;&#x438; &#x43F;&#x435;&#x440;&#x435;&#x443;&#x441;&#x442;&#x430;&#x43D;&#x43E;&#x432;&#x43A;&#x435;.</div>
+            <div class="users-toolbar">
+              <input id="usersSearch" placeholder="&#x41F;&#x43E;&#x438;&#x441;&#x43A; &#x43F;&#x43E; &#x438;&#x43C;&#x435;&#x43D;&#x438; &#x438;&#x43B;&#x438; email">
+              <select id="usersDeptFilter"><option value="all">&#x412;&#x441;&#x435; &#x434;&#x435;&#x43F;&#x430;&#x440;&#x442;&#x430;&#x43C;&#x435;&#x43D;&#x442;&#x44B;</option></select>
+            </div>
+            <div class="table-card users-table-card">
+              <table class="admin-table users-table">
+                <thead><tr><th>&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44C;</th><th>&#x421;&#x442;&#x430;&#x442;&#x443;&#x441;</th><th>&#x414;&#x435;&#x43F;&#x430;&#x440;&#x442;&#x430;&#x43C;&#x435;&#x43D;&#x442;&#x44B;</th><th>&#x420;&#x43E;&#x43B;&#x44C;</th><th>&#x41D;&#x430;&#x441;&#x442;&#x440;&#x43E;&#x439;&#x43A;&#x438;</th></tr></thead>
+                <tbody id="usersTable"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="adminDatabase" class="admin-view">
+            <div class="admin-page-head">
+              <div>
+                <h1>&#x411;&#x430;&#x437;&#x430; &#x434;&#x430;&#x43D;&#x43D;&#x44B;&#x445;</h1>
+                <p class="muted">&#x412;&#x43D;&#x443;&#x442;&#x440;&#x435;&#x43D;&#x43D;&#x435;&#x435; &#x445;&#x440;&#x430;&#x43D;&#x438;&#x43B;&#x438;&#x449;&#x435; &#x43F;&#x440;&#x438;&#x43B;&#x43E;&#x436;&#x435;&#x43D;&#x438;&#x44F; &#x438; &#x440;&#x435;&#x437;&#x435;&#x440;&#x432;&#x43D;&#x430;&#x44F; &#x432;&#x44B;&#x433;&#x440;&#x443;&#x437;&#x43A;&#x430;.</p>
+              </div>
+              <div class="inline-actions">
+                <button id="dbRefreshBtn">&#x41E;&#x431;&#x43D;&#x43E;&#x432;&#x438;&#x442;&#x44C;</button>
+                <button id="dbExportAllBtn" class="primary">&#x412;&#x44B;&#x433;&#x440;&#x443;&#x437;&#x438;&#x442;&#x44C; &#x432;&#x441;&#x451;</button>
+              </div>
+            </div>
+            <div class="settings-card">
+              <h3>&#x41D;&#x430;&#x434;&#x451;&#x436;&#x43D;&#x43E;&#x441;&#x442;&#x44C; &#x445;&#x440;&#x430;&#x43D;&#x435;&#x43D;&#x438;&#x44F;</h3>
+              <p class="muted">&#x41E;&#x441;&#x43D;&#x43E;&#x432;&#x43D;&#x44B;&#x435; &#x434;&#x430;&#x43D;&#x43D;&#x44B;&#x435; &#x445;&#x440;&#x430;&#x43D;&#x44F;&#x442;&#x441;&#x44F; &#x432; Bitrix24 Entity Storage. &#x414;&#x43E;&#x43F;&#x43E;&#x43B;&#x43D;&#x438;&#x442;&#x435;&#x43B;&#x44C;&#x43D;&#x43E; &#x43F;&#x440;&#x438;&#x43B;&#x43E;&#x436;&#x435;&#x43D;&#x438;&#x435; &#x434;&#x435;&#x440;&#x436;&#x438;&#x442; &#x440;&#x435;&#x437;&#x435;&#x440;&#x432;&#x43D;&#x44B;&#x439; &#x441;&#x43D;&#x438;&#x43C;&#x43E;&#x43A; &#x432; app.option &#x438; &#x43B;&#x43E;&#x43A;&#x430;&#x43B;&#x44C;&#x43D;&#x44B;&#x439; &#x43A;&#x44D;&#x448; &#x431;&#x440;&#x430;&#x443;&#x437;&#x435;&#x440;&#x430;.</p>
+            </div>
+            <div id="databaseSummary" class="stats-grid"></div>
+            <div class="table-card database-card"><div class="table-top"><h3>&#x417;&#x430;&#x43F;&#x438;&#x441;&#x438;</h3><select id="databaseEntitySelect"></select></div><div id="databaseTable"></div></div>
+          </div>
+
+          <div id="adminAnalytics" class="admin-view analytics-view">
+            <div class="admin-page-head"><div><h1>&#x410;&#x43D;&#x430;&#x43B;&#x438;&#x442;&#x438;&#x43A;&#x430;</h1><p class="muted">&#x421;&#x442;&#x430;&#x442;&#x438;&#x441;&#x442;&#x438;&#x43A;&#x430; &#x43F;&#x43E; &#x43F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44F;&#x43C; &#x438; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x430;&#x43C;</p></div><button id="analyticsRefreshBtn">&#x41E;&#x431;&#x43D;&#x43E;&#x432;&#x438;&#x442;&#x44C;</button></div>
+            <div class="analytics-tabs"><button class="analytics-tab active" data-analytics-tab="overview">&#x41E;&#x431;&#x437;&#x43E;&#x440;</button><button class="analytics-tab" data-analytics-tab="users">&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x438;</button><button class="analytics-tab" data-analytics-tab="top">&#x422;&#x43E;&#x43F;</button><button class="analytics-tab" data-analytics-tab="materials">&#x41C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x44B;</button><button class="analytics-tab" data-analytics-tab="events">&#x421;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x44F;</button><button class="analytics-tab" data-analytics-tab="kb">&#x421;&#x43F;&#x438;&#x441;&#x43E;&#x43A; &#x43F;&#x440;&#x43E;&#x435;&#x43A;&#x442;&#x43E;&#x432;</button></div>
+            <div id="analyticsFilters" class="analytics-filters"></div><div id="analyticsContent"></div>
+          </div>
+
+          <div id="adminSettings" class="admin-view placeholder-view"><h1>&#x41D;&#x430;&#x441;&#x442;&#x440;&#x43E;&#x439;&#x43A;&#x438;</h1><p class="muted">&#x411;&#x443;&#x434;&#x435;&#x442; &#x440;&#x435;&#x430;&#x43B;&#x438;&#x437;&#x43E;&#x432;&#x430;&#x43D;&#x43E; &#x441;&#x43B;&#x435;&#x434;&#x443;&#x44E;&#x449;&#x438;&#x43C; &#x44D;&#x442;&#x430;&#x43F;&#x43E;&#x43C;: &#x440;&#x43E;&#x43B;&#x438;, &#x43F;&#x440;&#x430;&#x432;&#x430;, &#x43E;&#x444;&#x43E;&#x440;&#x43C;&#x43B;&#x435;&#x43D;&#x438;&#x435; &#x438; &#x441;&#x438;&#x441;&#x442;&#x435;&#x43C;&#x43D;&#x44B;&#x435; &#x43D;&#x430;&#x441;&#x442;&#x440;&#x43E;&#x439;&#x43A;&#x438;.</p></div>
+          <div id="adminInfo" class="admin-view placeholder-view"><h1>&#x418;&#x43D;&#x444;&#x43E;&#x440;&#x43C;&#x430;&#x446;&#x438;&#x44F;</h1><p class="muted">RTM &#x43E;&#x431;&#x443;&#x447;&#x435;&#x43D;&#x438;&#x435;. &#x41B;&#x43E;&#x43A;&#x430;&#x43B;&#x44C;&#x43D;&#x43E;&#x435; &#x43F;&#x440;&#x438;&#x43B;&#x43E;&#x436;&#x435;&#x43D;&#x438;&#x435; &#x411;&#x438;&#x442;&#x440;&#x438;&#x43A;&#x441;24.</p></div>
+        </main>
+      </div>
+    </section>
+
+    <div id="modalBackdrop" class="modal-backdrop hidden">
+      <div id="modalBox" class="modal-box"></div>
+    </div>
+
+  </div>
+
+  <script src="kb-data.js?v=046.3"></script>
+  <script src="app.js?v=046.3"></script>
+  <script src="v037-overrides.js?v=046.3"></script>
+  <script src="v039-patch.js?v=046.3"></script>
+  <script src="v040-assets.js?v=046.3"></script>
+  <script type="module" src="excalidraw-dist/rtm-canvas.js?v=046.3"></script>
+  <script src="v046-canvas.js?v=046.3"></script>
+  
+</body>
+</html>
+

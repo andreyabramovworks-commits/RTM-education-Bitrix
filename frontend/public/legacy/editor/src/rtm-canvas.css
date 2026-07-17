@@ -1,0 +1,193 @@
+@font-face{font-family:"Architexture";src:url("./fonts/rtm/Architexture.ttf") format("truetype");font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:"Architexture Bold";src:url("./fonts/rtm/Architexture.ttf") format("truetype");font-style:normal;font-weight:700;font-display:swap}
+@font-face{font-family:"Architexture Italic";src:url("./fonts/rtm/Architexture.ttf") format("truetype");font-style:italic;font-weight:400;font-display:swap}
+@font-face{font-family:"Architexture Bold Italic";src:url("./fonts/rtm/Architexture.ttf") format("truetype");font-style:italic;font-weight:700;font-display:swap}
+@font-face{font-family:"Manrope";src:url("./fonts/rtm/Manrope-Variable.ttf") format("truetype");font-style:normal;font-weight:100 900;font-display:swap}
+@font-face{font-family:"Manrope Bold";src:url("./fonts/rtm/Manrope-Variable.ttf") format("truetype");font-style:normal;font-weight:700;font-display:swap}
+@font-face{font-family:"Manrope Italic";src:url("./fonts/rtm/Manrope-Variable.ttf") format("truetype");font-style:italic;font-weight:400;font-display:swap}
+@font-face{font-family:"Manrope Bold Italic";src:url("./fonts/rtm/Manrope-Variable.ttf") format("truetype");font-style:italic;font-weight:700;font-display:swap}
+@font-face{font-family:"Montserrat";src:url("./fonts/rtm/Montserrat-Variable.ttf") format("truetype");font-style:normal;font-weight:100 900;font-display:swap}
+@font-face{font-family:"Montserrat Bold";src:url("./fonts/rtm/Montserrat-Variable.ttf") format("truetype");font-style:normal;font-weight:700;font-display:swap}
+@font-face{font-family:"Montserrat Italic";src:url("./fonts/rtm/Montserrat-Variable.ttf") format("truetype");font-style:italic;font-weight:400;font-display:swap}
+@font-face{font-family:"Montserrat Bold Italic";src:url("./fonts/rtm/Montserrat-Variable.ttf") format("truetype");font-style:italic;font-weight:700;font-display:swap}
+@font-face{font-family:"Oswald";src:url("./fonts/rtm/Oswald-Variable.ttf") format("truetype");font-style:normal;font-weight:200 700;font-display:swap}
+@font-face{font-family:"Oswald Bold";src:url("./fonts/rtm/Oswald-Variable.ttf") format("truetype");font-style:normal;font-weight:700;font-display:swap}
+@font-face{font-family:"Oswald Italic";src:url("./fonts/rtm/Oswald-Variable.ttf") format("truetype");font-style:italic;font-weight:400;font-display:swap}
+@font-face{font-family:"Oswald Bold Italic";src:url("./fonts/rtm/Oswald-Variable.ttf") format("truetype");font-style:italic;font-weight:700;font-display:swap}
+:root {
+  --rtm-canvas-brand: #7c3aed;
+}
+
+.rtm-canvas-shell {
+  width: 100%;
+  height: 100%;
+  min-height: 620px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #f8fafc;
+  color: #172033;
+}
+
+.rtm-canvas-stage {
+  flex: 1;
+  min-height: 560px;
+  position: relative;
+  overflow: hidden;
+}
+
+.rtm-canvas-stage > .excalidraw {
+  width: 100%;
+  height: 100%;
+}
+
+.rtm-canvas-toolbar {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  z-index: 8;
+  background: rgba(255, 255, 255, .96);
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 7px 24px rgba(30, 41, 59, .08);
+}
+
+.rtm-font-select{display:flex;align-items:center;gap:6px;min-height:36px;padding:0 9px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#334155;font-size:12px;white-space:nowrap}
+.rtm-font-select select{max-width:132px;border:0;background:transparent;color:#172033;font:inherit;font-weight:650;outline:0;cursor:pointer}
+.rtm-canvas-toolbar button.rtm-text-style{min-width:36px;padding:0 9px;font-family:Manrope,Arial,sans-serif;font-size:16px}
+.rtm-canvas-toolbar button.is-active{background:#ede9fe;border-color:var(--rtm-canvas-brand);color:#5b21b6;box-shadow:inset 0 0 0 1px var(--rtm-canvas-brand)}
+.rtm-canvas-toolbar button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+
+.rtm-canvas-toolbar button:hover {
+  background: #f5f3ff;
+  border-color: var(--rtm-canvas-brand);
+  transform: translateY(-1px);
+}
+
+.rtm-canvas-toolbar .rtm-canvas-save {
+  color: #fff;
+  background: var(--rtm-canvas-brand);
+  border-color: var(--rtm-canvas-brand);
+}
+
+.rtm-canvas-save-state {
+  margin-left: auto;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.rtm-canvas-save-state.is-error { color: #dc2626; }
+
+.rtm-media-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.rtm-media-overlay {
+  position: absolute;
+  transform-origin: center;
+  overflow: hidden;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.rtm-media-layer.is-editor .rtm-media-overlay {
+  opacity: .92;
+  pointer-events: none;
+}
+
+.rtm-media-layer.is-reader .rtm-media-overlay {
+  pointer-events: auto;
+}
+
+.rtm-media-overlay audio,
+.rtm-media-overlay video,
+.rtm-media-overlay iframe,
+.rtm-media-overlay img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border: 0;
+  object-fit: contain;
+  background: #fff;
+}
+
+.rtm-media-overlay audio { padding: 0; box-sizing: border-box; background: transparent; }
+.rtm-media-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--rtm-canvas-brand);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.rtm-canvas-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, .42);
+  backdrop-filter: blur(3px);
+}
+
+.rtm-canvas-dialog {
+  width: min(480px, 100%);
+  padding: 22px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, .22);
+}
+
+.rtm-canvas-dialog h3 { margin: 0 0 8px; }
+.rtm-canvas-dialog p { margin: 0 0 16px; color: #64748b; line-height: 1.45; }
+.rtm-canvas-dialog label { display: grid; gap: 6px; margin: 12px 0; font-weight: 650; }
+.rtm-canvas-dialog input { min-height: 42px; padding: 0 12px; border: 1px solid #cbd5e1; border-radius: 10px; font: inherit; }
+.rtm-canvas-dialog input:focus { outline: 3px solid color-mix(in srgb, var(--rtm-canvas-brand) 22%, transparent); border-color: var(--rtm-canvas-brand); }
+.rtm-canvas-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.rtm-canvas-dialog-actions button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 10px; cursor: pointer; }
+.rtm-canvas-dialog-actions .primary { color: #fff; background: var(--rtm-canvas-brand); }
+
+.rtm-canvas-shell .excalidraw .App-menu_top .buttonList {
+  border-radius: 14px;
+  box-shadow: 0 8px 26px rgba(15, 23, 42, .12);
+}
+
+.rtm-canvas-shell .excalidraw .ToolIcon__icon,
+.rtm-canvas-shell .excalidraw button {
+  border-radius: 10px;
+}
+
+@media (max-width: 800px) {
+  .rtm-canvas-shell { min-height: 520px; border-radius: 12px; }
+  .rtm-canvas-stage { min-height: 460px; }
+  .rtm-canvas-toolbar { overflow-x: auto; }
+
+.rtm-canvas-toolbar button { flex: 0 0 auto; padding: 0 10px; }
+  .rtm-canvas-toolbar button span, .rtm-font-select span { display: none; }
+  .rtm-font-select { flex: 0 0 auto; padding: 0 7px; }
+  .rtm-font-select select { max-width: 105px; }
+  .rtm-canvas-save-state { display: none; }
+}

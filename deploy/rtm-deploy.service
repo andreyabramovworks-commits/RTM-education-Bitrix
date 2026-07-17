@@ -1,0 +1,14 @@
+[Unit]
+Description=Deploy RTM Education from GitHub main
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=rtmdeploy
+Group=rtmdeploy
+Environment=COMPOSE_PROJECT_NAME=rtm-education
+ExecStart=/usr/local/bin/rtm-deploy
+TimeoutStartSec=1800
+
