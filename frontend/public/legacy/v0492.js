@@ -34,7 +34,7 @@
     if (typeof baseApplyAccess === 'function') baseApplyAccess.apply(this, arguments);
     var role = actualRole(); if (role !== 'developer') developerPreviewRole = null; role = developerPreviewRole || role; state.currentRole = role;
     if (!canAdmin() && state.mode === 'admin') setMode('user');
-    var mode = document.getElementById('modeSwitch'); if (mode) { mode.hidden = !canAdmin(); mode.style.display = canAdmin() ? 'inline-flex' : 'none'; }
+    var mode = document.getElementById('modeSwitch'); if (mode) { mode.hidden = !canAdmin(); mode.disabled = !canAdmin(); mode.style.display = canAdmin() ? 'inline-flex' : 'none'; }
     var info = document.querySelector('[data-admin-view="info"]'); if (info) { info.hidden = !isDeveloper(); info.style.display = isDeveloper() ? '' : 'none'; }
     var projects = document.querySelector('.toplink[data-user-view="projects"]'); if (projects) { projects.hidden = !canAdmin(); projects.style.display = canAdmin() ? '' : 'none'; }
     document.documentElement.dataset.rtmRole = role; document.documentElement.dataset.rtmActualRole = actualRole(); renderDeveloperPreview();

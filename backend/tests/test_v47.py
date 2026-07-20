@@ -40,7 +40,7 @@ def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert "rtm_release=49.2.0" in response.text
+    assert "rtm_release=49.2.2" in response.text
     assert "RTM Education v49.2" in response.text
 
 
