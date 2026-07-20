@@ -170,14 +170,16 @@
 .rtm-canvas-dialog-actions button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 10px; cursor: pointer; }
 .rtm-canvas-dialog-actions .primary { color: #fff; background: var(--rtm-canvas-brand); }
 
-.rtm-canvas-shell .excalidraw .App-menu_top .buttonList {
-  border-radius: 14px;
-  box-shadow: 0 8px 26px rgba(15, 23, 42, .12);
+.rtm-canvas-shell.is-admin .excalidraw .App-menu_top .buttonList {
+  border: 2px solid #1e1e1e;
+  border-radius: 3px 5px 2px 4px;
+  box-shadow: 2px 3px 0 rgba(30, 30, 30, .12);
+  background: #fff;
 }
 
-.rtm-canvas-shell .excalidraw .ToolIcon__icon,
-.rtm-canvas-shell .excalidraw button {
-  border-radius: 10px;
+.rtm-canvas-shell.is-admin .excalidraw .App-menu_top .ToolIcon__icon,
+.rtm-canvas-shell.is-admin .excalidraw .App-menu_top button {
+  border-radius: 3px 2px 4px 2px;
 }
 
 @media (max-width: 800px) {
@@ -193,8 +195,9 @@
 }
 
 /* v49 hand-drawn toolbar, traced from the supplied Excalidraw reference. */
-.rtm-hand-toolbar{min-height:46px;padding:3px 6px;gap:0;background:#fff;border:2px solid #1e1e1e;border-radius:2px;box-shadow:2px 2px 0 rgba(30,30,30,.12);overflow-x:auto}
+.rtm-hand-toolbar{min-height:46px;padding:3px 6px;gap:0;background:#fff;border:2px solid #1e1e1e;border-radius:2px 4px 2px 3px;box-shadow:2px 2px 0 rgba(30,30,30,.12);overflow-x:auto}
 .rtm-hand-toolbar button,.rtm-hand-toolbar .rtm-canvas-import,.rtm-hand-toolbar .rtm-font-select{width:38px;min-width:38px;height:38px;min-height:38px;padding:0;border:0;border-radius:0;background:#fff;color:#111;font:400 24px/1 Excalifont,Virgil,Arial,sans-serif;box-shadow:none;display:inline-grid;place-items:center}
+.rtm-hand-toolbar button+button,.rtm-hand-toolbar button+.rtm-canvas-import,.rtm-hand-toolbar .rtm-canvas-import+.rtm-hand-expand{border-left:1px solid #111}
 .rtm-hand-toolbar button:hover,.rtm-hand-toolbar .rtm-canvas-import:hover{background:#f1f5f9;transform:none}
 .rtm-hand-toolbar .rtm-font-select{width:92px;min-width:92px;margin:0 4px;border:2px solid #111;border-radius:1px}
 .rtm-hand-toolbar .rtm-font-select select{width:100%;max-width:none;padding:0 6px;border:0;background:#fff;font:400 17px Excalifont,Virgil,Arial}
@@ -203,6 +206,7 @@
 .rtm-hand-toolbar .rtm-mobile-preview-open{font-size:28px;border-left:1px solid #111}
 .rtm-hand-toolbar .rtm-canvas-save{width:auto;min-width:174px;margin-left:auto;padding:0 15px;border:2px solid #1e1e1e;border-radius:7px;background:#b2f2bb;color:#111;font:400 19px Excalifont,Virgil,Arial;box-shadow:2px 2px 0 rgba(30,30,30,.16)}
 .rtm-hand-toolbar .rtm-canvas-save:hover{background:#96edaa;border-color:#111}
+.rtm-hand-icon{width:27px;height:27px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
 .rtm-hand-list{width:31px;height:29px;display:grid;grid-template-columns:8px 1fr;grid-template-rows:repeat(3,1fr);align-items:center;font:700 10px/1 Arial}
 .rtm-hand-list i{display:block;width:21px;border-top:2px solid #111;transform:rotate(-1deg)}
 .rtm-hand-list.numbered{font-size:9px;font-weight:500}
@@ -216,6 +220,12 @@
 .rtm-mobile-preview-phone .v49-mobile-scene-scroll{width:100%;overflow-x:hidden;overflow-y:visible;touch-action:pan-y;scrollbar-width:none}
 .rtm-mobile-preview-phone .v49-mobile-scene-scroll svg{display:block;margin:0 auto;max-width:none}
 .rtm-mobile-preview-phone .v49-reader-controls{position:sticky;z-index:10;bottom:8px;width:max-content;margin:-60px 8px 8px auto;display:flex;gap:5px;padding:3px;border-radius:12px;background:rgba(248,250,252,.9)}
-.rtm-mobile-preview-phone .v49-reader-controls button{width:46px;height:46px;padding:0;border:1px solid #d6dde8;border-radius:10px;background:#fff;font:700 20px Arial}
+.rtm-mobile-preview-phone .v49-reader-controls button{width:42px;height:42px;padding:0;border:1px solid #d6dde8;border-radius:10px;background:#fff;font:700 19px Arial}
+.rtm-mobile-preview-phone .v49-reader-controls button svg{width:21px;height:21px;display:block}
 .rtm-mobile-preview-phone .v49-column-arrow{position:absolute;top:50%;z-index:9;width:34px;height:58px;border:0;border-radius:10px;background:rgba(15,23,42,.34);color:#fff;font:34px Arial}.rtm-mobile-preview-phone .v49-column-arrow.prev{left:4px}.rtm-mobile-preview-phone .v49-column-arrow.next{right:4px}.rtm-mobile-preview-phone .v49-column-arrow:disabled{opacity:0}
 .rtm-mobile-preview-phone .v49-column-count{position:sticky;left:50%;bottom:18px;z-index:8;display:block;width:max-content;transform:translateX(-50%);padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.36);color:#fff;font:600 11px Manrope,Arial}
+
+@media (max-width: 800px) {
+  .rtm-hand-toolbar{flex-wrap:wrap;overflow-x:hidden;overflow-y:visible;height:auto;align-content:flex-start}
+  .rtm-hand-toolbar .rtm-canvas-save{margin-left:auto;min-width:160px}
+}

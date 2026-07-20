@@ -36,6 +36,14 @@ app.dependency_overrides[require_admin] = admin_override
 client = TestClient(app)
 
 
+def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
+    response = client.get("/bitrix/app")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
+    assert "rtm_release=49.1.0" in response.text
+    assert "RTM Education v49.1" in response.text
+
+
 def test_session_bootstrap_sets_secure_http_only_cookie() -> None:
     response = client.get("/api/v47/session")
     assert response.status_code == 200

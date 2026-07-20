@@ -255,7 +255,7 @@
     $('#roleSave').onclick = async function () { await saveRole(userId, $('#roleSelect').value); closeModal(); await loadAll(); switchAdmin('users'); };
   };
 
-  window.RTMV47 = {ready: ensureReady, request: request, version: window.__RTM_V49__ ? 'v49' : window.__RTM_V48__ ? 'v48' : 'v47'};
+  window.RTMV47 = {ready: ensureReady, request: request, version: window.__RTM_VERSION__ ? 'v' + window.__RTM_VERSION__ : window.__RTM_V49__ ? 'v49' : window.__RTM_V48__ ? 'v48' : 'v47'};
   window.RTMV47.bitrixCall = function (method, params) {
     return request('/api/v47/bitrix', {method: 'POST', body: JSON.stringify({method: method, params: params || {}})}).then(function (payload) { return payload.data; });
   };
@@ -317,7 +317,7 @@
   };
 
   function applyV47Labels() {
-    var version = window.__RTM_V49__ ? 'v49' : window.__RTM_V48__ ? 'v48' : 'v47';
+    var version = window.__RTM_VERSION__ ? 'v' + window.__RTM_VERSION__ : window.__RTM_V49__ ? 'v49' : window.__RTM_V48__ ? 'v48' : 'v47';
     document.querySelectorAll('.v39-version-label').forEach(function (node) {
       var expected = node.classList.contains('v39-admin-version') ? version : 'Версия ' + version;
       if (node.textContent !== expected) node.textContent = expected;

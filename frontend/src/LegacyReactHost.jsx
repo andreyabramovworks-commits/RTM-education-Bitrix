@@ -2,23 +2,23 @@ import React, { useEffect, useState } from "react";
 
 const LEGACY_STYLES = [
   "/legacy/style.css?v=046.3",
-  "/legacy/excalidraw-dist/rtm-canvas.css?v=049.1",
+  "/legacy/excalidraw-dist/rtm-canvas.css?v=049.1.0",
   "/legacy/v040-layout.css?v=046.3",
   "/legacy/v040-inline.css?v=046.3",
-  "/legacy/v046-layout.css?v=049.1",
+  "/legacy/v046-layout.css?v=049.1.0",
 ];
 
 const LEGACY_SCRIPTS = [
-  ["/legacy/v046-shell.js?v=049.1", false],
+  ["/legacy/v046-shell.js?v=049.1.0", false],
   ["/legacy/kb-data.js?v=046.3", false],
-  ["/legacy/app.js?v=049.1", false],
+  ["/legacy/app.js?v=049.1.0", false],
   ["/legacy/v037-overrides.js?v=046.3", false],
   ["/legacy/v039-patch.js?v=046.3", false],
   ["/legacy/v040-assets.js?v=046.3", false],
-  ["/legacy/excalidraw-dist/rtm-canvas.js?v=049.1", true],
-  ["/legacy/v046-canvas.js?v=049.1", false],
-  ["/legacy/v047-api.js?v=049.1", false],
-  ["/legacy/v049.js?v=049.1", false],
+  ["/legacy/excalidraw-dist/rtm-canvas.js?v=049.1.0", true],
+  ["/legacy/v046-canvas.js?v=049.1.0", false],
+  ["/legacy/v047-api.js?v=049.1.0", false],
+  ["/legacy/v049.js?v=049.1.0", false],
 ];
 
 function loadScript(src, module) {
@@ -39,7 +39,7 @@ export function LegacyReactHost() {
 
   useEffect(() => {
     let active = true;
-    fetch("/legacy/index.html?v=049.1")
+    fetch("/legacy/index.html?v=049.1.0", { cache: "no-store" })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.text();
@@ -58,6 +58,7 @@ export function LegacyReactHost() {
     if (!markup) return;
     window.__RTM_V48__ = true;
     window.__RTM_V49__ = true;
+    window.__RTM_VERSION__ = "49.1";
     window.__RTM_STANDALONE__ =
       new URLSearchParams(window.location.search).get("rtm_fullscreen") === "1";
 
@@ -72,14 +73,14 @@ export function LegacyReactHost() {
     (async () => {
       try {
         for (const [src, module] of LEGACY_SCRIPTS) await loadScript(src, module);
-        document.documentElement.dataset.rtmVersion = "49";
+        document.documentElement.dataset.rtmVersion = "49.1";
       } catch (cause) {
         setError(String(cause.message || cause));
       }
     })();
   }, [markup]);
 
-  if (error) return <div className="v48-load-error">Ошибка запуска v49: {error}</div>;
+  if (error) return <div className="v48-load-error">Ошибка запуска v49.1: {error}</div>;
   if (!markup) return <div className="v48-loading">Запускаем RTM обучение…</div>;
   return <div className="v48-react-host" dangerouslySetInnerHTML={{ __html: markup }} />;
 }

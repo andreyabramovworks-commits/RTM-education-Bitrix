@@ -47,7 +47,7 @@ type DialogState = { kind: MediaKind; source: "url" | "stock" } | null;
 
 const roots = new Map<HTMLElement, Root>();
 const COMPLETE_LINK = "#rtm-complete-material";
-const COMPLETE_TEXT = /^\s*завершить\s*$/i;
+const COMPLETE_TEXT = /^\s*завершить(?:\s+материал)?\s*[!.]?\s*$/i;
 const RTM_FONT_IDS = { Architexture: 20, Manrope: 21, Montserrat: 22, Oswald: 23 } as const;
 const EXCALIDRAW_FONT_OPTIONS = [["Excalifont", 5], ["Nunito", 6], ["Lilita One", 7], ["Comic Shanns", 8]] as const;
 const RTM_FONT_OPTIONS = Object.entries(RTM_FONT_IDS) as [keyof typeof RTM_FONT_IDS, number][];
@@ -110,24 +110,50 @@ const normalizeCompletion = (elements: readonly any[]) => {
   } : el);
 };
 
+const completionScore = (marker: any, elements: readonly any[]) => {
+  const groups = new Set(marker?.groupIds || []);
+  const members = elements.filter((el: any) => !el.isDeleted && (el.id === marker?.id || (el.groupIds || []).some((id: string) => groups.has(id))));
+  const hasReminder = members.some((el: any) => el.type === "text" && /не забудьте|следующему материалу/i.test(String(el.text || el.originalText || "")));
+  const hasCard = members.some((el: any) => el.type === "rectangle" && Number(el.width || 0) >= 320 && Number(el.height || 0) >= 110);
+  return (marker?.customData?.rtmCompletionCard ? 200 : 0) + (hasReminder ? 100 : 0) + (hasCard ? 50 : 0) - Number(marker?.width || 0) / 1000;
+};
+
+const dedupeCompletion = (elements: readonly any[]) => {
+  const markers = elements.filter(isCompleteMarker);
+  if (markers.length < 2) return elements;
+  const preferred = [...markers].sort((a: any, b: any) => completionScore(b, elements) - completionScore(a, elements))[0];
+  const duplicateGroups = new Set(markers.filter((el: any) => el.id !== preferred.id).flatMap((el: any) => el.groupIds || []));
+  const duplicateIds = new Set(markers.filter((el: any) => el.id !== preferred.id).map((el: any) => el.id));
+  return elements.map((el: any) => {
+    const inDuplicateGroup = (el.groupIds || []).some((id: string) => duplicateGroups.has(id));
+    if (!duplicateIds.has(el.id) && !(inDuplicateGroup && (el.customData?.rtmProtectedCompletion || el.customData?.rtmCompletionCard || el.customData?.rtmActionLabel))) return el;
+    return { ...el, isDeleted: true, version: Number(el.version || 1) + 1, updated: Date.now() };
+  });
+};
+
 const createRequiredCompletion = (elements: readonly any[]) => {
-  const visible = elements.filter((el: any) => !el.isDeleted);
-  const minX = visible.length ? Math.min(...visible.map((el: any) => Number(el.x || 0))) : 80;
-  const maxY = visible.length ? Math.max(...visible.map((el: any) => Number(el.y || 0) + Number(el.height || 0))) : 72;
-  const x = minX;
-  const y = maxY + 72;
+  const visible = elements.filter((el: any) => !el.isDeleted && el.type !== "frame" && !el.customData?.rtmProtectedCompletion);
+  const last = [...visible].sort((a: any, b: any) => (Number(b.y || 0) + Number(b.height || 0)) - (Number(a.y || 0) + Number(a.height || 0)))[0];
+  const targetFrame = last?.frameId ? elements.find((el: any) => !el.isDeleted && el.id === last.frameId && el.type === "frame") : null;
+  const cardWidth = 430, cardHeight = 150;
+  const fallbackX = last ? Number(last.x || 0) + (Number(last.width || cardWidth) - cardWidth) / 2 : 80;
+  const fallbackY = last ? Number(last.y || 0) + Number(last.height || 0) + 52 : 72;
+  const hasFrameRoom = targetFrame && fallbackY + cardHeight <= Number(targetFrame.y || 0) + Number(targetFrame.height || 0) - 18;
+  const x = targetFrame ? Number(targetFrame.x || 0) + (Number(targetFrame.width || cardWidth) - cardWidth) / 2 : fallbackX;
+  const y = fallbackY;
+  const frameId = hasFrameRoom ? targetFrame.id : null;
   const groupId = elementId(), cardId = elementId(), noteId = elementId(), boxId = elementId(), textId = elementId();
   const created = convertToExcalidrawElements([
-    { type: "rectangle", id: cardId, x, y, width: 520, height: 190, strokeColor: "#1e1e1e", backgroundColor: "#e9ecef", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId] },
-    { type: "text", id: noteId, x: x + 34, y: y + 26, width: 452, height: 58, text: "Не забудьте нажать кнопку завершить, чтобы\nполучить доступ к следующему материалу!", originalText: "Не забудьте нажать кнопку завершить, чтобы\nполучить доступ к следующему материалу!", fontSize: 20, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#1e1e1e", groupIds: [groupId] },
-    { type: "rectangle", id: boxId, x: x + 164, y: y + 108, width: 192, height: 58, strokeColor: "#1e3a5f", backgroundColor: "#a5d8ff", fillStyle: "solid", strokeStyle: "dashed", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true, rtmCompletionVersion: 49 } },
-    { type: "text", id: textId, x: x + 180, y: y + 122, width: 160, height: 34, text: "Завершить", originalText: "Завершить", fontSize: 25, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#1971c2", groupIds: [groupId], customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionVersion: 49 } },
+    { type: "rectangle", id: cardId, x, y, width: cardWidth, height: cardHeight, strokeColor: "#1e1e1e", backgroundColor: "#e9ecef", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId },
+    { type: "text", id: noteId, x: x + 28, y: y + 21, width: 374, height: 48, text: "Не забудьте нажать кнопку завершить, чтобы\nполучить доступ к следующему материалу!", originalText: "Не забудьте нажать кнопку завершить, чтобы\nполучить доступ к следующему материалу!", fontSize: 17, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#1e1e1e", groupIds: [groupId], frameId },
+    { type: "rectangle", id: boxId, x: x + 146, y: y + 88, width: 138, height: 44, strokeColor: "#1e3a5f", backgroundColor: "#a5d8ff", fillStyle: "solid", strokeStyle: "dashed", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId, link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 49.1 } },
+    { type: "text", id: textId, x: x + 155, y: y + 98, width: 120, height: 28, text: "Завершить", originalText: "Завершить", fontSize: 20, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#1971c2", groupIds: [groupId], frameId, customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 49.1 } },
   ] as any, { regenerateIds: false }) as any[];
-  return created.map((el: any) => ({ ...el, groupIds: [groupId], customData: { ...(el.customData || {}), rtmProtectedCompletion: true } }));
+  return created.map((el: any) => ({ ...el, groupIds: [groupId], frameId, customData: { ...(el.customData || {}), rtmProtectedCompletion: true, rtmCompletionCard: true } }));
 };
 
 const ensureRequiredCompletion = (elements: readonly any[]) => {
-  const normalized = [...normalizeCompletion(elements)] as any[];
+  const normalized = [...dedupeCompletion(normalizeCompletion(elements))] as any[];
   const direct = normalized.find(isCompleteMarker);
   if (direct) {
     const groups = new Set(direct.groupIds || []);
@@ -349,6 +375,18 @@ function MediaDialog({ state, onClose, onInsert }: { state: DialogState; onClose
   );
 }
 
+type HandIconKind = "media" | "link" | "upload" | "import" | "expand" | "phone";
+
+function HandIcon({ kind }: { kind: HandIconKind }) {
+  const common = { className: "rtm-hand-icon", viewBox: "0 0 28 28", "aria-hidden": true } as const;
+  if (kind === "media") return <svg {...common}><circle cx="14" cy="14" r="10.5" /><path d="m11.5 9 7.5 5-7.5 5Z" /></svg>;
+  if (kind === "link") return <svg {...common}><circle cx="14" cy="14" r="10.5" /><path d="M14 9v10M9 14h10" /></svg>;
+  if (kind === "upload") return <svg {...common}><circle cx="14" cy="14" r="10.5" /><path d="M14 6.5v12M9.5 14l4.5 4.5 4.5-4.5M9 21.5h10" /></svg>;
+  if (kind === "import") return <svg {...common}><path d="M10 8.5v-1a4 4 0 0 1 8 0v11a5 5 0 0 1-10 0V8a3 3 0 0 1 6 0v9.5a1.5 1.5 0 0 1-3 0V10" /></svg>;
+  if (kind === "phone") return <svg {...common}><rect x="8.5" y="3.5" width="11" height="21" rx="2" /><path d="M12 6h4M13 21.5h2" /></svg>;
+  return <svg {...common}><path d="M10 4H4v6M18 4h6v6M10 24H4v-6M18 24h6v-6" /></svg>;
+}
+
 function MobilePreview({ scene, onClose }: { scene: RTMScene; onClose: () => void }) {
   const hostRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -486,10 +524,26 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const api = apiRef.current;
     if (!api || !Array.isArray(data?.elements)) return false;
     const existing = api.getSceneElements();
-    const incoming = data.elements.filter((el: any) => el && el.id && !el.isDeleted).map((el: any) => ({ ...el })) as any[];
+    const incoming = data.elements.filter((el: any) => el && el.id && !el.isDeleted).map((el: any) => typeof structuredClone === "function" ? structuredClone(el) : JSON.parse(JSON.stringify(el))) as any[];
     if (!incoming.length) return false;
-    const existingIds = new Set(existing.map((el: any) => el.id));
-    if (incoming.some((el: any) => existingIds.has(el.id))) incoming.forEach((el: any) => { el.id = elementId(); });
+    const idMap = new Map<string, string>(incoming.map((el: any) => [String(el.id), elementId()]));
+    const groupMap = new Map<string, string>();
+    incoming.forEach((el: any) => (el.groupIds || []).forEach((id: string) => { if (!groupMap.has(id)) groupMap.set(id, elementId()); }));
+    const fileMap = new Map<string, string>(Object.keys(data.files || {}).map((id) => [id, elementId()]));
+    incoming.forEach((el: any) => {
+      const oldId = String(el.id);
+      el.id = idMap.get(oldId);
+      el.groupIds = (el.groupIds || []).map((id: string) => groupMap.get(id) || id);
+      el.frameId = el.frameId ? idMap.get(String(el.frameId)) || null : null;
+      el.containerId = el.containerId ? idMap.get(String(el.containerId)) || null : null;
+      el.boundElements = (el.boundElements || []).map((item: any) => ({ ...item, id: idMap.get(String(item.id)) })).filter((item: any) => item.id);
+      if (el.startBinding?.elementId) el.startBinding = { ...el.startBinding, elementId: idMap.get(String(el.startBinding.elementId)) || null };
+      if (el.endBinding?.elementId) el.endBinding = { ...el.endBinding, elementId: idMap.get(String(el.endBinding.elementId)) || null };
+      if (el.fileId && fileMap.has(String(el.fileId))) el.fileId = fileMap.get(String(el.fileId));
+      el.seed = Math.floor(Math.random() * 2147483647);
+      el.versionNonce = Math.floor(Math.random() * 2147483647);
+      el.updated = Date.now();
+    });
     const appState = api.getAppState();
     const rect = stageRef.current?.getBoundingClientRect();
     const zoom = Number(appState.zoom?.value || appState.zoom || 1);
@@ -502,8 +556,10 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const dx = sceneCenterX - (minX + maxX) / 2;
     const dy = sceneCenterY - (minY + maxY) / 2;
     incoming.forEach((el: any) => { el.x = Number(el.x || 0) + dx; el.y = Number(el.y || 0) + dy; });
-    if (data.files) api.addFiles?.(Object.values(data.files) as any);
+    if (data.files) api.addFiles?.(Object.entries(data.files).map(([id, file]: [string, any]) => ({ ...file, id: fileMap.get(id) || id })) as any);
     api.updateScene({ elements: [...existing, ...incoming], appState: { selectedElementIds: Object.fromEntries(incoming.map((el: any) => [el.id, true])) } });
+    api.scrollToContent?.(incoming, { fitToContent: false });
+    setSaveState("Макет вставлен — черновик будет сохранён автоматически");
     return true;
   };
 
@@ -540,11 +596,22 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
 
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
-      if (readOnly || !stageRef.current?.contains(event.target as Node)) return;
-      const raw = event.clipboardData?.getData("text/plain")?.trim() || "";
+      if (readOnly) return;
+      const target = event.target as HTMLElement | null;
+      const editingText = Boolean(target?.closest("input,textarea,select,[contenteditable=true]"));
+      const raw = (event.clipboardData?.getData("application/vnd.excalidraw+json") || event.clipboardData?.getData("text/plain") || "").trim();
       if (!raw) return;
-      if (/^https?:\/\/\S+$/i.test(raw)) { event.preventDefault(); event.stopImmediatePropagation(); addMedia({ kind: "link", url: raw, title: raw }); return; }
-      try { const data = JSON.parse(raw); if (data?.type === "excalidraw/clipboard" || data?.type === "excalidraw") { event.preventDefault(); event.stopImmediatePropagation(); importScene(data); } } catch { /* regular text is handled by Excalidraw */ }
+      try {
+        const data = JSON.parse(raw);
+        if (data?.type === "excalidraw/clipboard" || data?.type === "excalidraw") {
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+          importScene(data);
+          return;
+        }
+      } catch { /* regular text is handled by Excalidraw */ }
+      if (!editingText && stageRef.current?.contains(target) && /^https?:\/\/\S+$/i.test(raw)) { event.preventDefault(); event.stopImmediatePropagation(); addMedia({ kind: "link", url: raw, title: raw }); }
     };
     window.addEventListener("paste", onPaste, true);
     return () => window.removeEventListener("paste", onPaste, true);
@@ -579,12 +646,12 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
         <label className="rtm-font-select rtm-icon-control" title="Список шрифтов"><select aria-label="Список шрифтов" value={selectedFont} onChange={(event) => applyFont(Number(event.target.value))}><optgroup label="Штатные Excalidraw">{EXCALIDRAW_FONT_OPTIONS.map(([name, id]) => <option key={id} value={id}>{name}</option>)}</optgroup><optgroup label="Шрифты RTM">{RTM_FONT_OPTIONS.map(([name, id]) => <option key={id} value={id}>{name}</option>)}</optgroup></select></label>
         <button type="button" title="Маркированный список" onClick={() => makeList(false)}><span className="rtm-hand-list">▪<i></i>▪<i></i>▪<i></i></span></button>
         <button type="button" title="Нумерованный список" onClick={() => makeList(true)}><span className="rtm-hand-list numbered">1<i></i>2<i></i>3<i></i></span></button>
-        <button type="button" className="rtm-hand-circle" title="Ссылка на видео или аудио" onClick={requestMediaUrl}>▷</button>
-        <button type="button" className="rtm-hand-circle" title="Ссылка" onClick={() => setDialog({ kind: "link", source: "url" })}>+</button>
-        <button type="button" className="rtm-hand-circle" title="Файл с ПК или Bitrix.Диска" onClick={() => requestDisk("video")}>⇩</button>
-        <label className="rtm-canvas-import rtm-hand-circle" title="Импорт макета">⌾<input type="file" accept=".excalidraw,application/json" onChange={(event) => { handleImportFile(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>
-        <button type="button" className="rtm-hand-expand" title={editorFullscreen ? "Свернуть" : "Развернуть редактор"} aria-pressed={editorFullscreen} onClick={() => setEditorFullscreen((value) => !value)}>⌗</button>
-        <button type="button" className="rtm-mobile-preview-open" title="Мобильный предпросмотр" onClick={() => setMobilePreview(true)}>▯</button>
+        <button type="button" className="rtm-hand-circle" title="Ссылка на видео или аудио" onClick={requestMediaUrl}><HandIcon kind="media" /></button>
+        <button type="button" className="rtm-hand-circle" title="Ссылка" onClick={() => setDialog({ kind: "link", source: "url" })}><HandIcon kind="link" /></button>
+        <button type="button" className="rtm-hand-circle" title="Файл с ПК или Bitrix.Диска" onClick={() => requestDisk("video")}><HandIcon kind="upload" /></button>
+        <label className="rtm-canvas-import rtm-hand-circle" title="Импорт макета"><HandIcon kind="import" /><input type="file" accept=".excalidraw,application/json" onChange={(event) => { handleImportFile(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>
+        <button type="button" className="rtm-hand-expand" title={editorFullscreen ? "Свернуть" : "Развернуть редактор"} aria-pressed={editorFullscreen} onClick={() => setEditorFullscreen((value) => !value)}><HandIcon kind="expand" /></button>
+        <button type="button" className="rtm-mobile-preview-open" title="Мобильный предпросмотр" onClick={() => setMobilePreview(true)}><HandIcon kind="phone" /></button>
         {saveState && <span className={`rtm-canvas-save-state ${saveState.includes("Ошибка") || saveState.includes("ожидаю") ? "is-error" : ""}`}>{saveState}</span>}
         <button type="button" className="rtm-canvas-save" onClick={save}>Сохранить статью</button>
       </div>}
