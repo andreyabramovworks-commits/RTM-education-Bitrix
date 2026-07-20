@@ -171,7 +171,7 @@ body.is-busy{overflow-y:auto!important}
 .v49-user-analytics{max-height:min(78dvh,860px);overflow-y:auto;padding-right:5px}.v49-user-hero{display:flex;align-items:center;gap:14px}.v49-user-hero .avatar-mini{width:52px;height:52px;font-size:18px}.v49-user-hero h2,.v49-user-hero p{margin:0}.v49-user-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:18px 0}.v49-user-meta span{display:grid;gap:4px;padding:12px;border:1px solid #e2e8f0;border-radius:12px}.v49-user-meta b{font-size:11px;color:#64748b;text-transform:uppercase}.v49-user-courses{display:grid;gap:9px}.v49-user-course{display:grid;grid-template-columns:minmax(150px,1fr) minmax(120px,2fr) 48px;align-items:center;gap:12px;padding:11px;border:1px solid #e2e8f0;border-radius:12px}.v49-user-course>div:first-child{display:grid}.v49-user-course span{font-size:12px;color:#64748b}.v49-user-course .progress{height:8px;overflow:hidden;border-radius:999px;background:#e2e8f0}.v49-user-course .progress span{display:block;height:100%;background:#22c55e}
 
 @media(max-width:800px){
-  #v41AppFullscreen,.v41-fullscreen-btn{display:inline-grid!important}
+  #v41AppFullscreen,.v41-fullscreen-btn{display:none!important}
   #userMaterialView.is-excalidraw-article{height:auto!important;min-height:100dvh!important;overflow:visible!important;padding:0 4px 76px!important}
   #userMaterialView.is-excalidraw-article>.reader-card,.v42-reader-layout,.v42-reader-layout .v40-reader-canvas{height:auto!important;min-height:calc(100dvh - 70px)!important;overflow:visible!important}
   .v49-mobile-scene{position:relative;width:100%;min-height:calc(100dvh - 76px);padding:0 4px 74px;box-sizing:border-box;background:#f8fafc}
