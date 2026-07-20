@@ -24,7 +24,7 @@ function App() {
       {legacy47 ? (
         <iframe
           className="legacy-app"
-          src={`/legacy/index.html?rtm_fullscreen=1${inBitrix ? "&v47=1" : ""}`}
+          src={`/legacy/index.html?rtm_fullscreen=1&v=049.2.8${inBitrix ? "&v47=1" : ""}`}
           title="RTM Education v47"
         />
       ) : <LegacyReactHost />}
