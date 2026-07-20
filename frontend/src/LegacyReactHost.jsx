@@ -20,7 +20,7 @@ const LEGACY_SCRIPTS = [
   ["/legacy/v046-canvas.js?v=049.2.8", false],
   ["/legacy/v047-api.js?v=049.2.8", false],
   ["/legacy/v049.js?v=049.2.8", false],
-  ["/legacy/v0492.js?v=049.2.11", false],
+  ["/legacy/v0492.js?v=049.2.13", false],
 ];
 
 function loadScript(src, module) {
