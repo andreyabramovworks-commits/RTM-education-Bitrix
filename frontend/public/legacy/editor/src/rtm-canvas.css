@@ -129,6 +129,9 @@
 }
 
 .rtm-media-overlay audio { padding: 0; box-sizing: border-box; background: transparent; }
+.rtm-reader-zoom{position:absolute;right:10px;bottom:10px;z-index:14;display:flex;gap:5px;padding:4px;border-radius:13px;background:rgba(248,250,252,.9);box-shadow:0 5px 18px rgba(15,23,42,.16)}
+.rtm-reader-zoom button{width:44px;height:44px;display:grid;place-items:center;padding:0;border:1px solid #d6dde8;border-radius:10px;background:#fff;color:#111;font:700 21px Arial;cursor:pointer}
+.rtm-reader-zoom .rtm-hand-icon{width:22px;height:22px}
 .rtm-media-badge {
   position: absolute;
   top: 8px;
@@ -199,12 +202,17 @@
 .rtm-hand-toolbar button,.rtm-hand-toolbar .rtm-canvas-import,.rtm-hand-toolbar .rtm-font-select{width:38px;min-width:38px;height:38px;min-height:38px;padding:0;border:0;border-radius:0;background:#fff;color:#111;font:400 24px/1 Excalifont,Virgil,Arial,sans-serif;box-shadow:none;display:inline-grid;place-items:center}
 .rtm-hand-toolbar button+button,.rtm-hand-toolbar button+.rtm-canvas-import,.rtm-hand-toolbar .rtm-canvas-import+.rtm-hand-expand{border-left:1px solid #111}
 .rtm-hand-toolbar button:hover,.rtm-hand-toolbar .rtm-canvas-import:hover{background:#f1f5f9;transform:none}
-.rtm-hand-toolbar .rtm-font-select{width:92px;min-width:92px;margin:0 4px;border:2px solid #111;border-radius:1px}
-.rtm-hand-toolbar .rtm-font-select select{width:100%;max-width:none;padding:0 6px;border:0;background:#fff;font:400 17px Excalifont,Virgil,Arial}
+.rtm-hand-toolbar .rtm-font-select{position:relative;width:112px;min-width:112px;margin:0 4px;border:2px solid #111;border-radius:1px}
+.rtm-hand-toolbar .rtm-font-select .rtm-font-trigger{width:100%;min-width:0;padding:0 7px;display:flex;align-items:center;justify-content:space-between;border:0;font-size:15px;white-space:nowrap;overflow:hidden}
+.rtm-font-options{position:absolute;z-index:120;top:40px;left:-2px;width:190px;max-height:360px;padding:6px;overflow:auto;border:2px solid #111;background:#fff;box-shadow:4px 5px 0 rgba(30,30,30,.16)}
+.rtm-hand-toolbar .rtm-font-options b{display:block;padding:6px 7px 3px;font:700 11px Manrope,Arial;color:#475569;text-align:left}
+.rtm-hand-toolbar .rtm-font-options button{width:100%;height:30px;min-height:30px;padding:0 8px;display:block;border:0;text-align:left;font-size:16px;border-radius:0}
+.rtm-hand-toolbar .rtm-font-options button[aria-selected=true]{color:#fff;background:#2563eb}
 .rtm-hand-toolbar .rtm-hand-circle{width:40px;min-width:40px;font-size:25px;border-radius:50%}
 .rtm-hand-toolbar .rtm-hand-expand{margin-left:3px;border-left:2px solid #111;font-size:28px}
 .rtm-hand-toolbar .rtm-mobile-preview-open{font-size:28px;border-left:1px solid #111}
-.rtm-hand-toolbar .rtm-canvas-save{width:auto;min-width:174px;margin-left:auto;padding:0 15px;border:2px solid #1e1e1e;border-radius:7px;background:#b2f2bb;color:#111;font:400 19px Excalifont,Virgil,Arial;box-shadow:2px 2px 0 rgba(30,30,30,.16)}
+.rtm-hand-toolbar .rtm-canvas-save{width:auto;min-width:174px;margin-left:0;padding:0 15px;border:2px solid #1e1e1e;border-radius:7px;background:#b2f2bb;color:#111;font:400 19px Excalifont,Virgil,Arial;box-shadow:2px 2px 0 rgba(30,30,30,.16)}
+.rtm-hand-toolbar .rtm-canvas-save-state{margin-left:auto}
 .rtm-hand-toolbar .rtm-canvas-save:hover{background:#96edaa;border-color:#111}
 .rtm-hand-icon{width:27px;height:27px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
 .rtm-hand-list{width:31px;height:29px;display:grid;grid-template-columns:8px 1fr;grid-template-rows:repeat(3,1fr);align-items:center;font:700 10px/1 Arial}

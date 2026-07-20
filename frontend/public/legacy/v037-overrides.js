@@ -334,7 +334,7 @@ function rtmVideoEmbed(url){
   m=u.match(/rutube\.ru\/video\/private\/([a-z0-9]+)/i);
   if(m){var key=(u.match(/[?&]p=([^&]+)/i)||[])[1];return 'https://rutube.ru/play/embed/'+m[1]+(key?'/?p='+encodeURIComponent(key):'')}
   m=u.match(/rutube\.ru\/video\/([a-z0-9]+)/i);
-  if(m)return 'https://rutube.ru/play/embed/'+m[1];
+  if(m)return 'https://rutube.ru/play/embed/'+m[1]+'/';
   if(u.indexOf('rutube.ru/play/embed/')>=0)return u;
   return '';
 }

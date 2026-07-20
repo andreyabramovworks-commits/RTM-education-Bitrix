@@ -29,6 +29,7 @@ class AppUser(SQLModel, table=True):
     first_name: str = Field(default="", max_length=160)
     last_name: str = Field(default="", max_length=160)
     role: str = Field(default="student", max_length=20)
+    manual_role: str = Field(default="student", max_length=20)
     is_bitrix_admin: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
     active: bool = Field(default=True, sa_column=Column(Boolean, nullable=False))
     created_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
@@ -115,6 +116,28 @@ class ArticleDraft(SQLModel, table=True):
     revision: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
     updated_by: int | None = Field(default=None, foreign_key="app_users.id", index=True)
     updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class DeveloperWorkspace(SQLModel, table=True):
+    __tablename__ = "developer_workspaces"
+
+    id: int | None = Field(default=None, primary_key=True)
+    owner_bitrix_user_id: str = Field(index=True, unique=True, max_length=40)
+    scene: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    revision: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
+    updated_by: int | None = Field(default=None, foreign_key="app_users.id", index=True)
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class DeveloperWorkspaceRevision(SQLModel, table=True):
+    __tablename__ = "developer_workspace_revisions"
+    __table_args__ = (UniqueConstraint("workspace_id", "revision", name="uq_developer_workspace_revision"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    workspace_id: int = Field(foreign_key="developer_workspaces.id", index=True)
+    revision: int = Field(sa_column=Column(BigInteger, nullable=False))
+    scene: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    created_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
 
 
 class KnowledgeTest(SQLModel, table=True):

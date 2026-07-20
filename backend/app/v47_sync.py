@@ -320,10 +320,19 @@ def sync_normalized(session: Session) -> None:
 
     for source in by_entity.get("rtm_roles", []):
         user = users.get(str(source.properties.get("userId") or ""))
-        if not user or user.is_bitrix_admin:
+        if not user or user.is_bitrix_admin or user.bitrix_user_id == "36":
             continue
         legacy_role = str(source.properties.get("role") or "employee")
-        user.role = "editor" if legacy_role in {"editor", "moderator"} else "student"
+        mapped_role = {
+            "admin": "admin",
+            "editor": "editor",
+            "moderator": "editor",
+            "teacher": "teacher",
+            "employee": "student",
+            "student": "student",
+        }.get(legacy_role, "student")
+        user.manual_role = mapped_role
+        user.role = mapped_role
         user.updated_at = utcnow()
         session.add(user)
     session.flush()

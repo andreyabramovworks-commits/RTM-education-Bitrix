@@ -7,7 +7,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from app.bitrix_auth import BitrixIdentity, require_admin, require_bitrix_identity
 from app.database import get_session
 from app.main import app
-from app.models import AppUser, Article, ExcalidrawScene, LegacyRecord
+from app.models import AppUser, Article, DeveloperWorkspace, DeveloperWorkspaceRevision, ExcalidrawScene, LegacyRecord
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -23,7 +23,7 @@ def admin_override():
     with Session(engine) as session:
         user = session.exec(select(AppUser).where(AppUser.bitrix_user_id == "36")).first()
         if user is None:
-            user = AppUser(bitrix_user_id="36", first_name="Андрей", role="admin", is_bitrix_admin=True)
+            user = AppUser(bitrix_user_id="36", first_name="Андрей", role="developer", manual_role="developer", is_bitrix_admin=True)
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -40,8 +40,20 @@ def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert "rtm_release=49.1.0" in response.text
-    assert "RTM Education v49.1" in response.text
+    assert "rtm_release=49.2.0" in response.text
+    assert "RTM Education v49.2" in response.text
+
+
+def test_developer_workspace_is_versioned() -> None:
+    first = {"type": "excalidraw", "version": 2, "elements": [{"id": "one"}], "appState": {}, "files": {}}
+    second = {"type": "excalidraw", "version": 2, "elements": [{"id": "two"}], "appState": {}, "files": {}}
+    assert client.put("/api/v47/developer-workspace", json={"scene": first}).json()["revision"] == 1
+    assert client.put("/api/v47/developer-workspace", json={"scene": second}).json()["revision"] == 2
+    assert client.get("/api/v47/developer-workspace").json()["scene"] == second
+    with Session(engine) as session:
+        workspace = session.exec(select(DeveloperWorkspace)).one()
+        revision = session.exec(select(DeveloperWorkspaceRevision).where(DeveloperWorkspaceRevision.workspace_id == workspace.id)).one()
+        assert revision.scene == first
 
 
 def test_session_bootstrap_sets_secure_http_only_cookie() -> None:
@@ -160,6 +172,35 @@ def test_student_cannot_create_course() -> None:
     try:
         response = client.post("/api/v47/legacy/rtm_items", json={"name": "Denied", "properties": {"type": "course"}})
         assert response.status_code == 403
+    finally:
+        app.dependency_overrides[require_bitrix_identity] = admin_override
+
+
+def test_role_hierarchy_enforces_editor_and_teacher_boundaries() -> None:
+    def identity_override(bitrix_id: str, role: str):
+        def override():
+            with Session(engine) as session:
+                user = session.exec(select(AppUser).where(AppUser.bitrix_user_id == bitrix_id)).first()
+                if user is None:
+                    user = AppUser(bitrix_user_id=bitrix_id, first_name=role.title(), role=role, manual_role=role)
+                    session.add(user)
+                    session.commit()
+                    session.refresh(user)
+                return BitrixIdentity(user=user, access_token="test", domain="rtm-group.bitrix24.ru")
+        return override
+
+    app.dependency_overrides[require_bitrix_identity] = identity_override("editor-1", "editor")
+    try:
+        assert client.post("/api/v47/legacy/rtm_items", json={"name": "Editor course", "properties": {"type": "course"}}).status_code == 201
+        assert client.post("/api/v47/legacy/rtm_roles", json={"name": "Forbidden role", "properties": {"userId": "x", "role": "admin"}}).status_code == 403
+    finally:
+        app.dependency_overrides[require_bitrix_identity] = admin_override
+
+    app.dependency_overrides[require_bitrix_identity] = identity_override("teacher-1", "teacher")
+    try:
+        assert client.get("/api/v47/legacy/rtm_items").status_code == 200
+        assert client.post("/api/v47/legacy/rtm_items", json={"name": "Forbidden", "properties": {"type": "article"}}).status_code == 403
+        assert client.post("/api/v47/legacy/rtm_assigns", json={"name": "Teacher assignment", "properties": {"userId": "student-1"}}).status_code == 201
     finally:
         app.dependency_overrides[require_bitrix_identity] = admin_override
 

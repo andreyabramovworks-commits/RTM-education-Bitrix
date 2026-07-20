@@ -17,10 +17,13 @@ from app.models import (
     Article,
     Course,
     CourseSection,
+    DeveloperWorkspace,
+    DeveloperWorkspaceRevision,
     ExcalidrawScene,
     KnowledgeTest,
     LegacyRecord,
     Project,
+    TestAttempt,
     utcnow,
 )
 from app.v47_sync import sync_normalized
@@ -83,8 +86,18 @@ class SceneWrite(BaseModel):
     title: str = ""
 
 
+def _assert_developer(identity: BitrixIdentity) -> None:
+    if identity.user.role != "developer" or identity.user.bitrix_user_id != "36":
+        raise HTTPException(status_code=403, detail="Developer workspace is private")
+
+
+def _assert_attempt_manager(identity: BitrixIdentity) -> None:
+    if identity.user.role not in {"developer", "admin", "editor", "teacher"}:
+        raise HTTPException(status_code=403, detail="Attempt management role is required")
+
+
 def _assert_editor(identity: BitrixIdentity) -> None:
-    if identity.user.role not in {"admin", "editor"}:
+    if identity.user.role not in {"developer", "admin", "editor"}:
         raise HTTPException(status_code=403, detail="Editor role is required")
 
 
@@ -151,7 +164,7 @@ def _ensure_user(session: Session, imported: ImportedUser) -> AppUser:
     bitrix_id = str(imported.ID)
     user = session.exec(select(AppUser).where(AppUser.bitrix_user_id == bitrix_id)).first()
     if user is None:
-        user = AppUser(bitrix_user_id=bitrix_id, role="student")
+        user = AppUser(bitrix_user_id=bitrix_id, role="student", manual_role="student")
     user.first_name = imported.NAME
     user.last_name = imported.LAST_NAME
     user.email = imported.EMAIL
@@ -298,9 +311,11 @@ def _seed_demo(session: Session) -> None:
 
 
 def _assert_write(identity: BitrixIdentity, entity: str, properties: dict[str, Any]) -> None:
-    if identity.user.role in {"admin", "editor"}:
-        if entity == "rtm_roles" and identity.user.role != "admin":
+    if identity.user.role in {"developer", "admin", "editor"}:
+        if entity == "rtm_roles" and identity.user.role not in {"developer", "admin"}:
             raise HTTPException(status_code=403, detail="Only administrators may assign roles")
+        return
+    if identity.user.role == "teacher" and entity in {"rtm_assigns", "rtm_progress", "rtm_events", "rtm_attempts"}:
         return
     if entity not in {"rtm_progress", "rtm_events", "rtm_attempts"}:
         raise HTTPException(status_code=403, detail="This operation requires editor role")
@@ -351,7 +366,7 @@ def proxy_bitrix_call(
     if payload.method not in allowed:
         raise HTTPException(status_code=403, detail="Bitrix24 method is not allowed")
     privileged = {"tasks.task.add", "im.notify.personal.add", "disk.storage.uploadfile", "disk.folder.uploadfile"}
-    if payload.method in privileged and identity.user.role not in {"admin", "editor"}:
+    if payload.method in privileged and identity.user.role not in {"developer", "admin", "editor", "teacher"}:
         raise HTTPException(status_code=403, detail="Editor role is required")
     return {"data": bitrix_call(identity, payload.method, payload.params)}
 
@@ -363,6 +378,73 @@ def v47_status(
 ) -> dict[str, Any]:
     records = session.exec(select(LegacyRecord)).all()
     return {"version": "v47", "records": len(records), "needs_import": not records, "role": identity.user.role}
+
+
+@router.get("/developer-workspace")
+def get_developer_workspace(
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    _assert_developer(identity)
+    workspace = session.exec(select(DeveloperWorkspace).where(
+        DeveloperWorkspace.owner_bitrix_user_id == "36",
+    )).first()
+    if workspace is None:
+        return {"scene": {"type": "excalidraw", "version": 2, "elements": [], "appState": {}, "files": {}}, "revision": 0}
+    return {"scene": workspace.scene, "revision": workspace.revision, "updated_at": workspace.updated_at}
+
+
+@router.put("/developer-workspace")
+def save_developer_workspace(
+    payload: SceneWrite,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    _assert_developer(identity)
+    workspace = session.exec(select(DeveloperWorkspace).where(
+        DeveloperWorkspace.owner_bitrix_user_id == "36",
+    )).first()
+    if workspace is None:
+        workspace = DeveloperWorkspace(owner_bitrix_user_id="36", updated_by=identity.user.id)
+        session.add(workspace)
+        session.flush()
+    elif workspace.scene:
+        session.add(DeveloperWorkspaceRevision(
+            workspace_id=workspace.id,
+            revision=workspace.revision,
+            scene=workspace.scene,
+        ))
+        session.flush()
+    workspace.scene = payload.scene
+    workspace.revision += 1
+    workspace.updated_by = identity.user.id
+    workspace.updated_at = utcnow()
+    session.add(workspace)
+    session.flush()
+    revisions = session.exec(select(DeveloperWorkspaceRevision).where(
+        DeveloperWorkspaceRevision.workspace_id == workspace.id,
+    ).order_by(DeveloperWorkspaceRevision.revision.desc())).all()
+    for stale in revisions[30:]:
+        session.delete(stale)
+    session.commit()
+    return {"saved": True, "revision": workspace.revision, "updated_at": workspace.updated_at}
+
+
+@router.get("/developer-workspace/revisions")
+def list_developer_workspace_revisions(
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> list[dict[str, Any]]:
+    _assert_developer(identity)
+    workspace = session.exec(select(DeveloperWorkspace).where(
+        DeveloperWorkspace.owner_bitrix_user_id == "36",
+    )).first()
+    if workspace is None:
+        return []
+    rows = session.exec(select(DeveloperWorkspaceRevision).where(
+        DeveloperWorkspaceRevision.workspace_id == workspace.id,
+    ).order_by(DeveloperWorkspaceRevision.revision.desc())).all()
+    return [{"revision": row.revision, "created_at": row.created_at} for row in rows]
 
 
 @router.post("/import", status_code=status.HTTP_201_CREATED)
@@ -595,6 +677,7 @@ def list_users(
     return [{
         "ID": user.bitrix_user_id, "NAME": user.first_name, "LAST_NAME": user.last_name,
         "EMAIL": user.email, "ACTIVE": user.active, "ROLE": user.role,
+        "MANUAL_ROLE": user.manual_role, "IS_BITRIX_ADMIN": user.is_bitrix_admin,
     } for user in users]
 
 
@@ -605,15 +688,47 @@ def update_role(
     session: Annotated[Session, Depends(get_session)],
     _: Annotated[BitrixIdentity, Depends(require_admin)],
 ) -> dict[str, str]:
-    if payload.role not in {"editor", "student"}:
-        raise HTTPException(status_code=422, detail="Role must be editor or student; Bitrix admins are automatic")
+    if payload.role not in {"admin", "editor", "teacher", "student"}:
+        raise HTTPException(status_code=422, detail="Role must be admin, editor, teacher or student")
     user = session.exec(select(AppUser).where(AppUser.bitrix_user_id == bitrix_user_id)).first()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+    if user.bitrix_user_id == "36" or user.role == "developer":
+        raise HTTPException(status_code=409, detail="Developer role is protected")
     if user.is_bitrix_admin:
         raise HTTPException(status_code=409, detail="Bitrix24 administrator role is managed automatically")
+    user.manual_role = payload.role
     user.role = payload.role
     user.updated_at = utcnow()
     session.add(user)
     session.commit()
     return {"role": user.role}
+
+
+@router.delete("/tests/{test_legacy_id}/users/{bitrix_user_id}/attempts")
+def reset_test_attempts(
+    test_legacy_id: str,
+    bitrix_user_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, int]:
+    _assert_attempt_manager(identity)
+    deleted = 0
+    legacy_attempts = session.exec(select(LegacyRecord).where(LegacyRecord.entity == "rtm_attempts")).all()
+    for attempt in legacy_attempts:
+        props = attempt.properties or {}
+        if str(props.get("testId") or "") == test_legacy_id and str(props.get("userId") or "") == bitrix_user_id:
+            session.delete(attempt)
+            deleted += 1
+
+    user = session.exec(select(AppUser).where(AppUser.bitrix_user_id == bitrix_user_id)).first()
+    test = session.exec(select(KnowledgeTest).where(KnowledgeTest.legacy_id == test_legacy_id)).first()
+    if user is not None and test is not None:
+        rows = session.exec(select(TestAttempt).where(
+            TestAttempt.user_id == user.id,
+            TestAttempt.test_id == test.id,
+        )).all()
+        for row in rows:
+            session.delete(row)
+    session.commit()
+    return {"deleted": deleted}

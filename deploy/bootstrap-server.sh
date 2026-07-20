@@ -61,10 +61,13 @@ fi
 
 install -m 0755 "$APP_DIR/deploy/rtm-deploy.sh" /usr/local/bin/rtm-deploy
 install -m 0755 "$APP_DIR/deploy/backup-postgres.sh" /usr/local/bin/rtm-backup-postgres
+install -m 0755 "$APP_DIR/deploy/sync-developer-workspace.sh" /usr/local/bin/rtm-sync-developer-workspace
 install -m 0644 "$APP_DIR/deploy/rtm-deploy.service" /etc/systemd/system/rtm-deploy.service
 install -m 0644 "$APP_DIR/deploy/rtm-deploy.timer" /etc/systemd/system/rtm-deploy.timer
 install -m 0644 "$APP_DIR/deploy/rtm-backup.service" /etc/systemd/system/rtm-backup.service
 install -m 0644 "$APP_DIR/deploy/rtm-backup.timer" /etc/systemd/system/rtm-backup.timer
+install -m 0644 "$APP_DIR/deploy/rtm-workspace-sync.service" /etc/systemd/system/rtm-workspace-sync.service
+install -m 0644 "$APP_DIR/deploy/rtm-workspace-sync.timer" /etc/systemd/system/rtm-workspace-sync.timer
 install -d -m 0700 -o rtmdeploy -g rtmdeploy /var/backups/rtm-postgres
 
 cat > /etc/fail2ban/jail.d/sshd.local <<'EOF'
@@ -87,6 +90,7 @@ ufw --force enable
 systemctl daemon-reload
 systemctl enable rtm-deploy.timer
 systemctl enable rtm-backup.timer
+systemctl enable rtm-workspace-sync.timer
 systemctl enable --now unattended-upgrades
 
 echo "Bootstrap complete. Test SSH as rtmadmin before disabling password login."

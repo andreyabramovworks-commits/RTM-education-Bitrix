@@ -1,0 +1,9 @@
+[Unit]
+Description=Synchronize RTM developer workspace to Google Drive
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/rtm-app/.env
+ExecStart=/usr/local/bin/rtm-sync-developer-workspace

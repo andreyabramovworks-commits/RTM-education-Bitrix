@@ -232,14 +232,14 @@
     var bitrixId = String(user && (user.ID || user.id) || '0');
     var row = (state.users || []).find(function (candidate) { return String(candidate.ID) === bitrixId; });
     var role = row && row.ROLE || (window.__RTMV47_USER__ && String(window.__RTMV47_USER__.bitrix_user_id) === bitrixId ? window.__RTMV47_USER__.role : 'student');
-    return role === 'admin' ? 'admin' : role === 'editor' ? 'moderator' : 'employee';
+    return role === 'developer' ? 'developer' : role === 'admin' ? 'admin' : role === 'editor' ? 'moderator' : role === 'teacher' ? 'teacher' : 'employee';
   };
-  isBitrixAdmin = function (user) { return getAppRole(user) === 'admin'; };
+  isBitrixAdmin = function (user) { return Boolean(user && user.IS_BITRIX_ADMIN); };
   roleLabel = function (role) {
-    return {admin: 'Администратор', moderator: 'Редактор / преподаватель', employee: 'Ученик'}[role] || 'Ученик';
+    return {developer: 'Разработчик', admin: 'Администратор', moderator: 'Редактор', teacher: 'Преподаватель', employee: 'Ученик'}[role] || 'Ученик';
   };
   saveRole = async function (userId, legacyRole) {
-    var role = legacyRole === 'moderator' ? 'editor' : 'student';
+    var role = legacyRole === 'admin' ? 'admin' : legacyRole === 'moderator' ? 'editor' : legacyRole === 'teacher' ? 'teacher' : 'student';
     await request('/api/v47/users/' + encodeURIComponent(userId) + '/role', {
       method: 'PUT', body: JSON.stringify({role: role})
     });
@@ -250,7 +250,9 @@
     var user = userById(userId), role = getAppRole(user);
     modal('<h2>' + esc(fullName(user)) + '</h2><p class="muted">Роль определяет доступ внутри приложения.</p>' +
       '<select id="roleSelect"><option value="employee" ' + (role === 'employee' ? 'selected' : '') + '>Ученик</option>' +
-      '<option value="moderator" ' + (role === 'moderator' ? 'selected' : '') + '>Редактор / преподаватель</option></select>' +
+      '<option value="teacher" ' + (role === 'teacher' ? 'selected' : '') + '>Преподаватель</option>' +
+      '<option value="moderator" ' + (role === 'moderator' ? 'selected' : '') + '>Редактор</option>' +
+      '<option value="admin" ' + (role === 'admin' ? 'selected' : '') + '>Администратор</option></select>' +
       '<div class="inline-actions"><button onclick="window.closeModal()">Отмена</button><button class="primary" id="roleSave">Сохранить</button></div>');
     $('#roleSave').onclick = async function () { await saveRole(userId, $('#roleSelect').value); closeModal(); await loadAll(); switchAdmin('users'); };
   };

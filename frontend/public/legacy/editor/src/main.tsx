@@ -41,6 +41,8 @@ export type RTMCanvasOptions = {
   onManualSave?: () => void | Promise<void>;
   onComplete?: () => void | Promise<void>;
   contentHeight?: number;
+  fitToContent?: boolean;
+  completionRequired?: boolean;
 };
 
 type DialogState = { kind: MediaKind; source: "url" | "stock" } | null;
@@ -51,6 +53,8 @@ const COMPLETE_TEXT = /^\s*завершить(?:\s+материал)?\s*[!.]?\s*
 const RTM_FONT_IDS = { Architexture: 20, Manrope: 21, Montserrat: 22, Oswald: 23 } as const;
 const EXCALIDRAW_FONT_OPTIONS = [["Excalifont", 5], ["Nunito", 6], ["Lilita One", 7], ["Comic Shanns", 8]] as const;
 const RTM_FONT_OPTIONS = Object.entries(RTM_FONT_IDS) as [keyof typeof RTM_FONT_IDS, number][];
+const FONT_OPTIONS = [...EXCALIDRAW_FONT_OPTIONS, ...RTM_FONT_OPTIONS] as readonly (readonly [string, number])[];
+const fontCssFamily = (id: number) => FONT_OPTIONS.find((item) => item[1] === id)?.[0] || "Excalifont";
 const STYLE_BOLD = 100;
 const STYLE_ITALIC = 200;
 Object.entries(RTM_FONT_IDS).forEach(([name, id]) => {
@@ -135,7 +139,7 @@ const createRequiredCompletion = (elements: readonly any[]) => {
   const visible = elements.filter((el: any) => !el.isDeleted && el.type !== "frame" && !el.customData?.rtmProtectedCompletion);
   const last = [...visible].sort((a: any, b: any) => (Number(b.y || 0) + Number(b.height || 0)) - (Number(a.y || 0) + Number(a.height || 0)))[0];
   const targetFrame = last?.frameId ? elements.find((el: any) => !el.isDeleted && el.id === last.frameId && el.type === "frame") : null;
-  const cardWidth = 430, cardHeight = 150;
+  const cardWidth = 590, cardHeight = 185;
   const fallbackX = last ? Number(last.x || 0) + (Number(last.width || cardWidth) - cardWidth) / 2 : 80;
   const fallbackY = last ? Number(last.y || 0) + Number(last.height || 0) + 52 : 72;
   const hasFrameRoom = targetFrame && fallbackY + cardHeight <= Number(targetFrame.y || 0) + Number(targetFrame.height || 0) - 18;
@@ -144,10 +148,10 @@ const createRequiredCompletion = (elements: readonly any[]) => {
   const frameId = hasFrameRoom ? targetFrame.id : null;
   const groupId = elementId(), cardId = elementId(), noteId = elementId(), boxId = elementId(), textId = elementId();
   const created = convertToExcalidrawElements([
-    { type: "rectangle", id: cardId, x, y, width: cardWidth, height: cardHeight, strokeColor: "#1e1e1e", backgroundColor: "#e9ecef", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId },
-    { type: "text", id: noteId, x: x + 28, y: y + 21, width: 374, height: 48, text: "Не забудьте нажать кнопку завершить, чтобы\nполучить доступ к следующему материалу!", originalText: "Не забудьте нажать кнопку завершить, чтобы\nполучить доступ к следующему материалу!", fontSize: 17, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#1e1e1e", groupIds: [groupId], frameId },
-    { type: "rectangle", id: boxId, x: x + 146, y: y + 88, width: 138, height: 44, strokeColor: "#1e3a5f", backgroundColor: "#a5d8ff", fillStyle: "solid", strokeStyle: "dashed", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId, link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 49.1 } },
-    { type: "text", id: textId, x: x + 155, y: y + 98, width: 120, height: 28, text: "Завершить", originalText: "Завершить", fontSize: 20, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#1971c2", groupIds: [groupId], frameId, customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 49.1 } },
+    { type: "rectangle", id: cardId, x, y, width: cardWidth, height: cardHeight, strokeColor: "#12b886", backgroundColor: "#e6fcf5", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 4, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId },
+    { type: "text", id: noteId, x: x + 38, y: y + 34, width: 514, height: 58, text: "Не забудь нажать кнопку завершить, что бы\nполучить доступ к следующему материалу!", originalText: "Не забудь нажать кнопку завершить, что бы\nполучить доступ к следующему материалу!", fontSize: 23, fontFamily: 5, textAlign: "left", verticalAlign: "middle", autoResize: false, strokeColor: "#1e1e1e", groupIds: [groupId], frameId },
+    { type: "rectangle", id: boxId, x: x + 214, y: y + 105, width: 162, height: 58, strokeColor: "#087f5b", backgroundColor: "#12b886", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId, link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 49.2 } },
+    { type: "text", id: textId, x: x + 225, y: y + 119, width: 140, height: 32, text: "Завершить", originalText: "Завершить", fontSize: 23, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#ffffff", groupIds: [groupId], frameId, customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 49.2 } },
   ] as any, { regenerateIds: false }) as any[];
   return created.map((el: any) => ({ ...el, groupIds: [groupId], frameId, customData: { ...(el.customData || {}), rtmProtectedCompletion: true, rtmCompletionCard: true } }));
 };
@@ -194,7 +198,7 @@ const embedMediaUrl = (raw: string) => {
     const url = new URL(safe);
     const rutube = /(^|\.)rutube\.ru$/i.test(url.hostname) && /\/(?:video|shorts)\/(?:private\/)?([a-f0-9]+)/i.exec(url.pathname);
     if (rutube) {
-      const embed = new URL(`https://rutube.ru/play/embed/${rutube[1]}`);
+      const embed = new URL(`https://rutube.ru/play/embed/${rutube[1]}/`);
       const privateKey = url.searchParams.get("p");
       if (privateKey) embed.searchParams.set("p", privateKey);
       return embed.href;
@@ -298,7 +302,7 @@ const normalizeScene = (options: RTMCanvasOptions): RTMScene => {
       type: "excalidraw",
       version: 2,
       source: "rtm-v45",
-      elements: ensureRequiredCompletion(options.scene.elements),
+      elements: options.completionRequired === false ? options.scene.elements : ensureRequiredCompletion(options.scene.elements),
       appState: { viewBackgroundColor: "#f8fafc", ...(options.scene.appState || {}) },
       files: options.scene.files || {},
     };
@@ -327,11 +331,11 @@ function MediaOverlay({ elements, viewport, readOnly, origin, activeId, onActiva
         const media = el.customData.rtmMedia as RTMMediaSpec;
         const active = readOnly || activeId === el.id;
         return (
-          <div className={`rtm-media-overlay kind-${media.kind} ${active ? "is-active" : ""}`} style={overlayStyle(el, viewport, origin)} key={el.id}>
+          <div data-rtm-media-id={el.id} className={`rtm-media-overlay kind-${media.kind} ${active ? "is-active" : ""}`} style={overlayStyle(el, viewport, origin)} key={el.id}>
             {!readOnly && <button type="button" className="rtm-media-activate" onClick={() => onActivate(active ? null : el.id)}>{active ? "Вернуться к перемещению" : "▶ Проверить"}</button>}
             {media.kind === "audio" && <audio controls preload="metadata" src={media.url} title={media.title || "Аудио"} />}
             {media.kind === "video" && (/youtube\.com|youtu\.be|rutube\.ru/i.test(media.url)
-              ? <iframe src={embedMediaUrl(media.url)} title={media.title || "Видео"} allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowFullScreen sandbox="allow-scripts allow-same-origin allow-presentation" />
+              ? <iframe src={embedMediaUrl(media.url)} title={media.title || "Видео"} allow="clipboard-write; autoplay; encrypted-media; fullscreen; picture-in-picture" allowFullScreen />
               : <video controls preload="metadata" src={media.url} title={media.title || "Видео"} />)}
             {media.kind === "image" && <img src={media.url} alt={media.title || "Изображение"} />}
           </div>
@@ -425,6 +429,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   const [mobilePreview, setMobilePreview] = useState(false);
   const [captureShortcuts, setCaptureShortcuts] = useState(false);
   const [selectedFont, setSelectedFont] = useState<number>(decodeStyledFont(Number(initialAppState.currentItemFontFamily || 5)).base);
+  const [fontMenuOpen, setFontMenuOpen] = useState(false);
   const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
   const changed = useRef(false);
   const readOnly = Boolean(options.readOnly);
@@ -483,7 +488,15 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const code = mark === "underline" ? "\u0332" : "\u0336";
     return Array.from(text.replace(/[\u0332\u0336]/g, "")).map((char) => char === "\n" ? char : char + code).join("");
   });
-  const makeList = (ordered: boolean) => transformSelectedText((text) => text.split("\n").map((line, index) => `${ordered ? `${index + 1}.` : "•"} ${line.replace(/^(?:•|\d+\.)\s*/, "")}`).join("\n"));
+  const makeList = (ordered: boolean) => transformSelectedText((text) => {
+    const lines = text.split("\n");
+    const matcher = ordered ? /^\s*\d+\.\s+/ : /^\s*•\s+/;
+    const remove = lines.filter((line) => line.trim()).every((line) => matcher.test(line));
+    return lines.map((line, index) => {
+      const clean = line.replace(/^\s*(?:•|\d+\.)\s*/, "");
+      return remove ? clean : `${ordered ? `${index + 1}.` : "•"} ${clean}`;
+    }).join("\n");
+  });
 
   useEffect(() => {
     lastElementsRef.current = (initial.elements || []).map((el: any) => [el.id, el.version, el.versionNonce, el.isDeleted ? 1 : 0].join(":" )).join("|");
@@ -588,11 +601,38 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     addMedia({ kind, url, title: kind === "audio" ? "Аудио" : "Видео" });
   };
 
+  const syncMediaOverlayPositions = (nextElements: readonly any[], nextViewport: Viewport) => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    const byId = new Map(nextElements.filter((el: any) => !el.isDeleted && el.customData?.rtmMedia).map((el: any) => [String(el.id), el]));
+    stage.querySelectorAll<HTMLElement>("[data-rtm-media-id]").forEach((node) => {
+      const el = byId.get(String(node.dataset.rtmMediaId || ""));
+      if (!el) return;
+      const style = overlayStyle(el, nextViewport, { left: rect.left, top: rect.top });
+      node.style.left = `${Number(style.left || 0)}px`;
+      node.style.top = `${Number(style.top || 0)}px`;
+      node.style.width = `${Number(style.width || 0)}px`;
+      node.style.height = `${Number(style.height || 0)}px`;
+      node.style.transform = String(style.transform || "");
+    });
+  };
+
   const save = async () => {
     setSaveState("Сохраняю…");
     try { await options.onManualSave?.(); changed.current = false; setSaveState(""); }
     catch { setSaveState("Сохранено на устройстве — ожидаю Bitrix24"); }
   };
+
+  const readerZoom = (direction: number) => {
+    const api = apiRef.current;
+    if (!api) return;
+    const appState = api.getAppState();
+    const current = Number(appState.zoom?.value || appState.zoom || 1);
+    const value = Math.max(0.1, Math.min(4, current + direction * Math.max(0.1, current * 0.15)));
+    api.updateScene({ appState: { zoom: { value } } });
+  };
+  const readerFit = () => { const api = apiRef.current; if (api) api.scrollToContent?.(api.getSceneElements(), { fitToViewport: true, viewportZoomFactor: 0.92, animate: true }); };
 
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
@@ -619,9 +659,22 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!shortcutsActive || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+      if (!shortcutsActive) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest("input,textarea,select,[contenteditable=true]") && !target.closest("[data-type=wysiwyg]")) return;
+      if ((event.key === "Delete" || event.key === "Backspace") && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        const api = apiRef.current;
+        const ids = api?.getAppState?.().selectedElementIds || {};
+        if (!Object.keys(ids).some((id) => ids[id])) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const next = api.getSceneElements().map((el: any) => ids[el.id] && !el.customData?.rtmProtectedCompletion
+          ? { ...el, isDeleted: true, version: Number(el.version || 1) + 1, versionNonce: Math.floor(Math.random() * 2147483647), updated: Date.now() }
+          : el);
+        api.updateScene({ elements: next, appState: { selectedElementIds: {} } });
+        return;
+      }
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
       const key = event.key.toLowerCase();
       if (key === "b" || key === "i") {
         event.preventDefault();
@@ -643,7 +696,13 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
         <button type="button" className="rtm-text-style" title="Курсив (Ctrl+I)" onClick={() => toggleTextStyle("italic")}><i>I</i></button>
         <button type="button" className="rtm-text-style" title="Подчёркнутый текст" onClick={() => decorateText("underline")}><u>U</u></button>
         <button type="button" className="rtm-text-style" title="Зачёркнутый текст" onClick={() => decorateText("strike")}><s>S</s></button>
-        <label className="rtm-font-select rtm-icon-control" title="Список шрифтов"><select aria-label="Список шрифтов" value={selectedFont} onChange={(event) => applyFont(Number(event.target.value))}><optgroup label="Штатные Excalidraw">{EXCALIDRAW_FONT_OPTIONS.map(([name, id]) => <option key={id} value={id}>{name}</option>)}</optgroup><optgroup label="Шрифты RTM">{RTM_FONT_OPTIONS.map(([name, id]) => <option key={id} value={id}>{name}</option>)}</optgroup></select></label>
+        <div className="rtm-font-select rtm-icon-control" title="Список шрифтов">
+          <button type="button" className="rtm-font-trigger" aria-haspopup="listbox" aria-expanded={fontMenuOpen} style={{ fontFamily: fontCssFamily(selectedFont) }} onClick={() => setFontMenuOpen((value) => !value)}>{fontCssFamily(selectedFont)} <span>▾</span></button>
+          {fontMenuOpen && <div className="rtm-font-options" role="listbox">
+            <b>Штатные Excalidraw</b>{EXCALIDRAW_FONT_OPTIONS.map(([name, id]) => <button type="button" role="option" aria-selected={selectedFont === id} key={id} style={{ fontFamily: name }} onClick={() => { applyFont(id); setFontMenuOpen(false); }}>{name}</button>)}
+            <b>Шрифты RTM</b>{RTM_FONT_OPTIONS.map(([name, id]) => <button type="button" role="option" aria-selected={selectedFont === id} key={id} style={{ fontFamily: name }} onClick={() => { applyFont(id); setFontMenuOpen(false); }}>{name}</button>)}
+          </div>}
+        </div>
         <button type="button" title="Маркированный список" onClick={() => makeList(false)}><span className="rtm-hand-list">▪<i></i>▪<i></i>▪<i></i></span></button>
         <button type="button" title="Нумерованный список" onClick={() => makeList(true)}><span className="rtm-hand-list numbered">1<i></i>2<i></i>3<i></i></span></button>
         <button type="button" className="rtm-hand-circle" title="Ссылка на видео или аудио" onClick={requestMediaUrl}><HandIcon kind="media" /></button>
@@ -652,14 +711,17 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
         <label className="rtm-canvas-import rtm-hand-circle" title="Импорт макета"><HandIcon kind="import" /><input type="file" accept=".excalidraw,application/json" onChange={(event) => { handleImportFile(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>
         <button type="button" className="rtm-hand-expand" title={editorFullscreen ? "Свернуть" : "Развернуть редактор"} aria-pressed={editorFullscreen} onClick={() => setEditorFullscreen((value) => !value)}><HandIcon kind="expand" /></button>
         <button type="button" className="rtm-mobile-preview-open" title="Мобильный предпросмотр" onClick={() => setMobilePreview(true)}><HandIcon kind="phone" /></button>
-        {saveState && <span className={`rtm-canvas-save-state ${saveState.includes("Ошибка") || saveState.includes("ожидаю") ? "is-error" : ""}`}>{saveState}</span>}
         <button type="button" className="rtm-canvas-save" onClick={save}>Сохранить статью</button>
+        {saveState && <span className={`rtm-canvas-save-state ${saveState.includes("Ошибка") || saveState.includes("ожидаю") ? "is-error" : ""}`}>{saveState}</span>}
       </div>}
       {mobilePreview && <MobilePreview scene={{ type: "excalidraw", version: 2, source: "rtm-v49-preview", elements: [...elements], appState: apiRef.current?.getAppState?.() || initial.appState || {}, files: initial.files || {} }} onClose={() => setMobilePreview(false)} />}
-      <div className="rtm-canvas-stage" ref={stageRef} tabIndex={-1} onPointerDown={() => stageRef.current?.focus({ preventScroll: true })}>
+      <div className="rtm-canvas-stage" ref={stageRef} tabIndex={-1} onPointerDown={() => { setCaptureShortcuts(true); stageRef.current?.focus({ preventScroll: true }); }}>
         <Excalidraw
           key={options.pageKey}
-          excalidrawAPI={(nextApi: any) => { apiRef.current = nextApi; }}
+          excalidrawAPI={(nextApi: any) => {
+            apiRef.current = nextApi;
+            if (readOnly && options.fitToContent) requestAnimationFrame(() => nextApi.scrollToContent?.(nextApi.getSceneElements(), { fitToViewport: true, viewportZoomFactor: 0.92, animate: false }));
+          }}
           initialData={initial as any}
           viewModeEnabled={readOnly}
           handleKeyboardGlobally={shortcutsActive}
@@ -678,7 +740,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
           onChange={(incomingElements: readonly any[], nextAppState: any, files: any) => {
             let nextElements = incomingElements;
             if (!readOnly) {
-              const protectedElements = protectRequiredCompletion(nextElements, lastSceneElementsRef.current);
+              const protectedElements = options.completionRequired === false ? nextElements : protectRequiredCompletion(nextElements, lastSceneElementsRef.current);
               if (protectedElements !== nextElements) { apiRef.current?.updateScene({ elements: protectedElements }); return; }
               lastSceneElementsRef.current = protectedElements;
               const currentBaseFont = decodeStyledFont(Number(nextAppState.currentItemFontFamily || 5)).base;
@@ -699,10 +761,11 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
               if (!readOnly) {
                 changed.current = true;
                 setSaveState("");
-                options.onChange?.({ type: "excalidraw", version: 2, source: "rtm-v45", elements: ensureRequiredCompletion(nextElements), appState: { viewBackgroundColor: nextAppState.viewBackgroundColor, scrollX: nextAppState.scrollX, scrollY: nextAppState.scrollY, zoom: nextAppState.zoom, gridSize: nextAppState.gridSize }, files });
+                options.onChange?.({ type: "excalidraw", version: 2, source: "rtm-v45", elements: options.completionRequired === false ? nextElements : ensureRequiredCompletion(nextElements), appState: { viewBackgroundColor: nextAppState.viewBackgroundColor, scrollX: nextAppState.scrollX, scrollY: nextAppState.scrollY, zoom: nextAppState.zoom, gridSize: nextAppState.gridSize }, files });
               }
             }
             const nextViewport: Viewport = { zoom: Number(nextAppState.zoom?.value || nextAppState.zoom || 1), left: Number(nextAppState.offsetLeft || 0), top: Number(nextAppState.offsetTop || 0), sx: Number(nextAppState.scrollX || 0), sy: Number(nextAppState.scrollY || 0) };
+            syncMediaOverlayPositions(nextElements, nextViewport);
             const viewportSignature = [nextViewport.zoom, nextViewport.left, nextViewport.top, nextViewport.sx, nextViewport.sy].map((value, index) => index === 0 ? Math.round(value * 200) / 200 : Math.round(value * 4) / 4).join("|");
             if (viewportSignature !== viewportSignatureRef.current && (!readOnly || performance.now() - viewportTimeRef.current >= 50)) {
               viewportSignatureRef.current = viewportSignature;
@@ -715,8 +778,12 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
           <MainMenu>
             <MainMenu.DefaultItems.Export />
             <MainMenu.DefaultItems.SaveAsImage />
+            <MainMenu.DefaultItems.SearchMenu />
             <MainMenu.DefaultItems.Help />
             <MainMenu.DefaultItems.ClearCanvas />
+            <MainMenu.Separator />
+            <MainMenu.DefaultItems.ToggleTheme />
+            <MainMenu.DefaultItems.ChangeCanvasBackground />
             <MainMenu.Separator />
             <MainMenu.Item onSelect={save}>Сохранить в RTM</MainMenu.Item>
           </MainMenu>
@@ -731,6 +798,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
         </Excalidraw>
         <MediaOverlay elements={elements} viewport={viewport} readOnly={readOnly} origin={origin} activeId={activeMediaId} onActivate={setActiveMediaId} />
         <ActionOverlay elements={elements} viewport={viewport} origin={origin} readOnly={readOnly} onComplete={options.onComplete} />
+        {readOnly && <div className="rtm-reader-zoom" aria-label="Масштаб статьи"><button type="button" onClick={() => readerZoom(-1)} aria-label="Уменьшить">−</button><button type="button" onClick={() => readerZoom(1)} aria-label="Увеличить">+</button><button type="button" onClick={readerFit} aria-label="Вписать в экран"><HandIcon kind="expand" /></button></div>}
       </div>
       <MediaDialog state={dialog} onClose={() => setDialog(null)} onInsert={addMedia} />
     </div>

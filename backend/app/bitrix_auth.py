@@ -129,10 +129,15 @@ def require_bitrix_identity(
     user.last_name = str(profile.get("LAST_NAME") or "")
     user.is_bitrix_admin = is_admin
     user.active = str(profile.get("ACTIVE", "Y")).upper() not in {"N", "FALSE", "0"}
-    if is_admin:
+    if bitrix_id == "36":
+        user.manual_role = "developer"
+        user.role = "developer"
+    elif is_admin:
         user.role = "admin"
-    elif user.role not in {"editor", "student"}:
-        user.role = "student"
+    else:
+        manual_role = user.manual_role if user.manual_role in {"admin", "editor", "teacher", "student"} else "student"
+        user.manual_role = manual_role
+        user.role = manual_role
     user.updated_at = utcnow()
     session.add(user)
     session.commit()
@@ -154,12 +159,12 @@ def create_browser_session(identity: BitrixIdentity) -> tuple[str, int]:
 
 
 def require_admin(identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)]) -> BitrixIdentity:
-    if identity.user.role != "admin":
+    if identity.user.role not in {"developer", "admin"}:
         raise HTTPException(status_code=403, detail="Administrator role is required")
     return identity
 
 
 def require_editor(identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)]) -> BitrixIdentity:
-    if identity.user.role not in {"admin", "editor"}:
+    if identity.user.role not in {"developer", "admin", "editor"}:
         raise HTTPException(status_code=403, detail="Editor role is required")
     return identity
