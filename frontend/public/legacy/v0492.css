@@ -4,6 +4,7 @@ body{overflow-y:auto!important;overflow-x:hidden!important}
 .modal-backdrop{overscroll-behavior:contain}.modal,.modal-box{overscroll-behavior:contain}.modal-backdrop:not(.hidden){overflow:hidden}.modal-box{max-height:calc(100dvh - 40px);overflow-y:auto}
 .v492-reader{position:relative;width:100%;height:calc(100dvh - 150px);min-height:560px;overflow:hidden;background:#f8fafc;border:1px solid #e2e8f0;border-radius:22px}
 .v492-reader-canvas{position:absolute;inset:0;overflow:hidden}.v492-reader-canvas>.rtm-canvas-shell{min-height:100%;height:100%;border-radius:0}
+.v492-reader-canvas>.rtm-canvas-shell>.rtm-canvas-stage{display:block!important;position:relative!important;width:100%!important;height:100%!important;min-height:100%!important;flex:1 1 auto!important}
 .v492-reader-canvas .excalidraw .App-menu_top,.v492-reader-canvas .excalidraw .App-toolbar,.v492-reader-canvas .excalidraw .layer-ui__wrapper__footer{display:none!important}
 .v492-reader-canvas .excalidraw,.v492-reader-canvas canvas{touch-action:pan-y pinch-zoom!important}
 .v492-reader-arrow{position:absolute;z-index:12;top:50%;width:46px;height:82px;border:0;border-radius:14px;background:rgba(71,85,105,.48);color:#fff;font:48px/1 Arial;transform:translateY(-50%);cursor:pointer}.v492-reader-arrow.prev{left:10px}.v492-reader-arrow.next{right:10px}.v492-reader-arrow:disabled{opacity:0;pointer-events:none}.v492-reader-count{position:absolute;z-index:12;bottom:12px;left:50%;transform:translateX(-50%);padding:5px 10px;border-radius:999px;background:rgba(15,23,42,.42);color:#fff;font-size:12px}

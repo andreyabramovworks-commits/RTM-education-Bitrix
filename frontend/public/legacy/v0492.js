@@ -6,11 +6,12 @@
   var classicTestEditor = window.renderTestEditor;
   var classicTestIntro = window.renderUserTestIntro;
   var classicTakeTest = window.renderTakeTest;
-  var workspaceTimer = 0, workspaceScene = null, workspaceRevision = 0, workspaceMounted = false, developerPreviewRole = null;
+  var workspaceTimer = 0, workspaceScene = null, workspaceRevision = 0, workspaceMounted = false, developerPreviewRole = null, testUiChoice = 'modern';
 
-  function testUi() { try { return localStorage.getItem(TEST_UI_KEY) === 'classic' ? 'classic' : 'modern'; } catch (_) { return 'modern'; } }
+  try { testUiChoice = localStorage.getItem(TEST_UI_KEY) === 'classic' ? 'classic' : 'modern'; } catch (_) { var savedTestUi = String(document.cookie || '').match(/(?:^|;\s*)rtm_v492_test_ui=(classic|modern)/); if (savedTestUi) testUiChoice = savedTestUi[1]; }
+  function testUi() { return testUiChoice; }
   function testSwitch() { return '<div class="v492-test-switch"><button type="button" data-v492-test-ui="modern" class="' + (testUi() === 'modern' ? 'active' : '') + '">Новый вид</button><button type="button" data-v492-test-ui="classic" class="' + (testUi() === 'classic' ? 'active' : '') + '">Классический</button></div>'; }
-  function bindTestSwitch() { document.querySelectorAll('[data-v492-test-ui]').forEach(function (button) { button.onclick = function () { try { localStorage.setItem(TEST_UI_KEY, button.dataset.v492TestUi); } catch (_) {} if (state.testId && document.getElementById('testQuestionsEditor') && !document.getElementById('testQuestionsEditor').closest('.hidden')) renderTestEditor(); else { var item = findItem(document.getElementById('userMaterialView') && document.getElementById('userMaterialView').dataset.id); if (item) openUserMaterial(item); } }; }); }
+  function bindTestSwitch() { document.querySelectorAll('[data-v492-test-ui]').forEach(function (button) { button.onclick = function () { testUiChoice = button.dataset.v492TestUi === 'classic' ? 'classic' : 'modern'; try { localStorage.setItem(TEST_UI_KEY, testUiChoice); } catch (_) { try { document.cookie = 'rtm_v492_test_ui=' + testUiChoice + '; Path=/; SameSite=Lax; Max-Age=31536000'; } catch (_) {} } if (state.testId && document.getElementById('testQuestionsEditor') && !document.getElementById('testQuestionsEditor').closest('.hidden')) renderTestEditor(); else { var item = findItem(document.getElementById('userMaterialView') && document.getElementById('userMaterialView').dataset.id); if (item) openUserMaterial(item); } }; }); }
   function currentRole() { return String(state.currentRole || 'employee'); }
   function canAdmin() { return ['developer', 'admin', 'moderator', 'teacher'].includes(currentRole()); }
   function canEditContent() { return ['developer', 'admin', 'moderator'].includes(currentRole()); }
