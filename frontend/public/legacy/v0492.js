@@ -17,6 +17,13 @@
   function actualRole() { return String(getAppRole(state.user) || 'employee'); }
   function isActualDeveloper() { return actualRole() === 'developer' && String(state.user && state.user.ID || '') === '36'; }
   function isDeveloper() { return isActualDeveloper() && currentRole() === 'developer'; }
+  function applyDeveloperPreview(role) { developerPreviewRole = role && role !== 'developer' ? role : null; state.currentRole = developerPreviewRole || actualRole(); if (!canAdmin()) state.mode = 'user'; renderAll(); }
+  function renderDeveloperMobilePreview() {
+    var bottom = document.querySelector('#v38MobileNav .v38-mobile-menu-bottom'); if (!bottom || !isActualDeveloper()) return;
+    var label = document.createElement('label'); label.className = 'v492-mobile-role-preview'; label.innerHTML = '<span>Просмотр от роли</span><select aria-label="Мобильный просмотр приложения от роли"><option value="developer">Разработчик</option><option value="admin">Администратор</option><option value="moderator">Редактор</option><option value="teacher">Преподаватель</option><option value="employee">Пользователь</option></select>';
+    var modeButton = bottom.querySelector('[data-v38-mode]'); if (modeButton) modeButton.insertAdjacentElement('afterend', label); else bottom.appendChild(label);
+    var select = label.querySelector('select'); select.value = developerPreviewRole || 'developer'; select.onchange = function () { applyDeveloperPreview(this.value); };
+  }
   function renderDeveloperPreview() {
     var control = document.getElementById('v492RolePreview');
     if (!isActualDeveloper()) { if (control) control.remove(); developerPreviewRole = null; return; }
@@ -24,7 +31,7 @@
       control = document.createElement('label'); control.id = 'v492RolePreview'; control.className = 'v492-role-preview';
       control.innerHTML = '<span>Просмотр</span><select aria-label="Просмотр приложения от роли"><option value="developer">Разработчик</option><option value="admin">Администратор</option><option value="moderator">Редактор</option><option value="teacher">Преподаватель</option><option value="employee">Пользователь</option></select>';
       var anchor = document.getElementById('globalSyncBtn'); if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(control, anchor); else document.body.appendChild(control);
-      control.querySelector('select').onchange = function () { developerPreviewRole = this.value === 'developer' ? null : this.value; state.currentRole = developerPreviewRole || actualRole(); if (!canAdmin()) state.mode = 'user'; renderAll(); };
+      control.querySelector('select').onchange = function () { applyDeveloperPreview(this.value); };
     }
     control.querySelector('select').value = developerPreviewRole || 'developer';
   }
@@ -134,8 +141,10 @@
   window.switchAdmin = function (view) { if (view === 'info' && !isDeveloper()) return; var result = baseSwitchAdmin.apply(this, arguments); if (view === 'info') setTimeout(mountWorkspace, 0); return result; };
   var baseRenderAll = window.renderAll;
   window.renderAll = function () { var result = baseRenderAll.apply(this, arguments); applyAccess(); document.querySelectorAll('[data-v492-test-ui]').forEach(function () {}); if (state.aview === 'info') setTimeout(mountWorkspace, 0); if (currentRole() === 'teacher') document.querySelectorAll('[data-add-project],#addProjectBtn,[data-edit-child],[data-child-menu],#addQuestionBtn,.rtm-canvas-save').forEach(function (node) { node.hidden = true; }); return result; };
+  var baseMobileMenu = window.v38RenderMobileMenu;
+  if (typeof baseMobileMenu === 'function') window.v38RenderMobileMenu = function () { var result = baseMobileMenu.apply(this, arguments); renderDeveloperMobilePreview(); return result; };
 
   document.addEventListener('click', function (event) { var start = event.target.closest('[data-start-user-test]'); if (start) setTimeout(function () { bindTestSwitch(); document.querySelectorAll('[data-take-test]').forEach(function (form) { form.onsubmit = takeTestSubmit; }); }, 0); }, true);
   document.addEventListener('DOMContentLoaded', function () { applyAccess(); if (state.aview === 'info') mountWorkspace(); });
-  window.RTMV492 = {mountWorkspace: mountWorkspace, bindTestSwitch: bindTestSwitch, previewRole: function (role) { if (!isActualDeveloper()) return; developerPreviewRole = role && role !== 'developer' ? role : null; renderAll(); }};
+  window.RTMV492 = {mountWorkspace: mountWorkspace, bindTestSwitch: bindTestSwitch, previewRole: function (role) { if (!isActualDeveloper()) return; applyDeveloperPreview(role); }};
 })();

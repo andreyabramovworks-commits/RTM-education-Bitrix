@@ -2,25 +2,25 @@ import React, { useEffect, useState } from "react";
 
 const LEGACY_STYLES = [
   "/legacy/style.css?v=046.3",
-  "/legacy/excalidraw-dist/rtm-canvas.css?v=049.2.2",
+  "/legacy/excalidraw-dist/rtm-canvas.css?v=049.2.3",
   "/legacy/v040-layout.css?v=046.3",
   "/legacy/v040-inline.css?v=046.3",
-  "/legacy/v046-layout.css?v=049.2.2",
-  "/legacy/v0492.css?v=049.2.2",
+  "/legacy/v046-layout.css?v=049.2.3",
+  "/legacy/v0492.css?v=049.2.3",
 ];
 
 const LEGACY_SCRIPTS = [
-  ["/legacy/v046-shell.js?v=049.2.2", false],
+  ["/legacy/v046-shell.js?v=049.2.3", false],
   ["/legacy/kb-data.js?v=046.3", false],
-  ["/legacy/app.js?v=049.2.2", false],
+  ["/legacy/app.js?v=049.2.3", false],
   ["/legacy/v037-overrides.js?v=046.3", false],
   ["/legacy/v039-patch.js?v=046.3", false],
   ["/legacy/v040-assets.js?v=046.3", false],
-  ["/legacy/excalidraw-dist/rtm-canvas.js?v=049.2.2", true],
-  ["/legacy/v046-canvas.js?v=049.2.2", false],
-  ["/legacy/v047-api.js?v=049.2.2", false],
-  ["/legacy/v049.js?v=049.2.2", false],
-  ["/legacy/v0492.js?v=049.2.2", false],
+  ["/legacy/excalidraw-dist/rtm-canvas.js?v=049.2.3", true],
+  ["/legacy/v046-canvas.js?v=049.2.3", false],
+  ["/legacy/v047-api.js?v=049.2.3", false],
+  ["/legacy/v049.js?v=049.2.3", false],
+  ["/legacy/v0492.js?v=049.2.3", false],
 ];
 
 function loadScript(src, module) {
@@ -41,7 +41,7 @@ export function LegacyReactHost() {
 
   useEffect(() => {
     let active = true;
-    fetch("/legacy/index.html?v=049.2.2", { cache: "no-store" })
+    fetch("/legacy/index.html?v=049.2.3", { cache: "no-store" })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.text();
