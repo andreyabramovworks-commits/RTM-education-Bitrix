@@ -13,11 +13,21 @@
     document.body.classList.remove('is-busy');
   }
 
-  document.addEventListener('click', function () { setTimeout(repairScroll, 0); }, true);
-  window.addEventListener('popstate', repairScroll);
-  window.addEventListener('pageshow', repairScroll);
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) repairScroll(); });
-  new MutationObserver(repairScroll).observe(document.documentElement, {subtree: true, childList: true, attributes: true, attributeFilter: ['class']});
+  var repairQueued = false;
+  function scheduleRepair() {
+    if (repairQueued) return;
+    repairQueued = true;
+    requestAnimationFrame(function () {
+      repairQueued = false;
+      repairScroll();
+    });
+  }
+
+  document.addEventListener('click', scheduleRepair, true);
+  window.addEventListener('popstate', scheduleRepair);
+  window.addEventListener('pageshow', scheduleRepair);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) scheduleRepair(); });
+  new MutationObserver(scheduleRepair).observe(document.documentElement, {subtree: true, childList: true, attributes: true, attributeFilter: ['class']});
 
   var activity = null;
   function beginActivity(item) {
