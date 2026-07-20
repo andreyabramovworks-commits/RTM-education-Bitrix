@@ -146,7 +146,7 @@
   var baseMobileMenu = window.v38RenderMobileMenu;
   if (typeof baseMobileMenu === 'function') window.v38RenderMobileMenu = function () { var result = baseMobileMenu.apply(this, arguments); renderDeveloperMobilePreview(); return result; };
 
-  document.addEventListener('click', function (event) { var start = event.target.closest('[data-start-user-test]'); if (start) setTimeout(function () { bindTestSwitch(); document.querySelectorAll('[data-take-test]').forEach(function (form) { form.onsubmit = takeTestSubmit; }); }, 0); }, true);
+  document.addEventListener('click', function (event) { var start = event.target.closest('[data-start-user-test]'); if (start) setTimeout(function () { bindTestSwitch(); document.querySelectorAll('[data-take-test]').forEach(function (form) { form.onsubmit = takeTestSubmit; }); }, 0); var mobileMenu = event.target.closest('#v38MobileMenuBtn'); if (mobileMenu) setTimeout(renderDeveloperMobilePreview, 0); }, true);
   document.addEventListener('DOMContentLoaded', function () { applyAccess(); if (state.aview === 'info') mountWorkspace(); });
   window.RTMV492 = {mountWorkspace: mountWorkspace, bindTestSwitch: bindTestSwitch, previewRole: function (role) { if (!isActualDeveloper()) return; applyDeveloperPreview(role); }};
 })();

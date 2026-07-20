@@ -20,7 +20,7 @@ const LEGACY_SCRIPTS = [
   ["/legacy/v046-canvas.js?v=049.2.5", false],
   ["/legacy/v047-api.js?v=049.2.5", false],
   ["/legacy/v049.js?v=049.2.5", false],
-  ["/legacy/v0492.js?v=049.2.5", false],
+  ["/legacy/v0492.js?v=049.2.6", false],
 ];
 
 function loadScript(src, module) {
@@ -41,7 +41,7 @@ export function LegacyReactHost() {
 
   useEffect(() => {
     let active = true;
-    fetch("/legacy/index.html?v=049.2.5", { cache: "no-store" })
+    fetch("/legacy/index.html?v=049.2.6", { cache: "no-store" })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.text();
