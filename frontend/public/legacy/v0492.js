@@ -17,7 +17,7 @@
   function actualRole() { return String(getAppRole(state.user) || 'employee'); }
   function isActualDeveloper() { return actualRole() === 'developer' && String(state.user && state.user.ID || '') === '36'; }
   function isDeveloper() { return isActualDeveloper() && currentRole() === 'developer'; }
-  function applyDeveloperPreview(role) { developerPreviewRole = role && role !== 'developer' ? role : null; state.currentRole = developerPreviewRole || actualRole(); if (!canAdmin()) state.mode = 'user'; renderAll(); }
+  function applyDeveloperPreview(role) { developerPreviewRole = role && role !== 'developer' ? role : null; state.currentRole = developerPreviewRole || actualRole(); if (!canAdmin() && state.mode === 'admin') { setMode('user'); return; } renderAll(); }
   function renderDeveloperMobilePreview() {
     var bottom = document.querySelector('#v38MobileNav .v38-mobile-menu-bottom'); if (!bottom || !isActualDeveloper()) return;
     var label = document.createElement('label'); label.className = 'v492-mobile-role-preview'; label.innerHTML = '<span>Просмотр от роли</span><select aria-label="Мобильный просмотр приложения от роли"><option value="developer">Разработчик</option><option value="admin">Администратор</option><option value="moderator">Редактор</option><option value="teacher">Преподаватель</option><option value="employee">Пользователь</option></select>';
