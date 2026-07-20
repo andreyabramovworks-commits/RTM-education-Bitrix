@@ -13,6 +13,7 @@ from app.bitrix_auth import BitrixIdentity, bitrix_call, create_browser_session,
 from app.database import get_session
 from app.models import (
     AppUser,
+    ArticleDraft,
     Article,
     Course,
     CourseSection,
@@ -80,6 +81,11 @@ class RoleUpdate(BaseModel):
 class SceneWrite(BaseModel):
     scene: dict[str, Any]
     title: str = ""
+
+
+def _assert_editor(identity: BitrixIdentity) -> None:
+    if identity.user.role not in {"admin", "editor"}:
+        raise HTTPException(status_code=403, detail="Editor role is required")
 
 
 def _legacy_dict(record: LegacyRecord) -> dict[str, Any]:
@@ -494,6 +500,90 @@ def put_scene(
     session.add(scene)
     session.commit()
     return {"saved": True, "revision": scene.revision, "updated_at": scene.updated_at}
+
+
+@router.get("/drafts/{article_legacy_id}/{page_key}")
+def get_scene_draft(
+    article_legacy_id: str,
+    page_key: str,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    _assert_editor(identity)
+    article = _find_article(session, article_legacy_id)
+    if article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    draft = session.exec(select(ArticleDraft).where(
+        ArticleDraft.article_id == article.id,
+        ArticleDraft.page_key == page_key,
+    )).first()
+    if draft is None or not draft.scene:
+        raise HTTPException(status_code=404, detail="Draft not found")
+    return {"scene": draft.scene, "title": draft.title, "revision": draft.revision, "updated_at": draft.updated_at}
+
+
+@router.put("/drafts/{article_legacy_id}/{page_key}")
+def put_scene_draft(
+    article_legacy_id: str,
+    page_key: str,
+    payload: SceneWrite,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    _assert_editor(identity)
+    article = _find_article(session, article_legacy_id)
+    if article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    draft = session.exec(select(ArticleDraft).where(
+        ArticleDraft.article_id == article.id,
+        ArticleDraft.page_key == page_key,
+    )).first()
+    if draft is None:
+        draft = ArticleDraft(article_id=article.id, page_key=page_key)
+    draft.scene = payload.scene
+    draft.title = payload.title or draft.title or article.title
+    draft.revision = max(int(time.time() * 1000), draft.revision + 1)
+    draft.updated_by = identity.user.id
+    draft.updated_at = utcnow()
+    session.add(draft)
+    session.commit()
+    return {"saved": True, "draft": True, "revision": draft.revision, "updated_at": draft.updated_at}
+
+
+@router.post("/drafts/{article_legacy_id}/{page_key}/publish")
+def publish_scene_draft(
+    article_legacy_id: str,
+    page_key: str,
+    payload: SceneWrite,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    _assert_editor(identity)
+    article = _find_article(session, article_legacy_id)
+    if article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    draft = session.exec(select(ArticleDraft).where(
+        ArticleDraft.article_id == article.id,
+        ArticleDraft.page_key == page_key,
+    )).first()
+    scene_payload = payload.scene or (draft.scene if draft else {})
+    if not scene_payload:
+        raise HTTPException(status_code=422, detail="Draft scene is empty")
+    scene = session.exec(select(ExcalidrawScene).where(
+        ExcalidrawScene.article_id == article.id,
+        ExcalidrawScene.page_key == page_key,
+    )).first()
+    if scene is None:
+        scene = ExcalidrawScene(article_id=article.id, page_key=page_key)
+    scene.scene = scene_payload
+    scene.title = payload.title or (draft.title if draft else "") or scene.title or article.title
+    scene.revision = max(int(time.time() * 1000), scene.revision + 1)
+    scene.updated_at = utcnow()
+    session.add(scene)
+    if draft is not None:
+        session.delete(draft)
+    session.commit()
+    return {"saved": True, "published": True, "revision": scene.revision, "updated_at": scene.updated_at}
 
 
 @router.get("/users")

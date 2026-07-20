@@ -103,6 +103,20 @@ class ExcalidrawScene(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
 
 
+class ArticleDraft(SQLModel, table=True):
+    __tablename__ = "article_drafts"
+    __table_args__ = (UniqueConstraint("article_id", "page_key", name="uq_draft_article_page"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    article_id: int = Field(foreign_key="articles.id", index=True)
+    page_key: str = Field(max_length=120)
+    title: str = Field(default="", max_length=300)
+    scene: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    revision: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
+    updated_by: int | None = Field(default=None, foreign_key="app_users.id", index=True)
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
 class KnowledgeTest(SQLModel, table=True):
     __tablename__ = "knowledge_tests"
 

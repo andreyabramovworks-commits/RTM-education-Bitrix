@@ -111,13 +111,17 @@ const normalizeCompletion = (elements: readonly any[]) => {
 };
 
 const createRequiredCompletion = (elements: readonly any[]) => {
-  const visibleText = elements.filter((el: any) => !el.isDeleted && el.type === "text").sort((a: any, b: any) => Number(a.y || 0) - Number(b.y || 0))[0];
-  const x = Number(visibleText?.x || 80) + Math.max(320, Number(visibleText?.width || 280) + 56);
-  const y = Number(visibleText?.y || 72);
-  const groupId = elementId(), boxId = elementId(), textId = elementId();
+  const visible = elements.filter((el: any) => !el.isDeleted);
+  const minX = visible.length ? Math.min(...visible.map((el: any) => Number(el.x || 0))) : 80;
+  const maxY = visible.length ? Math.max(...visible.map((el: any) => Number(el.y || 0) + Number(el.height || 0))) : 72;
+  const x = minX;
+  const y = maxY + 72;
+  const groupId = elementId(), cardId = elementId(), noteId = elementId(), boxId = elementId(), textId = elementId();
   const created = convertToExcalidrawElements([
-    { type: "rectangle", id: boxId, x, y, width: 250, height: 76, strokeColor: "#1e1e1e", backgroundColor: "#a5d8ff", fillStyle: "solid", strokeStyle: "dashed", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true } },
-    { type: "text", id: textId, x: x + 18, y: y + 23, width: 214, height: 35, text: "Завершить", originalText: "Завершить", fontSize: 28, fontFamily: 8, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#1971c2", groupIds: [groupId], customData: { rtmActionLabel: true, rtmProtectedCompletion: true } },
+    { type: "rectangle", id: cardId, x, y, width: 520, height: 190, strokeColor: "#1e1e1e", backgroundColor: "#e9ecef", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId] },
+    { type: "text", id: noteId, x: x + 34, y: y + 26, width: 452, height: 58, text: "Не забудьте нажать кнопку завершить, чтобы\nполучить доступ к следующему материалу!", originalText: "Не забудьте нажать кнопку завершить, чтобы\nполучить доступ к следующему материалу!", fontSize: 20, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#1e1e1e", groupIds: [groupId] },
+    { type: "rectangle", id: boxId, x: x + 164, y: y + 108, width: 192, height: 58, strokeColor: "#1e3a5f", backgroundColor: "#a5d8ff", fillStyle: "solid", strokeStyle: "dashed", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true, rtmCompletionVersion: 49 } },
+    { type: "text", id: textId, x: x + 180, y: y + 122, width: 160, height: 34, text: "Завершить", originalText: "Завершить", fontSize: 25, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#1971c2", groupIds: [groupId], customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionVersion: 49 } },
   ] as any, { regenerateIds: false }) as any[];
   return created.map((el: any) => ({ ...el, groupIds: [groupId], customData: { ...(el.customData || {}), rtmProtectedCompletion: true } }));
 };
@@ -345,6 +349,23 @@ function MediaDialog({ state, onClose, onInsert }: { state: DialogState; onClose
   );
 }
 
+function MobilePreview({ scene, onClose }: { scene: RTMScene; onClose: () => void }) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const bridge = (window as any).RTMV49;
+    if (bridge?.renderPreview) bridge.renderPreview(host, scene);
+    else host.innerHTML = '<div class="rtm-preview-wait">Подготавливаю мобильный предпросмотр…</div>';
+  }, [scene]);
+  return <div className="rtm-mobile-preview-backdrop" role="dialog" aria-label="Мобильный предпросмотр">
+    <div className="rtm-mobile-preview-panel">
+      <div className="rtm-mobile-preview-head"><b>Мобильный предпросмотр</b><button type="button" onClick={onClose}>×</button></div>
+      <div className="rtm-mobile-preview-phone"><div ref={hostRef} /></div>
+    </div>
+  </div>;
+}
+
 function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   const initial = useMemo(() => normalizeScene(options), [options.pageKey]);
   const apiRef = useRef<any>(null);
@@ -363,6 +384,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [saveState, setSaveState] = useState("");
   const [editorFullscreen, setEditorFullscreen] = useState(false);
+  const [mobilePreview, setMobilePreview] = useState(false);
   const [captureShortcuts, setCaptureShortcuts] = useState(false);
   const [selectedFont, setSelectedFont] = useState<number>(decodeStyledFont(Number(initialAppState.currentItemFontFamily || 5)).base);
   const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
@@ -435,12 +457,16 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const observer = typeof ResizeObserver !== "undefined" && stageRef.current ? new ResizeObserver(updateOrigin) : null;
     if (observer && stageRef.current) observer.observe(stageRef.current);
     window.addEventListener("resize", updateOrigin);
+    window.addEventListener("scroll", updateOrigin, true);
+    document.addEventListener("fullscreenchange", updateOrigin);
+    requestAnimationFrame(updateOrigin);
+    setTimeout(updateOrigin, 180);
     const saveListener = (event: Event) => { const detail = (event as CustomEvent).detail; if (detail?.pageKey === options.pageKey) setSaveState(detail.text || ""); };
     const insertListener = (event: Event) => { const detail = (event as CustomEvent).detail; if (!detail?.pageKey || detail.pageKey === options.pageKey) insertComplete(); };
     window.addEventListener("rtm-canvas-save-state", saveListener);
     window.addEventListener("rtm-canvas-insert-complete", insertListener);
-    return () => { observer?.disconnect(); window.removeEventListener("resize", updateOrigin); window.removeEventListener("rtm-canvas-save-state", saveListener); window.removeEventListener("rtm-canvas-insert-complete", insertListener); if (viewportFrameRef.current) cancelAnimationFrame(viewportFrameRef.current); if (overlayFrameRef.current) cancelAnimationFrame(overlayFrameRef.current); };
-  }, [options.pageKey]);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", updateOrigin); window.removeEventListener("scroll", updateOrigin, true); document.removeEventListener("fullscreenchange", updateOrigin); window.removeEventListener("rtm-canvas-save-state", saveListener); window.removeEventListener("rtm-canvas-insert-complete", insertListener); if (viewportFrameRef.current) cancelAnimationFrame(viewportFrameRef.current); if (overlayFrameRef.current) cancelAnimationFrame(overlayFrameRef.current); };
+  }, [options.pageKey, editorFullscreen, activeMediaId]);
 
   const addMedia = (media: RTMMediaSpec) => {
     const api = apiRef.current;
@@ -486,24 +512,10 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     if (!api) return;
     const existing = completionTarget(api.getSceneElements());
     if (existing) { api.updateScene({ appState: { selectedElementIds: { [existing.id]: true } } }); api.scrollToContent?.([existing], { fitToContent: false }); return; }
-    const state = api.getAppState();
-    const rect = stageRef.current?.getBoundingClientRect();
-    const zoom = Number(state.zoom?.value || state.zoom || 1);
-    const x = ((rect?.width || 900) / 2 - Number(state.offsetLeft || 0)) / zoom - Number(state.scrollX || 0) - 140;
-    const y = ((rect?.height || 600) / 2 - Number(state.offsetTop || 0)) / zoom - Number(state.scrollY || 0) - 48;
-    const groupId = elementId();
-    const boxId = elementId();
-    const textId = elementId();
-    const created = convertToExcalidrawElements([
-      { type: "rectangle", id: boxId, x, y, width: 280, height: 96, strokeColor: "#1e1e1e", backgroundColor: "#a5d8ff", fillStyle: "solid", strokeStyle: "dashed", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], link: COMPLETE_LINK, customData: { rtmAction: "complete-material" } },
-      { type: "text", id: textId, x: x + 20, y: y + 30, width: 240, height: 35, text: "Завершить", originalText: "Завершить", fontSize: 28, fontFamily: 8, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#1971c2", groupIds: [groupId], link: COMPLETE_LINK, customData: { rtmActionLabel: true } },
-    ] as any, { regenerateIds: false }) as any[];
-    created.forEach((el: any) => {
-      el.groupIds = [groupId];
-      if (el.id === boxId) { el.link = COMPLETE_LINK; el.customData = { ...(el.customData || {}), rtmAction: "complete-material" }; }
-      if (el.id === textId) { el.fontFamily = 8; el.textAlign = "center"; el.verticalAlign = "middle"; el.autoResize = false; el.x = x + 20; el.y = y + 30; el.width = 240; el.link = COMPLETE_LINK; el.customData = { ...(el.customData || {}), rtmActionLabel: true }; }
-    });
-    api.updateScene({ elements: [...api.getSceneElements(), ...created], appState: { selectedElementIds: { [boxId]: true, [textId]: true } } });
+    const created = createRequiredCompletion(api.getSceneElements());
+    const selectedElementIds = Object.fromEntries(created.map((el: any) => [el.id, true]));
+    api.updateScene({ elements: [...api.getSceneElements(), ...created], appState: { selectedElementIds } });
+    api.scrollToContent?.(created, { fitToContent: false });
   };
 
   const handleImportFile = async (file?: File) => { if (!file) return; try { const data = JSON.parse(await file.text()); if (!importScene(data)) throw new Error("В файле нет элементов"); } catch (error: any) { window.alert("Не удалось импортировать макет: " + error.message); } };
@@ -559,22 +571,24 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
 
   return (
     <div className={`rtm-canvas-shell ${readOnly ? "is-reader" : "is-admin"} ${editorFullscreen ? "is-editor-fullscreen" : ""}`} style={{ "--rtm-canvas-brand": brand } as React.CSSProperties}>
-      {!readOnly && <div className="rtm-canvas-toolbar" aria-label="RTM контент">
+      {!readOnly && <div className="rtm-canvas-toolbar rtm-hand-toolbar" aria-label="RTM контент">
         <button type="button" className="rtm-text-style" title="Жирный текст (Ctrl+B)" onClick={() => toggleTextStyle("bold")}><b>B</b></button>
         <button type="button" className="rtm-text-style" title="Курсив (Ctrl+I)" onClick={() => toggleTextStyle("italic")}><i>I</i></button>
         <button type="button" className="rtm-text-style" title="Подчёркнутый текст" onClick={() => decorateText("underline")}><u>U</u></button>
         <button type="button" className="rtm-text-style" title="Зачёркнутый текст" onClick={() => decorateText("strike")}><s>S</s></button>
         <label className="rtm-font-select rtm-icon-control" title="Список шрифтов"><select aria-label="Список шрифтов" value={selectedFont} onChange={(event) => applyFont(Number(event.target.value))}><optgroup label="Штатные Excalidraw">{EXCALIDRAW_FONT_OPTIONS.map(([name, id]) => <option key={id} value={id}>{name}</option>)}</optgroup><optgroup label="Шрифты RTM">{RTM_FONT_OPTIONS.map(([name, id]) => <option key={id} value={id}>{name}</option>)}</optgroup></select></label>
-        <button type="button" title="Маркированный список" onClick={() => makeList(false)}>☷</button>
-        <button type="button" title="Нумерованный список" onClick={() => makeList(true)}>☰</button>
-        <button type="button" title="Ссылка на видео или аудио" onClick={requestMediaUrl}>▶</button>
-        <button type="button" title="Ссылка" onClick={() => setDialog({ kind: "link", source: "url" })}>＋</button>
-        <button type="button" title="Файл с ПК или Bitrix.Диска" onClick={() => requestDisk("video")}>⇩</button>
-        <label className="rtm-canvas-import" title="Импорт макета">◉<input type="file" accept=".excalidraw,application/json" onChange={(event) => { handleImportFile(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>
-        <button type="button" title={editorFullscreen ? "Свернуть" : "Развернуть редактор"} aria-pressed={editorFullscreen} onClick={() => setEditorFullscreen((value) => !value)}>⛶</button>
+        <button type="button" title="Маркированный список" onClick={() => makeList(false)}><span className="rtm-hand-list">▪<i></i>▪<i></i>▪<i></i></span></button>
+        <button type="button" title="Нумерованный список" onClick={() => makeList(true)}><span className="rtm-hand-list numbered">1<i></i>2<i></i>3<i></i></span></button>
+        <button type="button" className="rtm-hand-circle" title="Ссылка на видео или аудио" onClick={requestMediaUrl}>▷</button>
+        <button type="button" className="rtm-hand-circle" title="Ссылка" onClick={() => setDialog({ kind: "link", source: "url" })}>+</button>
+        <button type="button" className="rtm-hand-circle" title="Файл с ПК или Bitrix.Диска" onClick={() => requestDisk("video")}>⇩</button>
+        <label className="rtm-canvas-import rtm-hand-circle" title="Импорт макета">⌾<input type="file" accept=".excalidraw,application/json" onChange={(event) => { handleImportFile(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>
+        <button type="button" className="rtm-hand-expand" title={editorFullscreen ? "Свернуть" : "Развернуть редактор"} aria-pressed={editorFullscreen} onClick={() => setEditorFullscreen((value) => !value)}>⌗</button>
+        <button type="button" className="rtm-mobile-preview-open" title="Мобильный предпросмотр" onClick={() => setMobilePreview(true)}>▯</button>
         {saveState && <span className={`rtm-canvas-save-state ${saveState.includes("Ошибка") || saveState.includes("ожидаю") ? "is-error" : ""}`}>{saveState}</span>}
         <button type="button" className="rtm-canvas-save" onClick={save}>Сохранить статью</button>
       </div>}
+      {mobilePreview && <MobilePreview scene={{ type: "excalidraw", version: 2, source: "rtm-v49-preview", elements: [...elements], appState: apiRef.current?.getAppState?.() || initial.appState || {}, files: initial.files || {} }} onClose={() => setMobilePreview(false)} />}
       <div className="rtm-canvas-stage" ref={stageRef} tabIndex={-1} onPointerDown={() => stageRef.current?.focus({ preventScroll: true })}>
         <Excalidraw
           key={options.pageKey}

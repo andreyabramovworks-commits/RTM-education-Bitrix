@@ -167,3 +167,20 @@ def test_legacy_create_round_trip() -> None:
         record = session.exec(select(LegacyRecord).where(LegacyRecord.legacy_id == legacy_id)).first()
         assert record is not None
         assert record.properties["event"] == "Открытие"
+
+
+def test_article_draft_is_private_until_publish() -> None:
+    project_id = client.post("/api/v47/legacy/rtm_prj", json={"name": "Draft project", "properties": {}}).json()["id"]
+    article_id = client.post("/api/v47/legacy/rtm_items", json={
+        "name": "Draft article",
+        "properties": {"type": "article", "projectId": project_id, "parentId": "root", "meta": '{"pages":[{"id":"draft-page"}]}'},
+    }).json()["id"]
+    published = {"type": "excalidraw", "version": 2, "elements": [{"id": "published"}], "appState": {}, "files": {}}
+    draft = {"type": "excalidraw", "version": 2, "elements": [{"id": "draft"}], "appState": {}, "files": {}}
+    assert client.put(f"/api/v47/scenes/{article_id}/draft-page", json={"scene": published}).status_code == 200
+    assert client.put(f"/api/v47/drafts/{article_id}/draft-page", json={"scene": draft}).status_code == 200
+    assert client.get(f"/api/v47/scenes/{article_id}/draft-page").json()["scene"] == published
+    assert client.get(f"/api/v47/drafts/{article_id}/draft-page").json()["scene"] == draft
+    assert client.post(f"/api/v47/drafts/{article_id}/draft-page/publish", json={"scene": draft}).status_code == 200
+    assert client.get(f"/api/v47/scenes/{article_id}/draft-page").json()["scene"] == draft
+    assert client.get(f"/api/v47/drafts/{article_id}/draft-page").status_code == 404

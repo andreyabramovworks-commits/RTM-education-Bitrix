@@ -236,7 +236,7 @@
     $('#roleSave').onclick = async function () { await saveRole(userId, $('#roleSelect').value); closeModal(); await loadAll(); switchAdmin('users'); };
   };
 
-  window.RTMV47 = {ready: ensureReady, request: request, version: window.__RTM_V48__ ? 'v48' : 'v47'};
+  window.RTMV47 = {ready: ensureReady, request: request, version: window.__RTM_V49__ ? 'v49' : window.__RTM_V48__ ? 'v48' : 'v47'};
   window.RTMV47.bitrixCall = function (method, params) {
     return request('/api/v47/bitrix', {method: 'POST', body: JSON.stringify({method: method, params: params || {}})}).then(function (payload) { return payload.data; });
   };
@@ -269,9 +269,36 @@
     return serverScene(articleId, String(page && page.id || ('page_' + Number(index || 0))));
   };
   window.RTMV47.saveScene = saveServerScene;
+  window.RTMV47.readDraft = async function (articleId, page, index) {
+    var pageId = String(page && page.id || ('page_' + Number(index || 0)));
+    try {
+      var result = await request('/api/v47/drafts/' + encodeURIComponent(articleId) + '/' + encodeURIComponent(pageId));
+      return result.scene || null;
+    } catch (error) {
+      if (error.status === 404) return serverScene(articleId, pageId);
+      throw error;
+    }
+  };
+  window.RTMV47.saveDraft = async function (articleId, page, index, scene) {
+    if (!scene || !Array.isArray(scene.elements)) return null;
+    var pageId = String(page && page.id || ('page_' + Number(index || 0)));
+    return request('/api/v47/drafts/' + encodeURIComponent(articleId) + '/' + encodeURIComponent(pageId), {
+      method: 'PUT', body: JSON.stringify({scene: scene, title: String(page && page.title || '')})
+    });
+  };
+  window.RTMV47.publishScene = async function (articleId, page, index, scene) {
+    if (!scene || !Array.isArray(scene.elements)) return null;
+    var pageId = String(page && page.id || ('page_' + Number(index || 0)));
+    var saved = await request('/api/v47/drafts/' + encodeURIComponent(articleId) + '/' + encodeURIComponent(pageId) + '/publish', {
+      method: 'POST', body: JSON.stringify({scene: scene, title: String(page && page.title || '')})
+    });
+    page.canvasRef = {format: 'server-v49', pageId: pageId, revision: String(saved.revision), updatedAt: saved.updated_at};
+    page.canvasBackup = null;
+    return {revision: saved.revision, scene: scene, server: true, published: true};
+  };
 
   function applyV47Labels() {
-    var version = window.__RTM_V48__ ? 'v48' : 'v47';
+    var version = window.__RTM_V49__ ? 'v49' : window.__RTM_V48__ ? 'v48' : 'v47';
     document.querySelectorAll('.v39-version-label').forEach(function (node) {
       var expected = node.classList.contains('v39-admin-version') ? version : 'Версия ' + version;
       if (node.textContent !== expected) node.textContent = expected;
@@ -297,14 +324,8 @@
   };
   function enhanceArticleReader() {
     var host = document.getElementById('v46ReaderSvg');
-    if (!host || host.querySelector('.rtm-reader-complete')) return;
-    document.body.classList.add('is-reading-article');
-    var button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'rtm-reader-complete';
-    button.textContent = 'Завершить';
-    button.onclick = function () { if (window.finishCurrentArticle) window.finishCurrentArticle(); };
-    host.appendChild(button);
+    if (host) document.body.classList.add('is-reading-article');
+    document.querySelectorAll('.rtm-reader-complete').forEach(function (button) { button.remove(); });
   }
   new MutationObserver(enhanceArticleReader).observe(document.documentElement, {childList: true, subtree: true});
   window.addEventListener('error', function () { document.body.classList.remove('is-busy'); });
