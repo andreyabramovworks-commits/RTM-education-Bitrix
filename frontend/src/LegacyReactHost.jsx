@@ -6,7 +6,7 @@ const LEGACY_STYLES = [
   "/legacy/v040-layout.css?v=046.3",
   "/legacy/v040-inline.css?v=046.3",
   "/legacy/v046-layout.css?v=049.2.8",
-  "/legacy/v0492.css?v=049.2.8",
+  "/legacy/v0492.css?v=049.2.9",
 ];
 
 const LEGACY_SCRIPTS = [
