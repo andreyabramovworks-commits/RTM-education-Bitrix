@@ -38,8 +38,10 @@
 
   var baseApplyAccess = window.applyAccess;
   window.applyAccess = function () {
+    var requestedMode = state.mode;
     if (typeof baseApplyAccess === 'function') baseApplyAccess.apply(this, arguments);
     var role = actualRole(); if (role !== 'developer') developerPreviewRole = null; role = developerPreviewRole || role; state.currentRole = role;
+    if (canAdmin() && requestedMode === 'admin' && state.mode !== 'admin') { state.mode = 'admin'; var userApp = document.getElementById('userApp'), adminApp = document.getElementById('adminApp'), userNav = document.getElementById('userNav'); if (userApp) userApp.classList.remove('active'); if (adminApp) adminApp.classList.add('active'); if (userNav) userNav.style.display = 'none'; }
     if (!canAdmin() && state.mode === 'admin') setMode('user');
     var mode = document.getElementById('modeSwitch'); if (mode) { mode.hidden = !canAdmin(); mode.disabled = !canAdmin(); mode.style.display = canAdmin() ? 'inline-flex' : 'none'; }
     var info = document.querySelector('[data-admin-view="info"]'); if (info) { info.hidden = !isDeveloper(); info.style.display = isDeveloper() ? '' : 'none'; }
