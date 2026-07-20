@@ -56,7 +56,8 @@ export function LegacyReactHost() {
   useEffect(() => {
     if (!markup) return;
     window.__RTM_V48__ = true;
-    window.__RTM_STANDALONE__ = true;
+    window.__RTM_STANDALONE__ =
+      new URLSearchParams(window.location.search).get("rtm_fullscreen") === "1";
 
     LEGACY_STYLES.forEach((href) => {
       const link = document.createElement("link");
