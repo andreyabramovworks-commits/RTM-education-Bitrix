@@ -9,11 +9,23 @@
   var readyPromise = null;
   var entities = ['rtm_prj', 'rtm_items', 'rtm_assigns', 'rtm_progress', 'rtm_events', 'rtm_attempts', 'rtm_roles', 'rtm_canvas'];
 
+  async function shareBrowserSession(target, origin) {
+    var sessionKey = '';
+    try {
+      context = findContext();
+      if (context) refreshAuth();
+      var current = await request('/api/v47/session');
+      sessionKey = current && current.browser_session || '';
+      if (sessionKey) try { localStorage.setItem('rtm_server_session', sessionKey); } catch (_) {}
+    } catch (_) {
+      try { sessionKey = localStorage.getItem('rtm_server_session') || ''; } catch (_) {}
+    }
+    if (sessionKey && target) target.postMessage({rtmV48: 'session', sessionKey: sessionKey}, origin);
+  }
+
   window.addEventListener('message', function (event) {
     if (event.origin !== location.origin || !event.data || event.data.rtmV48 !== 'session-request') return;
-    var sessionKey = '';
-    try { sessionKey = localStorage.getItem('rtm_server_session') || ''; } catch (_) {}
-    if (sessionKey && event.source) event.source.postMessage({rtmV48: 'session', sessionKey: sessionKey}, event.origin);
+    shareBrowserSession(event.source, event.origin);
   });
 
   function receiveOpenerSession() {
@@ -86,9 +98,16 @@
     options.headers = Object.assign({}, options.headers || {}, headers);
     var response = await fetch(path, options);
     if (response.status === 401 && retry !== false) {
-      if (!context) throw new Error('Bitrix24 session expired. Open the application inside Bitrix24 again.');
-      await context.call('profile', {});
-      refreshAuth();
+      context = findContext();
+      if (context) {
+        await context.call('profile', {});
+        refreshAuth();
+      } else {
+        await receiveOpenerSession();
+        var recovered = '';
+        try { recovered = localStorage.getItem('rtm_server_session') || ''; } catch (_) {}
+        if (!recovered) throw new Error('Bitrix24 session expired. Open the application inside Bitrix24 again.');
+      }
       return request(path, options, false);
     }
     if (!response.ok) {
