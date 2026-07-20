@@ -55,6 +55,10 @@
       headers.Authorization = 'Bearer ' + auth.access_token;
       headers['X-Bitrix-Domain'] = auth.domain;
     }
+    try {
+      var serverSession = localStorage.getItem('rtm_server_session');
+      if (serverSession) headers['X-RTM-Session'] = serverSession;
+    } catch (_) {}
     options.headers = Object.assign({}, options.headers || {}, headers);
     var response = await fetch(path, options);
     if (response.status === 401 && retry !== false) {
@@ -117,6 +121,7 @@
       context = findContext();
       if (context) refreshAuth();
       var current = await request('/api/v47/session');
+      if (current.browser_session) try { localStorage.setItem('rtm_server_session', current.browser_session); } catch (_) {}
       if (context) await importV46();
       window.__RTMV47_USER__ = current;
       return current;

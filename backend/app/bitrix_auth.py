@@ -95,14 +95,16 @@ def require_bitrix_identity(
     session: Annotated[Session, Depends(get_session)],
     authorization: Annotated[str | None, Header()] = None,
     x_bitrix_domain: Annotated[str | None, Header()] = None,
+    x_rtm_session: Annotated[str | None, Header()] = None,
     rtm_session: Annotated[str | None, Cookie(alias="rtm_session")] = None,
 ) -> BitrixIdentity:
     if not authorization or not authorization.lower().startswith("bearer "):
         now = datetime.now(timezone.utc)
         with _cache_lock:
-            stored = _sessions.get(rtm_session or "")
+            session_key = x_rtm_session or rtm_session or ""
+            stored = _sessions.get(session_key)
             if stored and stored[0] <= now:
-                _sessions.pop(rtm_session or "", None)
+                _sessions.pop(session_key, None)
                 stored = None
         if not stored:
             raise HTTPException(status_code=401, detail="Bitrix24 session is required")

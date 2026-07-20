@@ -308,8 +308,10 @@ def session_info(
     response: Response,
     identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
 ) -> dict[str, Any]:
+    browser_session = ""
     if identity.access_token:
         session_id, ttl = create_browser_session(identity)
+        browser_session = session_id
         response.set_cookie(
             key="rtm_session", value=session_id, max_age=ttl, httponly=True,
             secure=True, samesite="lax", path="/",
@@ -320,6 +322,7 @@ def session_info(
         "name": f"{identity.user.first_name} {identity.user.last_name}".strip(),
         "role": identity.user.role,
         "is_bitrix_admin": identity.user.is_bitrix_admin,
+        "browser_session": browser_session,
     }
 
 

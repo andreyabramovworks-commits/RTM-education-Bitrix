@@ -17,7 +17,7 @@ const LEGACY_SCRIPTS = [
   ["/legacy/v040-assets.js?v=046.3", false],
   ["/legacy/excalidraw-dist/rtm-canvas.js?v=048.1", true],
   ["/legacy/v046-canvas.js?v=048.1", false],
-  ["/legacy/v047-api.js?v=048.1", false],
+  ["/legacy/v047-api.js?v=048.2", false],
 ];
 
 function loadScript(src, module) {
