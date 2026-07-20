@@ -126,7 +126,7 @@ const dedupeCompletion = (elements: readonly any[]) => {
   const duplicateIds = new Set(markers.filter((el: any) => el.id !== preferred.id).map((el: any) => el.id));
   return elements.map((el: any) => {
     const inDuplicateGroup = (el.groupIds || []).some((id: string) => duplicateGroups.has(id));
-    if (!duplicateIds.has(el.id) && !(inDuplicateGroup && (el.customData?.rtmProtectedCompletion || el.customData?.rtmCompletionCard || el.customData?.rtmActionLabel))) return el;
+    if (!duplicateIds.has(el.id) && !inDuplicateGroup) return el;
     return { ...el, isDeleted: true, version: Number(el.version || 1) + 1, updated: Date.now() };
   });
 };
