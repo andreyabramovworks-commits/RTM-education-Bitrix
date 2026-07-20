@@ -9,6 +9,30 @@
   var readyPromise = null;
   var entities = ['rtm_prj', 'rtm_items', 'rtm_assigns', 'rtm_progress', 'rtm_events', 'rtm_attempts', 'rtm_roles', 'rtm_canvas'];
 
+  window.addEventListener('message', function (event) {
+    if (event.origin !== location.origin || !event.data || event.data.rtmV48 !== 'session-request') return;
+    var sessionKey = '';
+    try { sessionKey = localStorage.getItem('rtm_server_session') || ''; } catch (_) {}
+    if (sessionKey && event.source) event.source.postMessage({rtmV48: 'session', sessionKey: sessionKey}, event.origin);
+  });
+
+  function receiveOpenerSession() {
+    if (!window.opener || new URLSearchParams(location.search).get('rtm_fullscreen') !== '1') return Promise.resolve();
+    return new Promise(function (resolve) {
+      var done = false;
+      function finish(event) {
+        if (done || event.origin !== location.origin || event.source !== window.opener || !event.data || event.data.rtmV48 !== 'session') return;
+        done = true;
+        window.removeEventListener('message', finish);
+        try { localStorage.setItem('rtm_server_session', event.data.sessionKey || ''); } catch (_) {}
+        resolve();
+      }
+      window.addEventListener('message', finish);
+      window.opener.postMessage({rtmV48: 'session-request'}, location.origin);
+      setTimeout(function () { if (!done) { done = true; window.removeEventListener('message', finish); resolve(); } }, 2500);
+    });
+  }
+
   function resultFacade(payload) {
     return {
       error: function () { return payload.error || null; },
@@ -120,6 +144,7 @@
     readyPromise = (async function () {
       context = findContext();
       if (context) refreshAuth();
+      if (!context) await receiveOpenerSession();
       var current = await request('/api/v47/session');
       if (current.browser_session) try { localStorage.setItem('rtm_server_session', current.browser_session); } catch (_) {}
       if (context) await importV46();
