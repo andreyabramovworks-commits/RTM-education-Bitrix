@@ -40,7 +40,7 @@ def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert "rtm_release=49.2.6" in response.text
+    assert "rtm_release=49.2.12" in response.text
     assert "RTM Education v49.2" in response.text
 
 
@@ -54,6 +54,21 @@ def test_developer_workspace_is_versioned() -> None:
         workspace = session.exec(select(DeveloperWorkspace)).one()
         revision = session.exec(select(DeveloperWorkspaceRevision).where(DeveloperWorkspaceRevision.workspace_id == workspace.id)).one()
         assert revision.scene == first
+
+
+def test_developer_workspace_get_initializes_protected_sheet() -> None:
+    with Session(engine) as session:
+        for revision in session.exec(select(DeveloperWorkspaceRevision)).all():
+            session.delete(revision)
+        for workspace in session.exec(select(DeveloperWorkspace)).all():
+            session.delete(workspace)
+        session.commit()
+    response = client.get("/api/v47/developer-workspace")
+    assert response.status_code == 200
+    assert response.json()["revision"] == 0
+    assert response.json()["scene"]["type"] == "excalidraw"
+    with Session(engine) as session:
+        assert session.exec(select(DeveloperWorkspace)).one().owner_bitrix_user_id == "36"
 
 
 def test_session_bootstrap_sets_secure_http_only_cookie() -> None:

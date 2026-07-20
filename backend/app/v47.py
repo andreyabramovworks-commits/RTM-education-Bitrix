@@ -390,7 +390,14 @@ def get_developer_workspace(
         DeveloperWorkspace.owner_bitrix_user_id == "36",
     )).first()
     if workspace is None:
-        return {"scene": {"type": "excalidraw", "version": 2, "elements": [], "appState": {}, "files": {}}, "revision": 0}
+        workspace = DeveloperWorkspace(
+            owner_bitrix_user_id="36",
+            updated_by=identity.user.id,
+            scene={"type": "excalidraw", "version": 2, "elements": [], "appState": {}, "files": {}},
+        )
+        session.add(workspace)
+        session.commit()
+        session.refresh(workspace)
     return {"scene": workspace.scene, "revision": workspace.revision, "updated_at": workspace.updated_at}
 
 
