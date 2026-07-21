@@ -276,10 +276,16 @@
   window.renderTakeTest = function (test) {
     var meta = normalizeMeta(j(test.PROPERTY_VALUES.meta));
     if (!meta.testScene) meta.testScene = buildScene(meta, test.NAME);
+    // Legacy resume/retry paths replace the markup directly and bypass the
+    // start-button click handler. Always schedule the visual scene here so a
+    // reopened attempt cannot leave a zero-height canvas.
+    setTimeout(function () { mountTakeCanvas(findItem(test.ID) || test); }, 0);
     return '<form class="v51-take-test" data-take-test="' + test.ID + '" data-test-start="' + Date.now() + '"><div id="v51TakeCanvas" class="v51-take-canvas"></div><div class="v51-test-submit-bar"><button class="primary" type="submit">Отправить ответы</button></div></form>';
   };
   function mountTakeCanvas(test) {
     var host = document.getElementById('v51TakeCanvas'), form = host && host.closest('form'); if (!host || !form || !window.RTMCanvas) return setTimeout(function () { mountTakeCanvas(test); }, 120);
+    if (host.dataset.rtmMountedTest === String(test.ID)) return;
+    host.dataset.rtmMountedTest = String(test.ID);
     var meta = normalizeMeta(j(test.PROPERTY_VALUES.meta)), latest = userAttempt(test.ID), existing = latest && latest.PROPERTY_VALUES && latest.PROPERTY_VALUES.answers, previous = {};
     try { previous = existing ? JSON.parse(existing) : {}; } catch (_) { previous = {}; }
     takeAnswers = {}; meta.questions.forEach(function (question) { if (isFree(question) && previous[question.id] != null) takeAnswers[question.id] = previous[question.id]; });
