@@ -17,7 +17,7 @@
   function canAdmin() { return ['developer', 'admin', 'moderator', 'teacher'].includes(currentRole()); }
   function canEditContent() { return ['developer', 'admin', 'moderator'].includes(currentRole()); }
   function actualRole() { return String(getAppRole(state.user) || 'employee'); }
-  function isActualDeveloper() { return actualRole() === 'developer' && String(state.user && state.user.ID || '') === '36'; }
+  function isActualDeveloper() { return actualRole() === 'developer'; }
   function isDeveloper() { return isActualDeveloper() && currentRole() === 'developer'; }
   function applyDeveloperPreview(role) { developerPreviewRole = role && role !== 'developer' ? role : null; state.currentRole = developerPreviewRole || actualRole(); if (!canAdmin() && state.mode === 'admin') { setMode('user'); return; } renderAll(); }
   function renderDeveloperMobilePreview() {

@@ -40,8 +40,37 @@ def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert "rtm_release=50.0.0" in response.text
-    assert "RTM Education v50" in response.text
+    assert "rtm_release=50.1.0" in response.text
+    assert "RTM Education v50.1" in response.text
+
+
+def test_only_primary_developer_can_manage_developer_roles() -> None:
+    with Session(engine) as session:
+        target = session.exec(select(AppUser).where(AppUser.bitrix_user_id == "developer-target")).first()
+        if target is None:
+            target = AppUser(bitrix_user_id="developer-target", first_name="Target", role="student", manual_role="student")
+            session.add(target)
+            session.commit()
+    promoted = client.put("/api/v47/users/developer-target/role", json={"role": "developer"})
+    assert promoted.status_code == 200
+    assert promoted.json()["role"] == "developer"
+
+    def secondary_admin_override():
+        with Session(engine) as session:
+            user = session.exec(select(AppUser).where(AppUser.bitrix_user_id == "secondary-admin")).first()
+            if user is None:
+                user = AppUser(bitrix_user_id="secondary-admin", first_name="Admin", role="admin", manual_role="admin")
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+            return BitrixIdentity(user=user, access_token="test", domain="rtm-group.bitrix24.ru")
+
+    app.dependency_overrides[require_admin] = secondary_admin_override
+    try:
+        denied = client.put("/api/v47/users/developer-target/role", json={"role": "admin"})
+        assert denied.status_code == 403
+    finally:
+        app.dependency_overrides[require_admin] = admin_override
 
 
 def test_developer_workspace_is_versioned() -> None:

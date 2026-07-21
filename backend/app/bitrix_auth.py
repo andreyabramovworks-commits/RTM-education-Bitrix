@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import json
+import logging
 import secrets
 from threading import Lock
 from typing import Annotated
@@ -14,6 +15,9 @@ from sqlmodel import Session, select
 from app.config import get_settings
 from app.database import get_session
 from app.models import AppUser, utcnow
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -85,10 +89,13 @@ def bitrix_call(identity: BitrixIdentity, method: str, params: dict | None = Non
         except (OSError, json.JSONDecodeError):
             pass
         status = 400 if 400 <= int(exc.code or 500) < 500 else 502
+        logger.warning("Bitrix24 REST error method=%s domain=%s http_status=%s detail=%s", method, identity.domain, exc.code, detail)
         raise HTTPException(status_code=status, detail=detail) from exc
     except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+        logger.exception("Bitrix24 REST transport error method=%s domain=%s", method, identity.domain)
         raise HTTPException(status_code=502, detail="Bitrix24 request failed") from exc
     if payload.get("error"):
+        logger.warning("Bitrix24 REST payload error method=%s domain=%s error=%s", method, identity.domain, payload.get("error"))
         raise HTTPException(status_code=400, detail=f"{payload['error']}: {payload.get('error_description', '')}")
     return payload.get("result")
 
@@ -148,6 +155,8 @@ def require_bitrix_identity(
     user.active = str(profile.get("ACTIVE", "Y")).upper() not in {"N", "FALSE", "0"}
     if bitrix_id == "36":
         user.manual_role = "developer"
+        user.role = "developer"
+    elif user.manual_role == "developer":
         user.role = "developer"
     elif is_admin:
         user.role = "admin"

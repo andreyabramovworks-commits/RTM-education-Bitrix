@@ -87,7 +87,7 @@ class SceneWrite(BaseModel):
 
 
 def _assert_developer(identity: BitrixIdentity) -> None:
-    if identity.user.role != "developer" or identity.user.bitrix_user_id != "36":
+    if identity.user.role != "developer":
         raise HTTPException(status_code=403, detail="Developer workspace is private")
 
 
@@ -693,16 +693,19 @@ def update_role(
     bitrix_user_id: str,
     payload: RoleUpdate,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[BitrixIdentity, Depends(require_admin)],
+    identity: Annotated[BitrixIdentity, Depends(require_admin)],
 ) -> dict[str, str]:
-    if payload.role not in {"admin", "editor", "teacher", "student"}:
-        raise HTTPException(status_code=422, detail="Role must be admin, editor, teacher or student")
+    if payload.role not in {"developer", "admin", "editor", "teacher", "student"}:
+        raise HTTPException(status_code=422, detail="Role must be developer, admin, editor, teacher or student")
     user = session.exec(select(AppUser).where(AppUser.bitrix_user_id == bitrix_user_id)).first()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    if user.bitrix_user_id == "36" or user.role == "developer":
-        raise HTTPException(status_code=409, detail="Developer role is protected")
-    if user.is_bitrix_admin:
+    if user.bitrix_user_id == "36":
+        raise HTTPException(status_code=409, detail="Primary developer role is protected")
+    if payload.role == "developer" or user.role == "developer":
+        if identity.user.bitrix_user_id != "36":
+            raise HTTPException(status_code=403, detail="Only the primary developer may manage developer roles")
+    if user.is_bitrix_admin and payload.role != "developer":
         raise HTTPException(status_code=409, detail="Bitrix24 administrator role is managed automatically")
     user.manual_role = payload.role
     user.role = payload.role

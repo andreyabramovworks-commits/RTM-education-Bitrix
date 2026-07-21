@@ -99,6 +99,15 @@
   z-index: 5;
 }
 
+.rtm-test-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:9}
+.rtm-test-layer>button,.rtm-test-layer>textarea,.rtm-test-layer>.rtm-test-media{position:absolute;box-sizing:border-box;pointer-events:auto;transform-origin:center}
+.rtm-test-choice{display:flex;align-items:center;justify-content:center;padding:5px 34px 5px 10px;border:2px solid transparent;border-radius:10px;background:rgba(255,255,255,.94);color:#16853a;font:500 15px Manrope,Arial,sans-serif;cursor:pointer;overflow:hidden}
+.rtm-test-choice:hover{border-color:#f59f00}.rtm-test-choice.is-selected{border:3px solid #f59f00;background:#fff8e1}
+.rtm-test-choice i{position:absolute;right:8px;top:50%;width:24px;height:24px;display:grid;place-items:center;transform:translateY(-50%);border:2px solid #16a34a;border-radius:7px;background:#fff;color:#16a34a;font:800 18px/1 Arial}
+.rtm-test-choice.has-image{padding:0;background:#fff}.rtm-test-choice.has-image img{width:100%;height:100%;display:block;object-fit:contain}
+.rtm-test-free{padding:12px;border:2px solid #159c68;border-radius:18px;background:#fff;color:#172033;font:16px/1.45 Manrope,Arial,sans-serif;resize:none;outline:none}.rtm-test-free:focus{border-color:#f59f00;box-shadow:0 0 0 3px rgba(245,159,0,.18)}
+.rtm-test-media{overflow:hidden;border:1px solid #21a366;border-radius:9px;background:#fff}.rtm-test-media img,.rtm-test-media video,.rtm-test-media audio{width:100%;height:100%;display:block;object-fit:contain}
+
 .rtm-media-overlay {
   position: absolute;
   transform-origin: center;
@@ -129,10 +138,10 @@
 }
 
 .rtm-media-overlay audio { padding: 0; box-sizing: border-box; background: transparent; }
-.rtm-reader-zoom{position:absolute;right:8px;bottom:8px;z-index:14;display:flex;gap:3px;padding:3px;border-radius:10px;background:rgba(248,250,252,.62);box-shadow:0 3px 12px rgba(15,23,42,.11);backdrop-filter:blur(5px)}
-.rtm-reader-zoom button{width:34px;height:34px;display:grid;place-items:center;padding:0;border:1px solid rgba(203,213,225,.72);border-radius:8px;background:rgba(255,255,255,.68);color:#111;font:700 17px Arial;cursor:pointer}
+.rtm-reader-zoom{position:absolute;right:7px;bottom:7px;z-index:14;display:flex;gap:2px;padding:2px;border-radius:9px;background:rgba(248,250,252,.48);box-shadow:0 2px 9px rgba(15,23,42,.09);backdrop-filter:blur(4px)}
+.rtm-reader-zoom button{width:30px;height:30px;display:grid;place-items:center;padding:0;border:1px solid rgba(203,213,225,.55);border-radius:7px;background:rgba(255,255,255,.55);color:#111;font:700 15px Arial;cursor:pointer}
 .rtm-reader-zoom button:hover{background:rgba(255,255,255,.92)}
-.rtm-reader-zoom .rtm-hand-icon{width:18px;height:18px}
+.rtm-reader-zoom .rtm-hand-icon{width:16px;height:16px}
 .rtm-media-badge {
   position: absolute;
   top: 8px;
@@ -206,6 +215,10 @@
 .rtm-hand-toolbar .rtm-font-select{position:relative;width:142px;min-width:142px;margin:0 4px;border:2px solid #111;border-radius:1px}
 .rtm-hand-toolbar .rtm-font-select .rtm-font-trigger{width:100%;min-width:0;padding:0 7px;display:flex;align-items:center;justify-content:space-between;border:0;font-size:15px;white-space:nowrap;overflow:hidden}
 .rtm-font-options{position:absolute;z-index:120;top:40px;left:-2px;width:190px;max-height:360px;padding:6px;overflow:auto;border:2px solid #111;background:#fff;box-shadow:4px 5px 0 rgba(30,30,30,.16)}
+.rtm-font-options-portal{position:fixed;z-index:2147483000;top:auto;width:210px;box-sizing:border-box}
+.rtm-font-options-portal b{display:block;padding:6px 7px 3px;font:700 11px Manrope,Arial;color:#475569;text-align:left}
+.rtm-font-options-portal button{width:100%;height:32px;min-height:32px;padding:0 8px;display:block;border:0;background:#fff;color:#111;text-align:left;font-size:16px;cursor:pointer}
+.rtm-font-options-portal button:hover{background:#f1f5f9}.rtm-font-options-portal button[aria-selected=true]{color:#fff;background:#2563eb}
 .rtm-hand-toolbar .rtm-font-options b{display:block;padding:6px 7px 3px;font:700 11px Manrope,Arial;color:#475569;text-align:left}
 .rtm-hand-toolbar .rtm-font-options button{width:100%;height:30px;min-height:30px;padding:0 8px;display:block;border:0;text-align:left;font-size:16px;border-radius:0}
 .rtm-hand-toolbar .rtm-font-options button[aria-selected=true]{color:#fff;background:#2563eb}

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createRoot, Root } from "react-dom/client";
 import {
   Excalidraw,
@@ -43,6 +44,10 @@ export type RTMCanvasOptions = {
   contentHeight?: number;
   fitToContent?: boolean;
   completionRequired?: boolean;
+  testDefinition?: { questions?: any[] } | null;
+  testAnswers?: Record<string, any>;
+  testMode?: "author" | "take";
+  onTestAnswer?: (questionId: string, value: any) => void;
 };
 
 type DialogState = { kind: MediaKind; source: "url" | "stock" } | null;
@@ -149,15 +154,41 @@ const createRequiredCompletion = (elements: readonly any[]) => {
   const groupId = elementId(), cardId = elementId(), noteId = elementId(), boxId = elementId(), textId = elementId();
   const created = convertToExcalidrawElements([
     { type: "rectangle", id: cardId, x, y, width: cardWidth, height: cardHeight, strokeColor: "#12b886", backgroundColor: "#e6fcf5", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 4, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId },
-    { type: "text", id: noteId, x: x + 38, y: y + 34, width: 514, height: 58, text: "Не забудь нажать кнопку завершить, что бы\nполучить доступ к следующему материалу!", originalText: "Не забудь нажать кнопку завершить, что бы\nполучить доступ к следующему материалу!", fontSize: 23, fontFamily: 5, textAlign: "left", verticalAlign: "middle", autoResize: false, strokeColor: "#1e1e1e", groupIds: [groupId], frameId },
-    { type: "rectangle", id: boxId, x: x + 214, y: y + 105, width: 162, height: 58, strokeColor: "#087f5b", backgroundColor: "#12b886", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId, boundElements: [{ id: textId, type: "text" }], link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 50 } },
-    { type: "text", id: textId, x: x + 214, y: y + 119, width: 162, height: 32, text: "Завершить", originalText: "Завершить", fontSize: 23, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#ffffff", groupIds: [groupId], frameId, containerId: boxId, customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 50 } },
+    { type: "text", id: noteId, x: x + 38, y: y + 34, width: 514, height: 58, text: "Не забудь нажать кнопку «Завершить», чтобы\nполучить доступ к следующему материалу!", originalText: "Не забудь нажать кнопку «Завершить», чтобы\nполучить доступ к следующему материалу!", fontSize: 23, fontFamily: 5, textAlign: "left", verticalAlign: "middle", autoResize: false, strokeColor: "#1e1e1e", groupIds: [groupId], frameId },
+    { type: "rectangle", id: boxId, x: x + 214, y: y + 105, width: 162, height: 58, strokeColor: "#087f5b", backgroundColor: "#12b886", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId, boundElements: [{ id: textId, type: "text" }], link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 51 } },
+    { type: "text", id: textId, x: x + 214, y: y + 118, width: 162, height: 32, text: "Завершить", originalText: "Завершить", fontSize: 23, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#ffffff", groupIds: [groupId], frameId, containerId: boxId, customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 51 } },
   ] as any, { regenerateIds: false }) as any[];
   return created.map((el: any) => ({ ...el, groupIds: [groupId], frameId, customData: { ...(el.customData || {}), rtmProtectedCompletion: true, rtmCompletionCard: true } }));
 };
 
+const repairCompletionCard = (elements: readonly any[]) => {
+  const marker = elements.find((el: any) => isCompleteMarker(el) && el.customData?.rtmCompletionCard);
+  if (!marker) return elements;
+  const groups = new Set(marker.groupIds || []);
+  const members = elements.filter((el: any) => el.id === marker.id || (el.groupIds || []).some((id: string) => groups.has(id)));
+  const label = members.find((el: any) => el.type === "text" && (el.customData?.rtmActionLabel || COMPLETE_TEXT.test(String(el.text || el.originalText || ""))));
+  const reminder = members.find((el: any) => el.type === "text" && /не забудь/i.test(String(el.text || el.originalText || "")));
+  return elements.map((el: any) => {
+    if (label && el.id === label.id) return {
+      ...el, x: Number(marker.x || 0), y: Number(marker.y || 0) + (Number(marker.height || 58) - 32) / 2,
+      width: Number(marker.width || 162), height: 32, text: "Завершить", originalText: "Завершить",
+      textAlign: "center", verticalAlign: "middle", autoResize: false, containerId: marker.id,
+      customData: { ...(el.customData || {}), rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 51 },
+    };
+    if (reminder && el.id === reminder.id) {
+      const text = String(el.text || el.originalText || "").replace(/что\s+бы/gi, "чтобы");
+      return { ...el, text, originalText: text, customData: { ...(el.customData || {}), rtmCompletionVersion: 51 } };
+    }
+    if (el.id === marker.id) return {
+      ...el, boundElements: label ? [{ id: label.id, type: "text" }] : el.boundElements,
+      customData: { ...(el.customData || {}), rtmCompletionVersion: 51 },
+    };
+    return el;
+  });
+};
+
 const ensureRequiredCompletion = (elements: readonly any[]) => {
-  const normalized = [...dedupeCompletion(normalizeCompletion(elements))] as any[];
+  const normalized = [...repairCompletionCard(dedupeCompletion(normalizeCompletion(elements)))] as any[];
   const direct = normalized.find(isCompleteMarker);
   if (direct) {
     const groups = new Set(direct.groupIds || []);
@@ -355,6 +386,42 @@ function ActionOverlay({ elements, viewport, origin, readOnly, onComplete }: { e
   })}</div>;
 }
 
+function TestOverlay({ elements, viewport, origin, options }: { elements: readonly any[]; viewport: Viewport; origin: { left: number; top: number }; options: RTMCanvasOptions }) {
+  if (options.testMode !== "take" || !options.testDefinition) return null;
+  const questions = options.testDefinition.questions || [];
+  const byId = new Map(questions.map((question: any) => [String(question.id), question]));
+  const answers = options.testAnswers || {};
+  const controls = elements.filter((el: any) => !el.isDeleted && el.customData?.rtmTestControl);
+  return <div className="rtm-test-layer">{controls.map((el: any) => {
+    const binding = el.customData.rtmTestControl || {};
+    const question: any = byId.get(String(binding.questionId));
+    if (!question) return null;
+    const style = overlayStyle(el, viewport, origin);
+    if (binding.kind === "free") return <textarea key={el.id} className="rtm-test-free" style={style} aria-label={question.text || "Свободный ответ"} value={String(answers[question.id] || "")} onChange={(event) => options.onTestAnswer?.(String(question.id), event.target.value)} />;
+    if (binding.kind === "media") {
+      const media = question.media || {};
+      if (!media.url) return null;
+      if (media.kind === "audio") return <div key={el.id} className="rtm-test-media" style={style}><audio controls preload="metadata" src={media.url} /></div>;
+      if (media.kind === "image") return <div key={el.id} className="rtm-test-media" style={style}><img src={media.url} alt={media.title || question.text || "Изображение"} /></div>;
+      return <div key={el.id} className="rtm-test-media" style={style}><video controls preload="metadata" src={media.url} /></div>;
+    }
+    if (binding.kind !== "choice") return null;
+    const option = (question.options || []).find((item: any) => String(item.id) === String(binding.optionId));
+    if (!option) return null;
+    const current = Array.isArray(answers[question.id]) ? answers[question.id].map(String) : [];
+    const selected = current.includes(String(option.id));
+    const multiple = question.type === "multiple";
+    const choose = () => options.onTestAnswer?.(String(question.id), multiple
+      ? (selected ? current.filter((id: string) => id !== String(option.id)) : [...current, String(option.id)])
+      : (selected ? [] : [String(option.id)]));
+    return <button key={el.id} type="button" className={`rtm-test-choice ${selected ? "is-selected" : ""} ${option.image?.url ? "has-image" : ""}`} style={style} aria-pressed={selected} onClick={choose}>
+      {option.image?.url && <img src={option.image.url} alt={option.text || "Вариант ответа"} />}
+      {!option.image?.url && <span>{option.text || "Вариант ответа"}</span>}
+      {selected && <i aria-hidden="true">✓</i>}
+    </button>;
+  })}</div>;
+}
+
 function MediaDialog({ state, onClose, onInsert }: { state: DialogState; onClose: () => void; onInsert: (media: RTMMediaSpec) => void }) {
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
@@ -422,7 +489,10 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   const overlayElementsRef = useRef<readonly any[]>(initial.elements || []);
   const viewportTimeRef = useRef(0);
   const readerBaseZoomRef = useRef(0);
+  const readerBaseScrollXRef = useRef(0);
   const readerClampRef = useRef(false);
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const fontTriggerRef = useRef<HTMLButtonElement>(null);
   const [origin, setOrigin] = useState({ left: 0, top: 0 });
   const [dialog, setDialog] = useState<DialogState>(null);
   const [saveState, setSaveState] = useState("");
@@ -431,11 +501,35 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   const [captureShortcuts, setCaptureShortcuts] = useState(false);
   const [selectedFont, setSelectedFont] = useState<number>(decodeStyledFont(Number(initialAppState.currentItemFontFamily || 5)).base);
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
+  const [fontMenuPosition, setFontMenuPosition] = useState({ left: 0, top: 0, maxHeight: 360 });
   const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
+  const [, setSettingsRevision] = useState(0);
   const changed = useRef(false);
   const readOnly = Boolean(options.readOnly);
   const brand = options.brandColor || "#7c3aed";
   const shortcutsActive = !readOnly && (editorFullscreen || captureShortcuts);
+
+  useEffect(() => {
+    if (!fontMenuOpen) return;
+    const update = () => {
+      const rect = fontTriggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const width = 210;
+      const roomBelow = window.innerHeight - rect.bottom - 10;
+      const roomAbove = rect.top - 10;
+      const openAbove = roomBelow < 210 && roomAbove > roomBelow;
+      const maxHeight = Math.max(140, Math.min(420, openAbove ? roomAbove : roomBelow));
+      setFontMenuPosition({
+        left: Math.max(8, Math.min(window.innerWidth - width - 8, rect.left)),
+        top: openAbove ? Math.max(8, rect.top - maxHeight - 4) : rect.bottom + 4,
+        maxHeight,
+      });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => { window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
+  }, [fontMenuOpen, editorFullscreen]);
 
   const selectedTextElements = () => {
     const api = apiRef.current;
@@ -571,10 +665,15 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const minY = Math.min(...incoming.map((el: any) => Number(el.y || 0)));
     const maxX = Math.max(...incoming.map((el: any) => Number(el.x || 0) + Number(el.width || 0)));
     const maxY = Math.max(...incoming.map((el: any) => Number(el.y || 0) + Number(el.height || 0)));
-    const sceneCenterX = ((rect?.width || 900) / 2 - Number(appState.offsetLeft || 0)) / zoom - Number(appState.scrollX || 0);
-    const sceneCenterY = ((rect?.height || 600) / 2 - Number(appState.offsetTop || 0)) / zoom - Number(appState.scrollY || 0);
-    const dx = sceneCenterX - (minX + maxX) / 2;
-    const dy = sceneCenterY - (minY + maxY) / 2;
+    const pointer = lastPointerRef.current;
+    const sceneX = pointer && rect
+      ? (pointer.x - rect.left - Number(appState.offsetLeft || 0)) / zoom - Number(appState.scrollX || 0)
+      : ((rect?.width || 900) / 2 - Number(appState.offsetLeft || 0)) / zoom - Number(appState.scrollX || 0);
+    const sceneY = pointer && rect
+      ? (pointer.y - rect.top - Number(appState.offsetTop || 0)) / zoom - Number(appState.scrollY || 0)
+      : ((rect?.height || 600) / 2 - Number(appState.offsetTop || 0)) / zoom - Number(appState.scrollY || 0);
+    const dx = sceneX - (minX + maxX) / 2;
+    const dy = sceneY - (minY + maxY) / 2;
     incoming.forEach((el: any) => { el.x = Number(el.x || 0) + dx; el.y = Number(el.y || 0) + dy; });
     if (data.files) api.addFiles?.(Object.entries(data.files).map(([id, file]: [string, any]) => ({ ...file, id: fileMap.get(id) || id })) as any);
     api.updateScene({ elements: [...existing, ...incoming], appState: { selectedElementIds: Object.fromEntries(incoming.map((el: any) => [el.id, true])) } });
@@ -596,6 +695,26 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
       } catch { /* try the next representation */ }
     }
     return null;
+  };
+  const copySelectionToInternalClipboard = async () => {
+    const api = apiRef.current; if (!api) return;
+    const selectedIds = api.getAppState().selectedElementIds || {};
+    const selected = api.getSceneElements().filter((el: any) => !el.isDeleted && selectedIds[el.id]);
+    if (!selected.length) { window.alert("Сначала выделите объекты"); return; }
+    const ids = new Set(selected.map((el: any) => el.fileId).filter(Boolean));
+    const allFiles = api.getFiles?.() || {};
+    const files = Object.fromEntries(Object.entries(allFiles).filter(([fileId]) => ids.has(fileId)));
+    const raw = JSON.stringify({ type: "excalidraw/clipboard", elements: selected, files });
+    try { sessionStorage.setItem("rtm_excalidraw_clipboard", raw); } catch { /* memory-only environments */ }
+    try { await navigator.clipboard.writeText(raw); setSaveState("Скопировано"); }
+    catch { setSaveState("Скопировано во внутренний буфер RTM"); }
+  };
+  const pasteFromInternalClipboard = () => {
+    let raw = ""; try { raw = sessionStorage.getItem("rtm_excalidraw_clipboard") || ""; } catch { /* blocked storage */ }
+    const parsed = parseClipboardScene(raw);
+    if (parsed && importScene(parsed)) return;
+    const manual = window.prompt("Bitrix24 запретил чтение системного буфера. Вставьте Excalidraw JSON сюда сочетанием Ctrl+V:");
+    const manualScene = manual && parseClipboardScene(manual); if (manualScene) importScene(manualScene);
   };
 
   const insertComplete = () => {
@@ -645,6 +764,20 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     try { await options.onManualSave?.(); changed.current = false; setSaveState(""); }
     catch { setSaveState("Сохранено на устройстве — ожидаю Bitrix24"); }
   };
+  const toggleAppSetting = (key: string) => {
+    const api = apiRef.current; if (!api) return;
+    const appState = api.getAppState(); api.updateScene({ appState: { [key]: !Boolean(appState[key]) } }); setSettingsRevision((value) => value + 1);
+  };
+  const toggleToolLock = () => {
+    const api = apiRef.current; if (!api) return;
+    const appState = api.getAppState(), activeTool = appState.activeTool || { type: "selection" };
+    api.updateScene({ appState: { activeTool: { ...activeTool, locked: !Boolean(activeTool.locked) } } }); setSettingsRevision((value) => value + 1);
+  };
+  const settingMark = (key: string) => apiRef.current?.getAppState?.()[key] ? "✓ " : "";
+  const toggleSelectionMode = () => {
+    const api = apiRef.current; if (!api) return; const current = api.getAppState().selectionMode || "wrap";
+    api.updateScene({ appState: { selectionMode: current === "overlap" ? "wrap" : "overlap" } }); setSettingsRevision((value) => value + 1);
+  };
 
   const readerTargetElements = () => {
     const all = apiRef.current?.getSceneElements?.().filter((el: any) => !el.isDeleted) || [];
@@ -654,11 +787,28 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   const fitReader = (animate = true) => {
     const api = apiRef.current;
     if (!api) return;
-    api.scrollToContent?.(readerTargetElements(), { fitToViewport: true, viewportZoomFactor: 0.96, animate });
-    requestAnimationFrame(() => {
-      const state = api.getAppState();
-      readerBaseZoomRef.current = Math.max(0.02, Number(state.zoom?.value || state.zoom || 1));
-    });
+    const target = readerTargetElements();
+    if (!target.length) return;
+    const rect = stageRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const minX = Math.min(...target.map((el: any) => Number(el.x || 0)));
+    const minY = Math.min(...target.map((el: any) => Number(el.y || 0)));
+    const maxX = Math.max(...target.map((el: any) => Number(el.x || 0) + Number(el.width || 0)));
+    const width = Math.max(1, maxX - minX);
+    const mobile = rect.width <= 800;
+    const readableWidth = Math.max(260, Math.min(mobile ? rect.width - 18 : 620, rect.width - (mobile ? 18 : 80)));
+    // Base scale is always width-driven: tall frames stay readable and scroll
+    // vertically, while genuinely wide frames still fit without base panning.
+    const zoom = Math.max(0.08, Math.min(2, readableWidth / width));
+    const state = api.getAppState();
+    const offsetLeft = Number(state.offsetLeft || 0), offsetTop = Number(state.offsetTop || 0);
+    const left = Math.max(8, (rect.width - width * zoom) / 2);
+    const top = mobile ? 10 : 14;
+    const scrollX = (left - offsetLeft) / zoom - minX;
+    const scrollY = (top - offsetTop) / zoom - minY;
+    readerBaseZoomRef.current = zoom;
+    readerBaseScrollXRef.current = scrollX;
+    api.updateScene({ appState: { zoom: { value: zoom }, scrollX, scrollY } });
   };
   const readerZoom = (direction: number) => {
     const api = apiRef.current;
@@ -733,25 +883,25 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
         <button type="button" className="rtm-text-style" title="Подчёркнутый текст" onClick={() => decorateText("underline")}><u>U</u></button>
         <button type="button" className="rtm-text-style" title="Зачёркнутый текст" onClick={() => decorateText("strike")}><s>S</s></button>
         <div className="rtm-font-select rtm-icon-control" title="Список шрифтов">
-          <button type="button" className="rtm-font-trigger" aria-haspopup="listbox" aria-expanded={fontMenuOpen} style={{ fontFamily: fontCssFamily(selectedFont) }} onClick={() => setFontMenuOpen((value) => !value)}>{fontCssFamily(selectedFont)} <span>▾</span></button>
-          {fontMenuOpen && <div className="rtm-font-options" role="listbox">
+          <button ref={fontTriggerRef} type="button" className="rtm-font-trigger" aria-haspopup="listbox" aria-expanded={fontMenuOpen} style={{ fontFamily: fontCssFamily(selectedFont) }} onClick={() => setFontMenuOpen((value) => !value)}>{fontCssFamily(selectedFont)} <span>▾</span></button>
+          {fontMenuOpen && createPortal(<div className="rtm-font-options rtm-font-options-portal" role="listbox" style={{ left: fontMenuPosition.left, top: fontMenuPosition.top, maxHeight: fontMenuPosition.maxHeight }}>
             <b>Штатные Excalidraw</b>{EXCALIDRAW_FONT_OPTIONS.map(([name, id]) => <button type="button" role="option" aria-selected={selectedFont === id} key={id} style={{ fontFamily: name }} onClick={() => { applyFont(id); setFontMenuOpen(false); }}>{name}</button>)}
             <b>Шрифты RTM</b>{RTM_FONT_OPTIONS.map(([name, id]) => <button type="button" role="option" aria-selected={selectedFont === id} key={id} style={{ fontFamily: name }} onClick={() => { applyFont(id); setFontMenuOpen(false); }}>{name}</button>)}
-          </div>}
+          </div>, document.body)}
         </div>
         <button type="button" title="Маркированный список" onClick={() => makeList(false)}><span className="rtm-hand-list">▪<i></i>▪<i></i>▪<i></i></span></button>
         <button type="button" title="Нумерованный список" onClick={() => makeList(true)}><span className="rtm-hand-list numbered">1<i></i>2<i></i>3<i></i></span></button>
         <button type="button" className="rtm-hand-circle" title="Ссылка на видео или аудио" onClick={requestMediaUrl}><HandIcon kind="media" /></button>
-        <button type="button" className="rtm-hand-circle" title="Ссылка" onClick={() => setDialog({ kind: "link", source: "url" })}><HandIcon kind="link" /></button>
-        <button type="button" className="rtm-hand-circle" title="Файл с ПК или Bitrix.Диска" onClick={() => requestDisk("video")}><HandIcon kind="upload" /></button>
-        <label className="rtm-canvas-import rtm-hand-circle" title="Импорт макета"><HandIcon kind="import" /><input type="file" accept=".excalidraw,application/json" onChange={(event) => { handleImportFile(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>
+        <button type="button" className="rtm-hand-circle" title="Файл с ПК или Bitrix.Диска" onClick={() => requestDisk("image")}><HandIcon kind="link" /></button>
+        <label className="rtm-canvas-import rtm-hand-circle" title="Импорт макета .excalidraw"><HandIcon kind="upload" /><input type="file" accept=".excalidraw,application/json" onChange={(event) => { handleImportFile(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>
+        <button type="button" className="rtm-hand-circle" title="Добавить ссылку с названием" onClick={() => setDialog({ kind: "link", source: "url" })}><HandIcon kind="import" /></button>
         <button type="button" className="rtm-hand-expand" title={editorFullscreen ? "Свернуть" : "Развернуть редактор"} aria-pressed={editorFullscreen} onClick={() => setEditorFullscreen((value) => !value)}><HandIcon kind="expand" /></button>
         <button type="button" className="rtm-mobile-preview-open" title="Мобильный предпросмотр" onClick={() => setMobilePreview(true)}><HandIcon kind="phone" /></button>
         <button type="button" className="rtm-canvas-save" onClick={save}>Сохранить статью</button>
         {saveState && <span className={`rtm-canvas-save-state ${saveState.includes("Ошибка") || saveState.includes("ожидаю") ? "is-error" : ""}`}>{saveState}</span>}
       </div>}
       {mobilePreview && <MobilePreview scene={{ type: "excalidraw", version: 2, source: "rtm-v49-preview", elements: [...elements], appState: apiRef.current?.getAppState?.() || initial.appState || {}, files: initial.files || {} }} onClose={() => setMobilePreview(false)} />}
-      <div className="rtm-canvas-stage" ref={stageRef} tabIndex={-1} onPointerDown={() => { setCaptureShortcuts(true); stageRef.current?.focus({ preventScroll: true }); }}>
+      <div className="rtm-canvas-stage" ref={stageRef} tabIndex={-1} onPointerMove={(event) => { lastPointerRef.current = { x: event.clientX, y: event.clientY }; }} onPointerDown={(event) => { lastPointerRef.current = { x: event.clientX, y: event.clientY }; setCaptureShortcuts(true); stageRef.current?.focus({ preventScroll: true }); }}>
         <Excalidraw
           key={options.pageKey}
           excalidrawAPI={(nextApi: any) => {
@@ -807,6 +957,12 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
               requestAnimationFrame(() => { readerClampRef.current = false; });
               return;
             }
+            if (readOnly && readerBaseZoomRef.current > 0 && nextViewport.zoom <= readerBaseZoomRef.current + 0.0001 && Math.abs(nextViewport.sx - readerBaseScrollXRef.current) > 0.01 && !readerClampRef.current) {
+              readerClampRef.current = true;
+              apiRef.current?.updateScene({ appState: { scrollX: readerBaseScrollXRef.current } });
+              requestAnimationFrame(() => { readerClampRef.current = false; });
+              return;
+            }
             syncMediaOverlayPositions(nextElements, nextViewport);
             const viewportSignature = [nextViewport.zoom, nextViewport.left, nextViewport.top, nextViewport.sx, nextViewport.sy].map((value, index) => index === 0 ? Math.round(value * 200) / 200 : Math.round(value * 4) / 4).join("|");
             if (viewportSignature !== viewportSignatureRef.current && (!readOnly || performance.now() - viewportTimeRef.current >= 50)) {
@@ -827,6 +983,19 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
             <MainMenu.DefaultItems.ToggleTheme />
             <MainMenu.DefaultItems.ChangeCanvasBackground />
             <MainMenu.Separator />
+            <MainMenu.Item onSelect={toggleSelectionMode}>Выбор: {apiRef.current?.getAppState?.().selectionMode === "overlap" ? "Overlap" : "Wrap"}</MainMenu.Item>
+            <MainMenu.Item onSelect={toggleToolLock}>{apiRef.current?.getAppState?.().activeTool?.locked ? "✓ " : ""}Закрепить инструмент</MainMenu.Item>
+            <MainMenu.Item onSelect={() => toggleAppSetting("objectsSnapModeEnabled")}>{settingMark("objectsSnapModeEnabled")}Привязка к объектам</MainMenu.Item>
+            <MainMenu.Item onSelect={() => toggleAppSetting("gridModeEnabled")}>{settingMark("gridModeEnabled")}Переключить сетку</MainMenu.Item>
+            <MainMenu.Item onSelect={() => toggleAppSetting("zenModeEnabled")}>{settingMark("zenModeEnabled")}Режим «Дзен»</MainMenu.Item>
+            <MainMenu.Item onSelect={() => toggleAppSetting("viewModeEnabled")}>{settingMark("viewModeEnabled")}Режим просмотра</MainMenu.Item>
+            <MainMenu.Item onSelect={() => toggleAppSetting("isBindingEnabled")}>{settingMark("isBindingEnabled")}Привязка стрелок</MainMenu.Item>
+            <MainMenu.Item onSelect={() => toggleAppSetting("snapToCenter")}>{settingMark("snapToCenter")}Привязка к средней точке</MainMenu.Item>
+            <MainMenu.Item onSelect={() => toggleAppSetting("showStats")}>{settingMark("showStats")}Свойства холста и фигур</MainMenu.Item>
+            <MainMenu.Separator />
+            <MainMenu.Item onSelect={copySelectionToInternalClipboard}>Копировать в буфер RTM</MainMenu.Item>
+            <MainMenu.Item onSelect={pasteFromInternalClipboard}>Вставить из буфера RTM</MainMenu.Item>
+            <MainMenu.Separator />
             <MainMenu.Item onSelect={save}>Сохранить в RTM</MainMenu.Item>
           </MainMenu>
           {!readOnly && <WelcomeScreen>
@@ -839,6 +1008,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
           </WelcomeScreen>}
         </Excalidraw>
         <MediaOverlay elements={elements} viewport={viewport} readOnly={readOnly} origin={origin} activeId={activeMediaId} onActivate={setActiveMediaId} />
+        <TestOverlay elements={elements} viewport={viewport} origin={origin} options={options} />
         <ActionOverlay elements={elements} viewport={viewport} origin={origin} readOnly={readOnly} onComplete={options.onComplete} />
         {readOnly && <div className="rtm-reader-zoom" aria-label="Масштаб статьи"><button type="button" onClick={() => readerZoom(-1)} aria-label="Уменьшить">−</button><button type="button" onClick={() => readerZoom(1)} aria-label="Увеличить">+</button><button type="button" onClick={readerFit} aria-label="Вписать в экран"><HandIcon kind="expand" /></button></div>}
       </div>

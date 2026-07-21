@@ -239,7 +239,7 @@
     return {developer: 'Разработчик', admin: 'Администратор', moderator: 'Редактор', teacher: 'Преподаватель', employee: 'Ученик'}[role] || 'Ученик';
   };
   saveRole = async function (userId, legacyRole) {
-    var role = legacyRole === 'admin' ? 'admin' : legacyRole === 'moderator' ? 'editor' : legacyRole === 'teacher' ? 'teacher' : 'student';
+    var role = legacyRole === 'developer' ? 'developer' : legacyRole === 'admin' ? 'admin' : legacyRole === 'moderator' ? 'editor' : legacyRole === 'teacher' ? 'teacher' : 'student';
     await request('/api/v47/users/' + encodeURIComponent(userId) + '/role', {
       method: 'PUT', body: JSON.stringify({role: role})
     });
