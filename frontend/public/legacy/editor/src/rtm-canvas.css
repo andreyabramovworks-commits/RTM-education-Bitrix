@@ -142,6 +142,33 @@
 .rtm-reader-zoom button{width:30px;height:30px;display:grid;place-items:center;padding:0;border:1px solid rgba(203,213,225,.55);border-radius:7px;background:rgba(255,255,255,.55);color:#111;font:700 15px Arial;cursor:pointer}
 .rtm-reader-zoom button:hover{background:rgba(255,255,255,.92)}
 .rtm-reader-zoom .rtm-hand-icon{width:16px;height:16px}
+
+/* v50.2: one intrinsic layer for artwork and reader controls. */
+.rtm-unified-reader{position:relative;width:100%;min-width:0;background:#f8fafc;isolation:isolate}
+.rtm-unified-reader-scroll{width:100%;overflow-y:visible;overscroll-behavior-x:contain;touch-action:pan-y;background:#f8fafc;scrollbar-width:thin}
+.rtm-unified-reader-scroll.is-base{overflow-x:hidden}
+.rtm-unified-reader-scroll.is-zoomed{overflow-x:auto;touch-action:pan-x pan-y}
+.rtm-unified-reader-space{position:relative;min-width:100%;margin:0 auto}
+.rtm-unified-reader-scene{position:absolute;top:0;left:max(0px,calc((100% - var(--rtm-reader-scaled-width)) / 2));transform-origin:top left;overflow:hidden;background:#fff}
+.rtm-unified-reader-art{position:absolute;inset:0;pointer-events:none}
+.rtm-unified-reader-art>svg{display:block;width:100%;height:100%}
+.rtm-unified-media,.rtm-unified-test-media{position:absolute;box-sizing:border-box;overflow:hidden;border-radius:9px;background:#fff;transform-origin:center}
+.rtm-unified-media img,.rtm-unified-media video,.rtm-unified-media iframe,.rtm-unified-media audio,
+.rtm-unified-test-media img,.rtm-unified-test-media video,.rtm-unified-test-media audio{display:block;width:100%;height:100%;border:0;object-fit:contain;background:#fff}
+.rtm-unified-complete-hit,.rtm-unified-link-hit,.rtm-unified-test-choice,.rtm-unified-test-free{position:absolute;box-sizing:border-box;transform-origin:center}
+.rtm-unified-complete-hit,.rtm-unified-link-hit{border:0;background:transparent;cursor:pointer}
+.rtm-unified-complete-hit:focus-visible,.rtm-unified-link-hit:focus-visible{outline:4px solid rgba(245,159,0,.65);outline-offset:2px}
+.rtm-unified-test-choice{padding:0;border:3px solid transparent;border-radius:12px;background:transparent;color:transparent;cursor:pointer}
+.rtm-unified-test-choice:hover{border-color:rgba(245,159,0,.55)}
+.rtm-unified-test-choice.is-selected{border-color:#f59f00;background:rgba(255,248,225,.22)}
+.rtm-unified-test-choice i{position:absolute;right:8px;top:50%;width:24px;height:24px;display:grid;place-items:center;transform:translateY(-50%);border:2px solid #16a34a;border-radius:7px;background:#fff;color:#16a34a;font:800 18px/1 Arial}
+.rtm-unified-test-choice.has-image img{display:block;width:100%;height:100%;object-fit:contain}
+.rtm-unified-test-free{padding:12px;border:2px solid #159c68;border-radius:18px;background:#fff;color:#172033;font:16px/1.45 Manrope,Arial,sans-serif;resize:none;outline:none}
+.rtm-unified-test-free:focus{border-color:#f59f00;box-shadow:0 0 0 3px rgba(245,159,0,.18)}
+.rtm-unified-reader-zoom{position:sticky;z-index:20;bottom:8px;display:flex;width:max-content;gap:2px;margin:-42px 8px 8px auto;padding:2px;border-radius:9px;background:rgba(248,250,252,.58);box-shadow:0 2px 9px rgba(15,23,42,.09);backdrop-filter:blur(4px)}
+.rtm-unified-reader-zoom button{width:30px;height:30px;display:grid;place-items:center;padding:0;border:1px solid rgba(203,213,225,.58);border-radius:7px;background:rgba(255,255,255,.62);color:#111;font:700 15px Arial;cursor:pointer}
+.rtm-unified-reader-zoom button:disabled{opacity:.38;cursor:default}
+.rtm-unified-reader-zoom .rtm-hand-icon{width:16px;height:16px}
 .rtm-media-badge {
   position: absolute;
   top: 8px;
@@ -205,6 +232,9 @@
   .rtm-font-select { flex: 0 0 auto; padding: 0 7px; }
   .rtm-font-select select { max-width: 105px; }
   .rtm-canvas-save-state { display: none; }
+  .rtm-unified-reader-scroll{touch-action:pan-y}
+  .rtm-unified-reader-scroll.is-zoomed{touch-action:pan-x pan-y}
+  .rtm-unified-reader-zoom{bottom:10px;margin-right:6px}
 }
 
 /* v49 hand-drawn toolbar, traced from the supplied Excalidraw reference. */

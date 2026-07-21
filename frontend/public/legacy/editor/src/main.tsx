@@ -5,7 +5,9 @@ import {
   Excalidraw,
   MainMenu,
   WelcomeScreen,
+  CaptureUpdateAction,
   convertToExcalidrawElements,
+  exportToSvg,
   FONT_FAMILY,
   sceneCoordsToViewportCoords,
 } from "@excalidraw/excalidraw";
@@ -240,6 +242,98 @@ const embedMediaUrl = (raw: string) => {
   }
 };
 
+const normalizeTextGeometry = (element: any) => {
+  if (!element || element.isDeleted || element.type !== "text" || element.containerId) return element;
+  const text = String(element.text || element.originalText || "");
+  if (!text) return element;
+  const lines = Math.max(1, text.split("\n").length);
+  const fontSize = Math.max(1, Number(element.fontSize || 20));
+  const lineHeight = Math.max(.8, Math.min(2, Number(element.lineHeight || 1.25)));
+  const contentHeight = Math.max(fontSize, Math.ceil(lines * fontSize * lineHeight));
+  const currentHeight = Number(element.height || contentHeight);
+  // Imported/clipboard text can retain the height of a source selection box.
+  // A normal text element should not contain hundreds of pixels of empty space.
+  if (currentHeight <= contentHeight * 2 + 12) return element;
+  return {
+    ...element,
+    height: contentHeight,
+    version: Number(element.version || 1) + 1,
+    versionNonce: Math.floor(Math.random() * 2147483647),
+    updated: Date.now(),
+  };
+};
+
+const normalizeTextGeometryList = (elements: readonly any[]) => {
+  let changed = false;
+  const normalized = elements.map((element: any) => {
+    const next = normalizeTextGeometry(element);
+    if (next !== element) changed = true;
+    return next;
+  });
+  return changed ? normalized : elements;
+};
+
+type ElementBounds = { left: number; top: number; right: number; bottom: number; area: number; cx: number; cy: number };
+
+const elementBounds = (element: any): ElementBounds => {
+  const x = Number(element.x || 0), y = Number(element.y || 0);
+  const width = Math.max(0, Number(element.width || 0)), height = Math.max(0, Number(element.height || 0));
+  const cx = x + width / 2, cy = y + height / 2, angle = Number(element.angle || 0);
+  if (!angle) return { left: x, top: y, right: x + width, bottom: y + height, area: Math.max(1, width * height), cx, cy };
+  const cosine = Math.cos(angle), sine = Math.sin(angle);
+  const corners = [[x, y], [x + width, y], [x + width, y + height], [x, y + height]].map(([px, py]) => ({
+    x: cx + (px - cx) * cosine - (py - cy) * sine,
+    y: cy + (px - cx) * sine + (py - cy) * cosine,
+  }));
+  const left = Math.min(...corners.map((point) => point.x)), right = Math.max(...corners.map((point) => point.x));
+  const top = Math.min(...corners.map((point) => point.y)), bottom = Math.max(...corners.map((point) => point.y));
+  return { left, top, right, bottom, area: Math.max(1, width * height), cx, cy };
+};
+
+/** Assign every element to the smallest frame which fully contains it. */
+const reconcileFrameMembership = (elements: readonly any[]) => {
+  const visible = elements.filter((element: any) => element && !element.isDeleted);
+  const frames = visible.filter((element: any) => element.type === "frame").map((frame: any) => ({ frame, bounds: elementBounds(frame) }));
+  if (!frames.length) {
+    let detached = false;
+    const next = elements.map((element: any) => {
+      if (!element || element.isDeleted || !element.frameId) return element;
+      detached = true;
+      return { ...element, frameId: null, version: Number(element.version || 1) + 1, versionNonce: Math.floor(Math.random() * 2147483647), updated: Date.now() };
+    });
+    return detached ? next : elements;
+  }
+  const desired = new Map<string, string | null>();
+  const tolerance = 2;
+  visible.forEach((element: any) => {
+    if (element.type === "text" && element.containerId) return;
+    const bounds = elementBounds(element);
+    const candidates = frames.filter(({ frame, bounds: frameBounds }) => {
+      if (frame.id === element.id) return false;
+      if (element.type === "frame" && frameBounds.area <= bounds.area + 1) return false;
+      return bounds.left >= frameBounds.left - tolerance && bounds.top >= frameBounds.top - tolerance
+        && bounds.right <= frameBounds.right + tolerance && bounds.bottom <= frameBounds.bottom + tolerance;
+    }).sort((a, b) => a.bounds.area - b.bounds.area
+      || Math.hypot(a.bounds.cx - bounds.cx, a.bounds.cy - bounds.cy) - Math.hypot(b.bounds.cx - bounds.cx, b.bounds.cy - bounds.cy));
+    desired.set(String(element.id), candidates[0]?.frame.id || null);
+  });
+  const byId = new Map(visible.map((element: any) => [String(element.id), element]));
+  visible.forEach((element: any) => {
+    if (element.type !== "text" || !element.containerId) return;
+    const container: any = byId.get(String(element.containerId));
+    desired.set(String(element.id), container ? (desired.get(String(container.id)) ?? container.frameId ?? null) : null);
+  });
+  let changed = false;
+  const next = elements.map((element: any) => {
+    if (!element || element.isDeleted) return element;
+    const frameId = desired.get(String(element.id)) ?? null;
+    if ((element.frameId || null) === frameId) return element;
+    changed = true;
+    return { ...element, frameId, version: Number(element.version || 1) + 1, versionNonce: Math.floor(Math.random() * 2147483647), updated: Date.now() };
+  });
+  return changed ? next : elements;
+};
+
 const mediaFromNode = (node: Element): RTMMediaSpec | null => {
   const media = node.matches("img,audio,video,iframe") ? node : node.querySelector("img,audio,video,iframe");
   const anchor = node.matches("a[href]") ? node : node.querySelector("a[href]");
@@ -328,11 +422,13 @@ export const htmlToScene = (html: string, title = "Страница"): RTMScene 
 
 const normalizeScene = (options: RTMCanvasOptions): RTMScene => {
   if (options.scene?.elements) {
+    const normalizedText = normalizeTextGeometryList(options.scene.elements);
+    const framed = reconcileFrameMembership(normalizedText);
     return {
       type: "excalidraw",
       version: 2,
       source: "rtm-v45",
-      elements: options.completionRequired === false ? options.scene.elements : ensureRequiredCompletion(options.scene.elements),
+      elements: options.completionRequired === false ? framed : reconcileFrameMembership(ensureRequiredCompletion(framed)),
       appState: { viewBackgroundColor: "#f8fafc", ...(options.scene.appState || {}) },
       files: options.scene.files || {},
     };
@@ -420,6 +516,172 @@ function TestOverlay({ elements, viewport, origin, options }: { elements: readon
       {selected && <i aria-hidden="true">✓</i>}
     </button>;
   })}</div>;
+}
+
+const sceneBounds = (elements: readonly any[]) => {
+  const visible = elements.filter((el: any) => !el.isDeleted);
+  const frame = visible.find((el: any) => el.type === "frame" && !el.frameId)
+    || visible.find((el: any) => el.type === "frame");
+  if (frame) return {
+    x: Number(frame.x || 0), y: Number(frame.y || 0),
+    width: Math.max(1, Number(frame.width || 1)), height: Math.max(1, Number(frame.height || 1)),
+    frame,
+  };
+  if (!visible.length) return { x: 0, y: 0, width: 900, height: 600, frame: null };
+  const x = Math.min(...visible.map((el: any) => Number(el.x || 0)));
+  const y = Math.min(...visible.map((el: any) => Number(el.y || 0)));
+  const right = Math.max(...visible.map((el: any) => Number(el.x || 0) + Number(el.width || 0)));
+  const bottom = Math.max(...visible.map((el: any) => Number(el.y || 0) + Number(el.height || 0)));
+  return { x, y, width: Math.max(1, right - x), height: Math.max(1, bottom - y), frame: null };
+};
+
+const intrinsicStyle = (el: any, bounds: ReturnType<typeof sceneBounds>): React.CSSProperties => ({
+  left: Number(el.x || 0) - bounds.x,
+  top: Number(el.y || 0) - bounds.y,
+  width: Math.max(1, Number(el.customData?.rtmTestControl?.controlWidth || el.width || 1)),
+  height: Math.max(1, Number(el.height || 1)),
+  transform: `rotate(${Number(el.angle || 0)}rad)`,
+});
+
+/**
+ * Reader elements and their interactive controls live in one intrinsic scene.
+ * Scrolling and zooming therefore move a single layer instead of continuously
+ * recalculating a second DOM overlay over the Excalidraw viewport.
+ */
+function UnifiedReaderSurface({ options }: { options: RTMCanvasOptions }) {
+  const scene = useMemo(() => normalizeScene(options), [options.pageKey, options.scene]);
+  const elements = scene.elements || [];
+  const bounds = useMemo(() => sceneBounds(elements), [elements]);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [svgMarkup, setSvgMarkup] = useState("");
+  const [baseScale, setBaseScale] = useState(1);
+  const [scale, setScale] = useState(1);
+  const scaleRef = useRef(1);
+  const baseRef = useRef(1);
+  const atBaseRef = useRef(true);
+  const answers = options.testAnswers || {};
+  const questions = options.testDefinition?.questions || [];
+  const questionById = useMemo(() => new Map(questions.map((question: any) => [String(question.id), question])), [questions]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const visible = elements.filter((el: any) => !el.isDeleted) as any[];
+    exportToSvg({
+      elements: visible,
+      appState: {
+        ...(scene.appState || {}),
+        exportBackground: true,
+        exportWithDarkMode: false,
+        viewBackgroundColor: String(scene.appState?.viewBackgroundColor || "#f8fafc"),
+      } as any,
+      files: (scene.files || {}) as any,
+      exportingFrame: bounds.frame as any,
+      exportPadding: bounds.frame ? 0 : 1,
+      renderEmbeddables: true,
+    }).then((svg: SVGSVGElement) => {
+      if (cancelled) return;
+      svg.setAttribute("width", "100%");
+      svg.setAttribute("height", "100%");
+      svg.setAttribute("preserveAspectRatio", "none");
+      setSvgMarkup(svg.outerHTML);
+    }).catch(() => { if (!cancelled) setSvgMarkup(""); });
+    return () => { cancelled = true; };
+  }, [elements, scene.appState, scene.files, bounds.frame]);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const fit = () => {
+      const available = Math.max(1, host.clientWidth - 12);
+      const nextBase = Math.min(1, available / bounds.width);
+      const wasAtBase = atBaseRef.current || Math.abs(scaleRef.current - baseRef.current) < .002;
+      baseRef.current = nextBase;
+      setBaseScale(nextBase);
+      if (wasAtBase) {
+        scaleRef.current = nextBase;
+        atBaseRef.current = true;
+        setScale(nextBase);
+        host.scrollLeft = 0;
+      } else if (scaleRef.current < nextBase) {
+        scaleRef.current = nextBase;
+        setScale(nextBase);
+      }
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [bounds.width, options.pageKey]);
+
+  const setReaderScale = (next: number) => {
+    const value = Math.max(baseRef.current, Math.min(3, next));
+    scaleRef.current = value;
+    atBaseRef.current = Math.abs(value - baseRef.current) < .002;
+    setScale(value);
+    if (atBaseRef.current && hostRef.current) hostRef.current.scrollLeft = 0;
+  };
+  const controls = elements.filter((el: any) => !el.isDeleted && el.customData?.rtmTestControl);
+  const complete = completionTarget(elements);
+  const zoomed = scale > baseScale + .002;
+
+  return <div className="rtm-unified-reader" style={{ "--rtm-reader-scaled-width": `${bounds.width * scale}px` } as React.CSSProperties}>
+    <div ref={hostRef} className={`rtm-unified-reader-scroll ${zoomed ? "is-zoomed" : "is-base"}`}>
+      <div className="rtm-unified-reader-space" style={{ width: bounds.width * scale, height: bounds.height * scale }}>
+        <div className="rtm-unified-reader-scene" style={{ width: bounds.width, height: bounds.height, transform: `scale(${scale})` }}>
+          <div className="rtm-unified-reader-art" aria-hidden="true" dangerouslySetInnerHTML={{ __html: svgMarkup }} />
+          {elements.filter((el: any) => !el.isDeleted && el.customData?.rtmMedia).map((el: any) => {
+            const media = el.customData.rtmMedia as RTMMediaSpec;
+            const style = intrinsicStyle(el, bounds);
+            return <div className={`rtm-unified-media kind-${media.kind}`} style={style} key={el.id}>
+              {media.kind === "audio" && <audio controls preload="metadata" src={media.url} title={media.title || "Аудио"} />}
+              {media.kind === "video" && (/youtube\.com|youtu\.be|rutube\.ru/i.test(media.url)
+                ? <iframe src={embedMediaUrl(media.url)} title={media.title || "Видео"} allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowFullScreen />
+                : <video controls preload="metadata" src={media.url} title={media.title || "Видео"} />)}
+              {media.kind === "image" && <img src={media.url} alt={media.title || "Изображение"} />}
+            </div>;
+          })}
+          {elements.filter((el: any) => !el.isDeleted && (el.link || el.customData?.rtmAction === "complete-material" || el.id === complete?.id)).map((el: any) => {
+            const style = intrinsicStyle(el, bounds);
+            if (el.id === complete?.id || isCompleteMarker(el)) return <button type="button" aria-label="Завершить материал" className="rtm-unified-complete-hit" style={style} key={el.id} onClick={() => options.onComplete?.()} />;
+            const href = safeHttpsUrl(el.link);
+            return href ? <a className="rtm-unified-link-hit" style={style} key={el.id} href={href} target="_blank" rel="noopener noreferrer" aria-label={el.text || "Открыть ссылку"} /> : null;
+          })}
+          {options.testMode === "take" && controls.map((el: any) => {
+            const binding = el.customData.rtmTestControl || {};
+            const question: any = questionById.get(String(binding.questionId));
+            if (!question) return null;
+            const style = intrinsicStyle(el, bounds);
+            if (binding.kind === "free") return <textarea key={el.id} className="rtm-unified-test-free" style={style} aria-label={question.text || "Свободный ответ"} value={String(answers[question.id] || "")} onChange={(event) => options.onTestAnswer?.(String(question.id), event.target.value)} />;
+            if (binding.kind === "media") {
+              const media = question.media || {};
+              if (!media.url) return null;
+              return <div key={el.id} className="rtm-unified-test-media" style={style}>
+                {media.kind === "audio" ? <audio controls preload="metadata" src={media.url} /> : media.kind === "image" ? <img src={media.url} alt={media.title || question.text || "Изображение"} /> : <video controls preload="metadata" src={media.url} />}
+              </div>;
+            }
+            if (binding.kind !== "choice") return null;
+            const option = (question.options || []).find((item: any) => String(item.id) === String(binding.optionId));
+            if (!option) return null;
+            const current = Array.isArray(answers[question.id]) ? answers[question.id].map(String) : [];
+            const selected = current.includes(String(option.id));
+            const multiple = question.type === "multiple";
+            const choose = () => options.onTestAnswer?.(String(question.id), multiple
+              ? (selected ? current.filter((id: string) => id !== String(option.id)) : [...current, String(option.id)])
+              : (selected ? [] : [String(option.id)]));
+            return <button key={el.id} type="button" className={`rtm-unified-test-choice ${selected ? "is-selected" : ""} ${option.image?.url ? "has-image" : ""}`} style={style} aria-pressed={selected} onClick={choose}>
+              {option.image?.url && <img src={option.image.url} alt={option.text || "Вариант ответа"} />}
+              {selected && <i aria-hidden="true">✓</i>}
+            </button>;
+          })}
+        </div>
+      </div>
+    </div>
+    <div className="rtm-unified-reader-zoom" aria-label="Масштаб материала">
+      <button type="button" onClick={() => setReaderScale(scaleRef.current - .15)} disabled={!zoomed} aria-label="Уменьшить">−</button>
+      <button type="button" onClick={() => setReaderScale(scaleRef.current + .15)} aria-label="Увеличить">+</button>
+      <button type="button" onClick={() => setReaderScale(baseRef.current)} aria-label="Вернуть базовый масштаб"><HandIcon kind="expand" /></button>
+    </div>
+  </div>;
 }
 
 function MediaDialog({ state, onClose, onInsert }: { state: DialogState; onClose: () => void; onInsert: (media: RTMMediaSpec) => void }) {
@@ -510,6 +772,18 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   const shortcutsActive = !readOnly && (editorFullscreen || captureShortcuts);
 
   useEffect(() => {
+    if (readOnly || !options.scene?.elements?.length || !options.onChange) return;
+    const source = new Map(options.scene.elements.map((element: any) => [String(element.id), element]));
+    const repaired = (initial.elements || []).some((element: any) => {
+      const original: any = source.get(String(element.id));
+      return original && ((original.frameId || null) !== (element.frameId || null) || Number(original.height || 0) !== Number(element.height || 0));
+    });
+    if (!repaired) return;
+    changed.current = true;
+    options.onChange(initial);
+  }, [options.pageKey]);
+
+  useEffect(() => {
     if (!fontMenuOpen) return;
     const update = () => {
       const rect = fontTriggerRef.current?.getBoundingClientRect();
@@ -545,7 +819,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const selected = new Set(selectedTextElements().map((el: any) => el.id));
     const next = api.getSceneElements().map((el: any) => selected.has(el.id) ? { ...el, fontFamily: fontFor(Number(el.fontFamily || selectedFont)), version: Number(el.version || 1) + 1, versionNonce: Math.floor(Math.random() * 2147483647), updated: Date.now() } : el);
     const nextCurrent = fontFor(Number(api.getAppState().currentItemFontFamily || selectedFont));
-    api.updateScene({ elements: next, appState: { currentItemFontFamily: nextCurrent } });
+    api.updateScene({ elements: next, appState: { currentItemFontFamily: nextCurrent }, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
     setSelectedFont(decodeStyledFont(nextCurrent).base);
   };
 
@@ -576,7 +850,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const next = api.getSceneElements().map((el: any) => selected.has(el.id)
       ? { ...el, text: transform(String(el.text || "")), originalText: transform(String(el.originalText || el.text || "")), version: Number(el.version || 1) + 1, versionNonce: Math.floor(Math.random() * 2147483647), updated: Date.now() }
       : el);
-    api.updateScene({ elements: next });
+    api.updateScene({ elements: next, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
   };
 
   const decorateText = (mark: "underline" | "strike") => {
@@ -630,7 +904,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
       : mediaSkeleton(media, maxY + 50);
     if (media.kind === "link") (skeleton as any).link = media.url;
     const next = convertToExcalidrawElements([skeleton] as any, { regenerateIds: false }) as any[];
-    api.updateScene({ elements: [...api.getSceneElements(), ...next] });
+    api.updateScene({ elements: reconcileFrameMembership([...api.getSceneElements(), ...next]), captureUpdate: CaptureUpdateAction.IMMEDIATELY });
     setDialog(null);
   };
 
@@ -644,7 +918,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const groupMap = new Map<string, string>();
     incoming.forEach((el: any) => (el.groupIds || []).forEach((id: string) => { if (!groupMap.has(id)) groupMap.set(id, elementId()); }));
     const fileMap = new Map<string, string>(Object.keys(data.files || {}).map((id) => [id, elementId()]));
-    incoming.forEach((el: any) => {
+    incoming.forEach((el: any, index: number) => {
       const oldId = String(el.id);
       el.id = idMap.get(oldId);
       el.groupIds = (el.groupIds || []).map((id: string) => groupMap.get(id) || id);
@@ -657,6 +931,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
       el.seed = Math.floor(Math.random() * 2147483647);
       el.versionNonce = Math.floor(Math.random() * 2147483647);
       el.updated = Date.now();
+      incoming[index] = normalizeTextGeometry(el);
     });
     const appState = api.getAppState();
     const rect = stageRef.current?.getBoundingClientRect();
@@ -676,7 +951,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const dy = sceneY - (minY + maxY) / 2;
     incoming.forEach((el: any) => { el.x = Number(el.x || 0) + dx; el.y = Number(el.y || 0) + dy; });
     if (data.files) api.addFiles?.(Object.entries(data.files).map(([id, file]: [string, any]) => ({ ...file, id: fileMap.get(id) || id })) as any);
-    api.updateScene({ elements: [...existing, ...incoming], appState: { selectedElementIds: Object.fromEntries(incoming.map((el: any) => [el.id, true])) } });
+    api.updateScene({ elements: reconcileFrameMembership([...existing, ...incoming]), appState: { selectedElementIds: Object.fromEntries(incoming.map((el: any) => [el.id, true])) }, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
     api.scrollToContent?.(incoming, { fitToContent: false });
     setSaveState("Макет вставлен — черновик будет сохранён автоматически");
     return true;
@@ -721,10 +996,10 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const api = apiRef.current;
     if (!api) return;
     const existing = completionTarget(api.getSceneElements());
-    if (existing) { api.updateScene({ appState: { selectedElementIds: { [existing.id]: true } } }); api.scrollToContent?.([existing], { fitToContent: false }); return; }
+    if (existing) { api.updateScene({ appState: { selectedElementIds: { [existing.id]: true } }, captureUpdate: CaptureUpdateAction.NEVER }); api.scrollToContent?.([existing], { fitToContent: false }); return; }
     const created = createRequiredCompletion(api.getSceneElements());
     const selectedElementIds = Object.fromEntries(created.map((el: any) => [el.id, true]));
-    api.updateScene({ elements: [...api.getSceneElements(), ...created], appState: { selectedElementIds } });
+    api.updateScene({ elements: reconcileFrameMembership([...api.getSceneElements(), ...created]), appState: { selectedElementIds }, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
     api.scrollToContent?.(created, { fitToContent: false });
   };
 
@@ -766,17 +1041,17 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   };
   const toggleAppSetting = (key: string) => {
     const api = apiRef.current; if (!api) return;
-    const appState = api.getAppState(); api.updateScene({ appState: { [key]: !Boolean(appState[key]) } }); setSettingsRevision((value) => value + 1);
+    const appState = api.getAppState(); api.updateScene({ appState: { [key]: !Boolean(appState[key]) }, captureUpdate: CaptureUpdateAction.NEVER }); setSettingsRevision((value) => value + 1);
   };
   const toggleToolLock = () => {
     const api = apiRef.current; if (!api) return;
     const appState = api.getAppState(), activeTool = appState.activeTool || { type: "selection" };
-    api.updateScene({ appState: { activeTool: { ...activeTool, locked: !Boolean(activeTool.locked) } } }); setSettingsRevision((value) => value + 1);
+    api.updateScene({ appState: { activeTool: { ...activeTool, locked: !Boolean(activeTool.locked) } }, captureUpdate: CaptureUpdateAction.NEVER }); setSettingsRevision((value) => value + 1);
   };
   const settingMark = (key: string) => apiRef.current?.getAppState?.()[key] ? "✓ " : "";
   const toggleSelectionMode = () => {
     const api = apiRef.current; if (!api) return; const current = api.getAppState().selectionMode || "wrap";
-    api.updateScene({ appState: { selectionMode: current === "overlap" ? "wrap" : "overlap" } }); setSettingsRevision((value) => value + 1);
+    api.updateScene({ appState: { selectionMode: current === "overlap" ? "wrap" : "overlap" }, captureUpdate: CaptureUpdateAction.NEVER }); setSettingsRevision((value) => value + 1);
   };
 
   const readerTargetElements = () => {
@@ -808,7 +1083,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const scrollY = (top - offsetTop) / zoom - minY;
     readerBaseZoomRef.current = zoom;
     readerBaseScrollXRef.current = scrollX;
-    api.updateScene({ appState: { zoom: { value: zoom }, scrollX, scrollY } });
+    api.updateScene({ appState: { zoom: { value: zoom }, scrollX, scrollY }, captureUpdate: CaptureUpdateAction.NEVER });
   };
   const readerZoom = (direction: number) => {
     const api = apiRef.current;
@@ -817,7 +1092,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const current = Number(appState.zoom?.value || appState.zoom || 1);
     const base = readerBaseZoomRef.current || current;
     const value = Math.max(base, Math.min(Math.max(4, base * 8), current + direction * Math.max(base * 0.15, current * 0.15)));
-    api.updateScene({ appState: { zoom: { value } } });
+    api.updateScene({ appState: { zoom: { value } }, captureUpdate: CaptureUpdateAction.NEVER });
   };
   const readerFit = () => fitReader(true);
 
@@ -852,17 +1127,45 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
         const api = apiRef.current;
         const ids = api?.getAppState?.().selectedElementIds || {};
         if (!Object.keys(ids).some((id) => ids[id])) return;
+        const current = api.getSceneElements();
+        const protectedSelected = current.some((el: any) => ids[el.id] && el.customData?.rtmProtectedCompletion);
+        // Normal deletions stay native: Excalidraw correctly handles groups,
+        // bindings, frame descendants and its own undo/redo history.
+        if (!protectedSelected) return;
         event.preventDefault();
         event.stopPropagation();
-        const next = api.getSceneElements().map((el: any) => ids[el.id] && !el.customData?.rtmProtectedCompletion
+        event.stopImmediatePropagation();
+        const deleteIds = new Set(current.filter((el: any) => ids[el.id] && !el.customData?.rtmProtectedCompletion).map((el: any) => String(el.id)));
+        let expanded = true;
+        while (expanded) {
+          expanded = false;
+          current.forEach((el: any) => {
+            if (!el.isDeleted && !el.customData?.rtmProtectedCompletion && !deleteIds.has(String(el.id))
+              && ((el.frameId && deleteIds.has(String(el.frameId))) || (el.containerId && deleteIds.has(String(el.containerId))))) {
+              deleteIds.add(String(el.id)); expanded = true;
+            }
+          });
+        }
+        if (!deleteIds.size) return;
+        const next = current.map((el: any) => deleteIds.has(String(el.id))
           ? { ...el, isDeleted: true, version: Number(el.version || 1) + 1, versionNonce: Math.floor(Math.random() * 2147483647), updated: Date.now() }
           : el);
-        api.updateScene({ elements: next, appState: { selectedElementIds: {} } });
+        api.updateScene({ elements: next, appState: { selectedElementIds: {} }, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
         return;
       }
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
       const key = event.key.toLowerCase();
-      if (key === "b" || key === "i") {
+      if (key === "z" || key === "y") {
+        const redo = key === "y" || event.shiftKey;
+        const button = stageRef.current?.querySelector<HTMLButtonElement>(redo
+          ? ".undo-redo-buttons .redo-button-container button"
+          : ".undo-redo-buttons .undo-button-container button");
+        if (!button || button.disabled) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        button.click();
+      } else if (key === "b" || key === "i") {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -926,8 +1229,15 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
           onChange={(incomingElements: readonly any[], nextAppState: any, files: any) => {
             let nextElements = incomingElements;
             if (!readOnly) {
+              const normalizedText = normalizeTextGeometryList(nextElements);
+              if (normalizedText !== nextElements) { apiRef.current?.updateScene({ elements: normalizedText, captureUpdate: CaptureUpdateAction.NEVER }); return; }
               const protectedElements = options.completionRequired === false ? nextElements : protectRequiredCompletion(nextElements, lastSceneElementsRef.current);
-              if (protectedElements !== nextElements) { apiRef.current?.updateScene({ elements: protectedElements }); return; }
+              if (protectedElements !== nextElements) { apiRef.current?.updateScene({ elements: protectedElements, captureUpdate: CaptureUpdateAction.NEVER }); return; }
+              const interacting = Boolean(nextAppState.selectedElementsAreBeingDragged || nextAppState.resizingElement || nextAppState.draggingElement || nextAppState.newElement || nextAppState.editingTextElement);
+              if (!interacting) {
+                const framedElements = reconcileFrameMembership(nextElements);
+                if (framedElements !== nextElements) { apiRef.current?.updateScene({ elements: framedElements, captureUpdate: CaptureUpdateAction.NEVER }); return; }
+              }
               lastSceneElementsRef.current = protectedElements;
               const currentBaseFont = decodeStyledFont(Number(nextAppState.currentItemFontFamily || 5)).base;
               if (currentBaseFont !== selectedFont) setSelectedFont(currentBaseFont);
@@ -935,7 +1245,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
               if (completion.length > 1) {
                 const duplicateIds = new Set(completion.slice(1).flatMap((el: any) => el.groupIds?.length ? el.groupIds : [el.id]));
                 const normalized = nextElements.map((el: any) => !el.isDeleted && (duplicateIds.has(el.id) || el.groupIds?.some((id: string) => duplicateIds.has(id))) ? { ...el, isDeleted: true, version: Number(el.version || 1) + 1 } : el);
-                apiRef.current?.updateScene({ elements: normalized });
+                apiRef.current?.updateScene({ elements: normalized, captureUpdate: CaptureUpdateAction.NEVER });
                 return;
               }
             }
@@ -953,13 +1263,13 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
             const nextViewport: Viewport = { zoom: Number(nextAppState.zoom?.value || nextAppState.zoom || 1), left: Number(nextAppState.offsetLeft || 0), top: Number(nextAppState.offsetTop || 0), sx: Number(nextAppState.scrollX || 0), sy: Number(nextAppState.scrollY || 0) };
             if (readOnly && readerBaseZoomRef.current > 0 && nextViewport.zoom + 0.0001 < readerBaseZoomRef.current && !readerClampRef.current) {
               readerClampRef.current = true;
-              apiRef.current?.updateScene({ appState: { zoom: { value: readerBaseZoomRef.current } } });
+              apiRef.current?.updateScene({ appState: { zoom: { value: readerBaseZoomRef.current } }, captureUpdate: CaptureUpdateAction.NEVER });
               requestAnimationFrame(() => { readerClampRef.current = false; });
               return;
             }
             if (readOnly && readerBaseZoomRef.current > 0 && nextViewport.zoom <= readerBaseZoomRef.current + 0.0001 && Math.abs(nextViewport.sx - readerBaseScrollXRef.current) > 0.01 && !readerClampRef.current) {
               readerClampRef.current = true;
-              apiRef.current?.updateScene({ appState: { scrollX: readerBaseScrollXRef.current } });
+              apiRef.current?.updateScene({ appState: { scrollX: readerBaseScrollXRef.current }, captureUpdate: CaptureUpdateAction.NEVER });
               requestAnimationFrame(() => { readerClampRef.current = false; });
               return;
             }
@@ -1037,7 +1347,9 @@ const bridge: RTMCanvasBridge = {
       root = createRoot(host);
       roots.set(host, root);
     }
-    root.render(<RTMCanvasApp key={options.pageKey} options={options} />);
+    root.render(options.readOnly
+      ? <UnifiedReaderSurface key={options.pageKey} options={options} />
+      : <RTMCanvasApp key={options.pageKey} options={options} />);
   },
   unmount(host) {
     const root = roots.get(host);
