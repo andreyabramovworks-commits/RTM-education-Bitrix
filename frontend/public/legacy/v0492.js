@@ -54,6 +54,8 @@
   window.canOpenCourseMaterial = function (material) { var parent = material && material.PROPERTY_VALUES && material.PROPERTY_VALUES.parentId; if (!parent) return true; var list = courseMaterials(parent), index = list.findIndex(function (item) { return String(item.ID) === String(material.ID); }); if (index <= 0) return true; return list.slice(0, index).filter(function (item) { var meta = j(item.PROPERTY_VALUES.meta); return meta.required === true || meta.required === 'Y'; }).every(function (item) { return isDone(item.ID, materialKind(item)); }); };
   var baseOpenUserMaterial = window.openUserMaterial;
   window.openUserMaterial = function (material) { if (material && !canOpenCourseMaterial(material)) { alert('Сначала завершите предыдущий обязательный материал.'); return; } var result = baseOpenUserMaterial.apply(this, arguments); setTimeout(bindTestSwitch, 0); return result; };
+  var courseScopedOpenUserMaterial = window.openUserMaterial;
+  window.openUserMaterial = function (material) { var result = courseScopedOpenUserMaterial.apply(this, arguments); if (material && typeof materialCourseId === 'function' && !materialCourseId(material)) state.courseId = null; return result; };
 
   window.renderUsers = function () {
     var box = document.getElementById('usersTable'); if (!box) return;

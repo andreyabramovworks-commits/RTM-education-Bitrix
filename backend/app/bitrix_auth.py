@@ -46,20 +46,26 @@ def _bitrix_call(domain: str, method: str, token: str) -> object:
     return payload.get("result")
 
 
-def bitrix_call(identity: BitrixIdentity, method: str, params: dict | None = None) -> object:
-    def flatten(prefix: str, value: object, output: list[tuple[str, object]]) -> None:
+def encode_bitrix_params(params: dict | None = None) -> list[tuple[str, object]]:
+    output: list[tuple[str, object]] = []
+
+    def flatten(prefix: str, value: object) -> None:
         if isinstance(value, dict):
             for key, child in value.items():
-                flatten(f"{prefix}[{key}]" if prefix else str(key), child, output)
+                flatten(f"{prefix}[{key}]" if prefix else str(key), child)
         elif isinstance(value, (list, tuple)):
             for index, child in enumerate(value):
-                flatten(f"{prefix}[{index}]", child, output)
+                flatten(f"{prefix}[{index}]", child)
         elif value is not None:
             output.append((prefix, value))
 
-    fields: list[tuple[str, object]] = [("auth", identity.access_token)]
     for name, value in (params or {}).items():
-        flatten(str(name), value, fields)
+        flatten(str(name), value)
+    return output
+
+
+def bitrix_call(identity: BitrixIdentity, method: str, params: dict | None = None) -> object:
+    fields: list[tuple[str, object]] = [("auth", identity.access_token), *encode_bitrix_params(params)]
     request = Request(
         f"https://{identity.domain}/rest/{method}.json",
         data=urlencode(fields).encode(),
@@ -69,7 +75,18 @@ def bitrix_call(identity: BitrixIdentity, method: str, params: dict | None = Non
     try:
         with urlopen(request, timeout=20) as response:  # noqa: S310 - domain was allow-listed
             payload = json.loads(response.read().decode("utf-8"))
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
+    except HTTPError as exc:
+        detail = "Bitrix24 request failed"
+        try:
+            error_payload = json.loads(exc.read().decode("utf-8", errors="replace"))
+            error_code = str(error_payload.get("error") or "BITRIX_HTTP_ERROR")
+            error_description = str(error_payload.get("error_description") or error_payload.get("error_description_full") or "")
+            detail = f"{error_code}: {error_description}".rstrip(": ")
+        except (OSError, json.JSONDecodeError):
+            pass
+        status = 400 if 400 <= int(exc.code or 500) < 500 else 502
+        raise HTTPException(status_code=status, detail=detail) from exc
+    except (URLError, TimeoutError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=502, detail="Bitrix24 request failed") from exc
     if payload.get("error"):
         raise HTTPException(status_code=400, detail=f"{payload['error']}: {payload.get('error_description', '')}")

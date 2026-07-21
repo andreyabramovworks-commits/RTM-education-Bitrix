@@ -150,8 +150,8 @@ const createRequiredCompletion = (elements: readonly any[]) => {
   const created = convertToExcalidrawElements([
     { type: "rectangle", id: cardId, x, y, width: cardWidth, height: cardHeight, strokeColor: "#12b886", backgroundColor: "#e6fcf5", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 4, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId },
     { type: "text", id: noteId, x: x + 38, y: y + 34, width: 514, height: 58, text: "Не забудь нажать кнопку завершить, что бы\nполучить доступ к следующему материалу!", originalText: "Не забудь нажать кнопку завершить, что бы\nполучить доступ к следующему материалу!", fontSize: 23, fontFamily: 5, textAlign: "left", verticalAlign: "middle", autoResize: false, strokeColor: "#1e1e1e", groupIds: [groupId], frameId },
-    { type: "rectangle", id: boxId, x: x + 214, y: y + 105, width: 162, height: 58, strokeColor: "#087f5b", backgroundColor: "#12b886", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId, link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 49.2 } },
-    { type: "text", id: textId, x: x + 225, y: y + 119, width: 140, height: 32, text: "Завершить", originalText: "Завершить", fontSize: 23, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#ffffff", groupIds: [groupId], frameId, customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 49.2 } },
+    { type: "rectangle", id: boxId, x: x + 214, y: y + 105, width: 162, height: 58, strokeColor: "#087f5b", backgroundColor: "#12b886", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId, boundElements: [{ id: textId, type: "text" }], link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 50 } },
+    { type: "text", id: textId, x: x + 214, y: y + 119, width: 162, height: 32, text: "Завершить", originalText: "Завершить", fontSize: 23, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#ffffff", groupIds: [groupId], frameId, containerId: boxId, customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 50 } },
   ] as any, { regenerateIds: false }) as any[];
   return created.map((el: any) => ({ ...el, groupIds: [groupId], frameId, customData: { ...(el.customData || {}), rtmProtectedCompletion: true, rtmCompletionCard: true } }));
 };
@@ -284,7 +284,6 @@ export const htmlToScene = (html: string, title = "Страница"): RTMScene 
     visited.add(node);
   }
 
-  if (!skeletons.length) skeletons.push(textSkeleton(title, y, 40));
   const elements = ensureRequiredCompletion(convertToExcalidrawElements(skeletons as any, { regenerateIds: false }) as any[]);
   return {
     type: "excalidraw",
@@ -422,6 +421,8 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   const overlayFrameRef = useRef<number | null>(null);
   const overlayElementsRef = useRef<readonly any[]>(initial.elements || []);
   const viewportTimeRef = useRef(0);
+  const readerBaseZoomRef = useRef(0);
+  const readerClampRef = useRef(false);
   const [origin, setOrigin] = useState({ left: 0, top: 0 });
   const [dialog, setDialog] = useState<DialogState>(null);
   const [saveState, setSaveState] = useState("");
@@ -484,10 +485,16 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     api.updateScene({ elements: next });
   };
 
-  const decorateText = (mark: "underline" | "strike") => transformSelectedText((text) => {
+  const decorateText = (mark: "underline" | "strike") => {
+    const selected = selectedTextElements();
+    if (!selected.length) { window.alert("\u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0432\u044b\u0434\u0435\u043b\u0438\u0442\u0435 \u0442\u0435\u043a\u0441\u0442"); return; }
     const code = mark === "underline" ? "\u0332" : "\u0336";
-    return Array.from(text.replace(/[\u0332\u0336]/g, "")).map((char) => char === "\n" ? char : char + code).join("");
-  });
+    const turnOn = selected.some((el: any) => !String(el.text || "").includes(code));
+    transformSelectedText((text) => Array.from(text.replace(new RegExp(code, "g"), "")).map((char) => {
+      if (char === "\n") return char;
+      return turnOn ? char + code : char;
+    }).join(""));
+  };
   const makeList = (ordered: boolean) => transformSelectedText((text) => {
     const lines = text.split("\n");
     const matcher = ordered ? /^\s*\d+\.\s+/ : /^\s*•\s+/;
@@ -576,6 +583,21 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     return true;
   };
 
+  const parseClipboardScene = (raw: string) => {
+    const source = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+    const candidates = [source];
+    const start = source.indexOf("{");
+    const end = source.lastIndexOf("}");
+    if (start > 0 && end > start) candidates.push(source.slice(start, end + 1));
+    for (const candidate of candidates) {
+      try {
+        const parsed = JSON.parse(candidate);
+        if (parsed?.type === "excalidraw/clipboard" || parsed?.type === "excalidraw" || Array.isArray(parsed?.elements)) return parsed;
+      } catch { /* try the next representation */ }
+    }
+    return null;
+  };
+
   const insertComplete = () => {
     const api = apiRef.current;
     if (!api) return;
@@ -624,33 +646,47 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     catch { setSaveState("Сохранено на устройстве — ожидаю Bitrix24"); }
   };
 
+  const readerTargetElements = () => {
+    const all = apiRef.current?.getSceneElements?.().filter((el: any) => !el.isDeleted) || [];
+    const frames = all.filter((el: any) => el.type === "frame" && !el.frameId);
+    return frames.length ? frames : all;
+  };
+  const fitReader = (animate = true) => {
+    const api = apiRef.current;
+    if (!api) return;
+    api.scrollToContent?.(readerTargetElements(), { fitToViewport: true, viewportZoomFactor: 0.96, animate });
+    requestAnimationFrame(() => {
+      const state = api.getAppState();
+      readerBaseZoomRef.current = Math.max(0.02, Number(state.zoom?.value || state.zoom || 1));
+    });
+  };
   const readerZoom = (direction: number) => {
     const api = apiRef.current;
     if (!api) return;
     const appState = api.getAppState();
     const current = Number(appState.zoom?.value || appState.zoom || 1);
-    const value = Math.max(0.1, Math.min(4, current + direction * Math.max(0.1, current * 0.15)));
+    const base = readerBaseZoomRef.current || current;
+    const value = Math.max(base, Math.min(Math.max(4, base * 8), current + direction * Math.max(base * 0.15, current * 0.15)));
     api.updateScene({ appState: { zoom: { value } } });
   };
-  const readerFit = () => { const api = apiRef.current; if (api) api.scrollToContent?.(api.getSceneElements(), { fitToViewport: true, viewportZoomFactor: 0.92, animate: true }); };
+  const readerFit = () => fitReader(true);
 
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
       if (readOnly) return;
       const target = event.target as HTMLElement | null;
       const editingText = Boolean(target?.closest("input,textarea,select,[contenteditable=true]"));
-      const raw = (event.clipboardData?.getData("application/vnd.excalidraw+json") || event.clipboardData?.getData("text/plain") || "").trim();
+      if (!stageRef.current?.contains(target)) return;
+      const raw = (event.clipboardData?.getData("application/vnd.excalidraw+json") || event.clipboardData?.getData("application/json") || event.clipboardData?.getData("text/plain") || "").trim();
       if (!raw) return;
-      try {
-        const data = JSON.parse(raw);
-        if (data?.type === "excalidraw/clipboard" || data?.type === "excalidraw") {
-          event.preventDefault();
-          event.stopPropagation();
-          event.stopImmediatePropagation();
-          importScene(data);
-          return;
-        }
-      } catch { /* regular text is handled by Excalidraw */ }
+      const data = parseClipboardScene(raw);
+      if (data) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        importScene(data);
+        return;
+      }
       if (!editingText && stageRef.current?.contains(target) && /^https?:\/\/\S+$/i.test(raw)) { event.preventDefault(); event.stopImmediatePropagation(); addMedia({ kind: "link", url: raw, title: raw }); }
     };
     window.addEventListener("paste", onPaste, true);
@@ -720,7 +756,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
           key={options.pageKey}
           excalidrawAPI={(nextApi: any) => {
             apiRef.current = nextApi;
-            if (readOnly && options.fitToContent) requestAnimationFrame(() => nextApi.scrollToContent?.(nextApi.getSceneElements(), { fitToViewport: true, viewportZoomFactor: 0.92, animate: false }));
+            if (readOnly && options.fitToContent) requestAnimationFrame(() => fitReader(false));
           }}
           initialData={initial as any}
           viewModeEnabled={readOnly}
@@ -765,6 +801,12 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
               }
             }
             const nextViewport: Viewport = { zoom: Number(nextAppState.zoom?.value || nextAppState.zoom || 1), left: Number(nextAppState.offsetLeft || 0), top: Number(nextAppState.offsetTop || 0), sx: Number(nextAppState.scrollX || 0), sy: Number(nextAppState.scrollY || 0) };
+            if (readOnly && readerBaseZoomRef.current > 0 && nextViewport.zoom + 0.0001 < readerBaseZoomRef.current && !readerClampRef.current) {
+              readerClampRef.current = true;
+              apiRef.current?.updateScene({ appState: { zoom: { value: readerBaseZoomRef.current } } });
+              requestAnimationFrame(() => { readerClampRef.current = false; });
+              return;
+            }
             syncMediaOverlayPositions(nextElements, nextViewport);
             const viewportSignature = [nextViewport.zoom, nextViewport.left, nextViewport.top, nextViewport.sx, nextViewport.sy].map((value, index) => index === 0 ? Math.round(value * 200) / 200 : Math.round(value * 4) / 4).join("|");
             if (viewportSignature !== viewportSignatureRef.current && (!readOnly || performance.now() - viewportTimeRef.current >= 50)) {

@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from app.bitrix_auth import BitrixIdentity, require_admin, require_bitrix_identity
+from app.bitrix_auth import BitrixIdentity, encode_bitrix_params, require_admin, require_bitrix_identity
 from app.database import get_session
 from app.main import app
 from app.models import AppUser, Article, DeveloperWorkspace, DeveloperWorkspaceRevision, ExcalidrawScene, LegacyRecord
@@ -40,8 +40,8 @@ def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert "rtm_release=49.2.13" in response.text
-    assert "RTM Education v49.2" in response.text
+    assert "rtm_release=50.0.0" in response.text
+    assert "RTM Education v50" in response.text
 
 
 def test_developer_workspace_is_versioned() -> None:
@@ -248,3 +248,20 @@ def test_article_draft_is_private_until_publish() -> None:
     assert client.post(f"/api/v47/drafts/{article_id}/draft-page/publish", json={"scene": draft}).status_code == 200
     assert client.get(f"/api/v47/scenes/{article_id}/draft-page").json()["scene"] == draft
     assert client.get(f"/api/v47/drafts/{article_id}/draft-page").status_code == 404
+
+
+def test_tasks_task_add_parameter_encoding():
+    fields = dict(encode_bitrix_params({
+        "fields": {
+            "TITLE": "Study material",
+            "RESPONSIBLE_ID": 41,
+            "DESCRIPTION": "Open the assigned course",
+            "DEADLINE": "2026-07-31T18:00:00+03:00",
+        }
+    }))
+    assert fields == {
+        "fields[TITLE]": "Study material",
+        "fields[RESPONSIBLE_ID]": 41,
+        "fields[DESCRIPTION]": "Open the assigned course",
+        "fields[DEADLINE]": "2026-07-31T18:00:00+03:00",
+    }

@@ -359,7 +359,7 @@ def proxy_bitrix_call(
 ) -> dict[str, Any]:
     allowed = {
         "profile", "user.current", "user.get", "department.get", "user.admin",
-        "tasks.task.add", "im.notify.personal.add",
+        "tasks.task.add", "im.notify.personal.add", "im.notify.system.add",
         "disk.storage.getlist", "disk.storage.getchildren", "disk.folder.getchildren",
         "disk.file.get", "disk.file.getExternalLink", "disk.storage.uploadfile", "disk.folder.uploadfile",
     }
