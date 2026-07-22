@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var VERSION = '50.3.2';
+  var VERSION = '50.3.3';
   var designerTemplate = null;
   var templatePromise = null;
   var reviewState = {filter: 'pending_review', query: '', selected: ''};
@@ -13,7 +13,7 @@
   function structureSignature(meta) { return (meta.questions || []).map(function (question) { return [question.id, question.type, (question.options || []).map(function (option) { return option.id; }).join(',')].join(':'); }).join('|'); }
   function loadTemplate() {
     if (designerTemplate) return Promise.resolve(designerTemplate);
-    if (!templatePromise) templatePromise = fetch('/legacy/test-template-v52.json?v=050.3.2', {cache: 'no-store'}).then(function (response) {
+    if (!templatePromise) templatePromise = fetch('/legacy/test-template-v52.json?v=050.3.3', {cache: 'no-store'}).then(function (response) {
       if (!response.ok) throw new Error('Не удалось загрузить шаблон теста: HTTP ' + response.status);
       return response.json();
     }).then(function (scene) { designerTemplate = scene; return scene; });
@@ -119,7 +119,7 @@
     var item = findItem(state.testId), root = document.getElementById('testQuestionsEditor');
     if (!item || !root) return baseRenderTestEditor.apply(this, arguments);
     root.innerHTML = '<div class="v52-template-loading">Подготавливаем макет теста…</div>';
-    return ensureDesigner(item, false).catch(function (error) { console.error('v50.3.2 designer migration failed', error); }).then(function () { baseRenderTestEditor(); });
+    return ensureDesigner(item, false).catch(function (error) { console.error('v50.3.3 designer migration failed', error); }).then(function () { baseRenderTestEditor(); });
   };
 
   var baseRenderUserTestIntro = window.renderUserTestIntro;

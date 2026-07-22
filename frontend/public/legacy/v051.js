@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '50.3.2';
+  var VERSION = '50.3.3';
   var saveTimer = 0;
   var testScene = null;
   var takeAnswers = {};
@@ -175,8 +175,8 @@
     return '<article class="v51-question-editor" data-v51-question-card="' + question.id + '"><header><b>Вопрос ' + (index + 1) + '</b><select data-v51-type="' + question.id + '">' + typeOptions(question.type) + '</select><button type="button" class="danger" data-v51-remove-question="' + question.id + '">Удалить</button></header><label>Текст вопроса<textarea data-v51-question-text="' + question.id + '">' + esc(question.text || '') + '</textarea></label>' + media + choices + '</article>';
   }
   function templatesMarkup() {
-    return '<div class="v51-template-panel"><b>Шаблоны</b><button type="button" class="primary" id="v51FullTemplate">Создать полный макет из 5 вопросов</button>' +
-      '<button type="button" data-v51-add-type="single">Ответы</button><button type="button" data-v51-add-type="freeText">Свободный текст</button><button type="button" data-v51-add-type="imageChoice">Выбор фото</button><button type="button" data-v51-add-type="imageTextChoice">Фото и ответы</button><button type="button" data-v51-add-type="mediaFreeText">Аудио и ответ</button></div>';
+    return '<div class="v51-template-panel v53-template-panel"><b>Добавить вопрос по шаблону</b><button type="button" class="primary" id="v51FullTemplate" title="Заменить вопросы демонстрационным набором"><b>Все 5 типов</b><small>Готовый пример полного теста</small></button>' +
+      '<button type="button" title="Готовые варианты ответа" data-v51-add-type="single"><b>Ответы</b><small>Выбор одного или нескольких вариантов</small></button><button type="button" title="Ответ вводится с клавиатуры" data-v51-add-type="freeText"><b>Свободный текст</b><small>Развёрнутый ответ для проверки</small></button><button type="button" title="Нужно нажать на правильное изображение" data-v51-add-type="imageChoice"><b>Выбор фото</b><small>Выбор правильного изображения</small></button><button type="button" title="Изображение и текстовые варианты" data-v51-add-type="imageTextChoice"><b>Фото и ответы</b><small>Вопрос по фото с вариантами</small></button><button type="button" title="Прослушать запись и написать ответ" data-v51-add-type="mediaFreeText"><b>Аудио и ответ</b><small>Медиа со свободным ответом</small></button></div>';
   }
   function editorMarkup(meta, item) {
     return '<div class="v51-test-editor">' + settingsMarkup(meta, item) + templatesMarkup() + '<div class="v51-builder"><section class="v51-canvas-column"><div class="v51-canvas-help">Интерактивные рамки можно перемещать и изменять как обычные элементы Excalidraw. Логика ответа остаётся привязанной к рамке.</div><div id="v51TestCanvas"></div></section><aside class="v51-question-list">' + (meta.questions.map(questionMarkup).join('') || '<div class="panel">Добавьте первый вопрос или полный шаблон.</div>') + '</aside></div></div>';

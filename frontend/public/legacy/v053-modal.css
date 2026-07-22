@@ -1,0 +1,1 @@
+.modal-card:has(.test-outcome){width:min(500px,calc(100vw - 32px))!important}.test-outcome{max-width:430px;margin:auto}.test-outcome>button{margin:12px 10px 0 0}.test-outcome h2{margin-bottom:18px}.test-outcome p{margin:8px 0}
