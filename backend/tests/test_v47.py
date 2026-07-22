@@ -40,8 +40,8 @@ def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert "rtm_release=50.3.3" in response.text
-    assert "RTM Education v50.3.3" in response.text
+    assert "rtm_release=50.3.4" in response.text
+    assert "RTM Education v50.3.4" in response.text
 
 
 def test_only_primary_developer_can_manage_developer_roles() -> None:
@@ -83,6 +83,18 @@ def test_developer_workspace_is_versioned() -> None:
         workspace = session.exec(select(DeveloperWorkspace)).one()
         revision = session.exec(select(DeveloperWorkspaceRevision).where(DeveloperWorkspaceRevision.workspace_id == workspace.id)).one()
         assert revision.scene == first
+
+
+def test_developer_workspace_revision_can_be_restored() -> None:
+    first = {"type": "excalidraw", "version": 2, "elements": [{"id": "before"}], "appState": {}, "files": {}}
+    second = {"type": "excalidraw", "version": 2, "elements": [{"id": "after"}], "appState": {}, "files": {}}
+    client.put("/api/v47/developer-workspace", json={"scene": first})
+    client.put("/api/v47/developer-workspace", json={"scene": second})
+    revisions = client.get("/api/v47/developer-workspace/revisions").json()
+    source = next(row for row in revisions if client.get(f"/api/v47/developer-workspace/revisions/{row['revision']}").json()["scene"] == first)
+    restored = client.post("/api/v47/developer-workspace/restore", json={"revision": source["revision"]})
+    assert restored.status_code == 200
+    assert client.get("/api/v47/developer-workspace").json()["scene"] == first
 
 
 def test_developer_workspace_get_initializes_protected_sheet() -> None:

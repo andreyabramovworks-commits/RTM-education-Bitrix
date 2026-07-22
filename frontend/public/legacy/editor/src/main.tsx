@@ -337,15 +337,7 @@ const reconcileFrameMembership = (elements: readonly any[]) => {
 const moveNestedFrameContents = (incoming: readonly any[], previous: readonly any[], selectedIds: Record<string, boolean>) => {
   const before = new Map(previous.map((el: any) => [String(el.id), el]));
   const after = new Map(incoming.map((el: any) => [String(el.id), el]));
-  let selectedFrames = previous.filter((el: any) => el.type === "frame" && selectedIds?.[el.id] && !el.isDeleted);
-  // Some Excalidraw drag states omit selectedElementIds. Detect translated frames
-  // from consecutive scenes so an outer frame also carries grandchildren.
-  if (!selectedFrames.length) selectedFrames = previous.filter((el: any) => {
-    if (el.type !== "frame" || el.isDeleted) return false;
-    const moved: any = after.get(String(el.id));
-    return moved && (Number(moved.x || 0) !== Number(el.x || 0) || Number(moved.y || 0) !== Number(el.y || 0))
-      && Number(moved.width || 0) === Number(el.width || 0) && Number(moved.height || 0) === Number(el.height || 0);
-  });
+  const selectedFrames = previous.filter((el: any) => el.type === "frame" && selectedIds?.[el.id] && !el.isDeleted);
   if (!selectedFrames.length) return incoming;
   let changed = false;
   const next = incoming.map((element: any) => {
@@ -993,8 +985,16 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const dx = sceneX - (minX + maxX) / 2;
     const dy = sceneY - (minY + maxY) / 2;
     incoming.forEach((el: any) => { el.x = Number(el.x || 0) + dx; el.y = Number(el.y || 0) + dy; });
-    if (data.files) api.addFiles?.(Object.entries(data.files).map(([id, file]: [string, any]) => ({ ...file, id: fileMap.get(id) || id })) as any);
-    api.updateScene({ elements: reconcileFrameMembership([...existing, ...incoming]), appState: { selectedElementIds: Object.fromEntries(incoming.map((el: any) => [el.id, true])) }, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+    const importedFiles = data.files ? Object.entries(data.files).map(([id, file]: [string, any]) => ({ ...file, id: fileMap.get(id) || id })) : [];
+    if (importedFiles.length) api.addFiles?.(importedFiles as any);
+    const merged = reconcileFrameMembership([...existing, ...incoming]);
+    undoStackRef.current.push(historyCurrentRef.current.map((el: any) => ({ ...el })));
+    if (undoStackRef.current.length > 60) undoStackRef.current.shift();
+    redoStackRef.current = [];
+    historyCurrentRef.current = merged.map((el: any) => ({ ...el }));
+    lastSceneElementsRef.current = merged;
+    api.updateScene({ elements: merged, appState: { selectedElementIds: Object.fromEntries(incoming.map((el: any) => [el.id, true])) }, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+    options.onChange?.({ type: "excalidraw", version: 2, source: "rtm-v45", elements: merged, appState: api.getAppState(), files: api.getFiles?.() || {} });
     api.scrollToContent?.(incoming, { fitToContent: false });
     setSaveState("Макет вставлен — черновик будет сохранён автоматически");
     return true;
@@ -1192,7 +1192,18 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
         api.updateScene({ elements: next, appState: { selectedElementIds: {} }, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
         return;
       }
-      // All Ctrl/Cmd shortcuts are intentionally left to the embedded Excalidraw.
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const key = event.key.toLowerCase();
+      if (key === "z" || key === "y") {
+        const redo = key === "y" || event.shiftKey;
+        event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+        const source = redo ? redoStackRef.current : undoStackRef.current;
+        const target = redo ? undoStackRef.current : redoStackRef.current;
+        const snapshot = source[source.length - 1]; if (!snapshot) return;
+        source.pop(); target.push(historyCurrentRef.current.map((el: any) => ({ ...el })));
+        historyCurrentRef.current = snapshot.map((el: any) => ({ ...el })); suppressHistoryRef.current = true;
+        apiRef.current?.updateScene({ elements: historyCurrentRef.current, appState: { selectedElementIds: {} }, captureUpdate: CaptureUpdateAction.NEVER });
+      }
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
@@ -1253,8 +1264,10 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
               const protectedElements = options.completionRequired === false ? nextElements : protectRequiredCompletion(nextElements, lastSceneElementsRef.current);
               if (protectedElements !== nextElements) { apiRef.current?.updateScene({ elements: protectedElements, captureUpdate: CaptureUpdateAction.NEVER }); return; }
               const interacting = Boolean(nextAppState.selectedElementsAreBeingDragged || nextAppState.resizingElement || nextAppState.draggingElement || nextAppState.newElement || nextAppState.editingTextElement);
-              const nested = moveNestedFrameContents(nextElements, lastSceneElementsRef.current, nextAppState.selectedElementIds || {});
-              if (nested !== nextElements) { lastSceneElementsRef.current = nested; apiRef.current?.updateScene({ elements: nested, captureUpdate: CaptureUpdateAction.NEVER }); return; }
+              if (nextAppState.selectedElementsAreBeingDragged || nextAppState.draggingElement) {
+                const nested = moveNestedFrameContents(nextElements, lastSceneElementsRef.current, nextAppState.selectedElementIds || {});
+                if (nested !== nextElements) { lastSceneElementsRef.current = nested; apiRef.current?.updateScene({ elements: nested, captureUpdate: CaptureUpdateAction.NEVER }); return; }
+              }
               if (!interacting) {
                 const framedElements = reconcileFrameMembership(nextElements);
                 if (framedElements !== nextElements) { apiRef.current?.updateScene({ elements: framedElements, captureUpdate: CaptureUpdateAction.NEVER }); return; }

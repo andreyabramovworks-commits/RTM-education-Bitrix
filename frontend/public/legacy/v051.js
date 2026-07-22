@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '50.3.3';
+  var VERSION = '50.3.4';
   var saveTimer = 0;
   var testScene = null;
   var takeAnswers = {};

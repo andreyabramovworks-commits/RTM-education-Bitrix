@@ -1,0 +1,7 @@
+.modal-box:has(.test-outcome){width:min(600px,calc(100vw - 32px))!important;max-width:600px!important;padding:28px!important}
+.modal-box:has(.test-outcome) .test-outcome{max-width:390px;margin:auto;text-align:center}
+.modal-box:has(.test-outcome) .inline-actions{justify-content:center;gap:12px;flex-wrap:wrap}
+.v54-workspace-tools{display:flex;justify-content:flex-end;gap:10px;margin:0 0 10px}
+.v54-revisions{max-height:55vh;overflow:auto;display:grid;gap:8px;margin:14px 0}
+.v54-revisions article{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px;border:1px solid #dce4ef;border-radius:10px}
+@media(max-width:640px){.modal-box:has(.test-outcome){padding:22px 18px!important}.v54-revisions article{align-items:flex-start;flex-direction:column}}

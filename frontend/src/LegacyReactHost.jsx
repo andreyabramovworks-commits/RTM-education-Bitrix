@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 
 const LEGACY_STYLES = [
   "/legacy/style.css?v=046.3",
-  "/legacy/excalidraw-dist/rtm-canvas.css?v=050.3.2",
+  "/legacy/excalidraw-dist/rtm-canvas.css?v=050.3.4",
   "/legacy/v040-layout.css?v=046.3",
   "/legacy/v040-inline.css?v=046.3",
   "/legacy/v046-layout.css?v=050.3.2",
@@ -10,10 +10,11 @@ const LEGACY_STYLES = [
   "/legacy/v050.css?v=050.3.2",
   "/legacy/v051.css?v=050.3.2",
   "/legacy/v052.css?v=050.3.2",
-  "/legacy/v053.css?v=050.3.3",
-  "/legacy/v053-extra.css?v=050.3.3",
-  "/legacy/v053-modal.css?v=050.3.3",
-  "/legacy/v053-review.css?v=050.3.3",
+  "/legacy/v053.css?v=050.3.4",
+  "/legacy/v053-extra.css?v=050.3.4",
+  "/legacy/v053-modal.css?v=050.3.4",
+  "/legacy/v053-review.css?v=050.3.4",
+  "/legacy/v054.css?v=050.3.4",
 ];
 
 const LEGACY_SCRIPTS = [
@@ -23,15 +24,16 @@ const LEGACY_SCRIPTS = [
   ["/legacy/v037-overrides.js?v=046.3", false],
   ["/legacy/v039-patch.js?v=046.3", false],
   ["/legacy/v040-assets.js?v=046.3", false],
-  ["/legacy/excalidraw-dist/rtm-canvas.js?v=050.3.2", true],
-  ["/legacy/v046-canvas.js?v=050.3.2", false],
+  ["/legacy/excalidraw-dist/rtm-canvas.js?v=050.3.4", true],
+  ["/legacy/v046-canvas.js?v=050.3.4", false],
   ["/legacy/v047-api.js?v=050.3.2", false],
   ["/legacy/v049.js?v=050.3.2", false],
-  ["/legacy/v0492.js?v=050.3.2", false],
+  ["/legacy/v0492.js?v=050.3.4", false],
   ["/legacy/v050.js?v=050.3.2", false],
   ["/legacy/v051.js?v=050.3.2", false],
   ["/legacy/v052.js?v=050.3.2", false],
-  ["/legacy/v053.js?v=050.3.3", false],
+  ["/legacy/v053.js?v=050.3.4", false],
+  ["/legacy/v054.js?v=050.3.4", false],
 ];
 function loadScript(src, module) {
   return new Promise((resolve, reject) => {
@@ -51,7 +53,7 @@ export function LegacyReactHost() {
 
   useEffect(() => {
     let active = true;
-    fetch("/legacy/index.html?v=050.3.3", { cache: "no-store" })
+    fetch("/legacy/index.html?v=050.3.4", { cache: "no-store" })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.text();
@@ -71,7 +73,7 @@ export function LegacyReactHost() {
     try { localStorage.setItem("rtm_v492_test_ui", "modern"); } catch (_) {}
     window.__RTM_V48__ = true;
     window.__RTM_V49__ = true;
-    window.__RTM_VERSION__ = "50.3.3";
+    window.__RTM_VERSION__ = "50.3.4";
     window.__RTM_STANDALONE__ =
       new URLSearchParams(window.location.search).get("rtm_fullscreen") === "1";
 
@@ -94,7 +96,7 @@ export function LegacyReactHost() {
     })();
   }, [markup]);
 
-  if (error) return <div className="v48-load-error">Ошибка запуска v50.3.3: {error}</div>;
+  if (error) return <div className="v48-load-error">Ошибка запуска v50.3.4: {error}</div>;
   if (!markup) return <div className="v48-loading">Запускаем RTM обучение…</div>;
   return <div className="v48-react-host" dangerouslySetInnerHTML={{ __html: markup }} />;
 }

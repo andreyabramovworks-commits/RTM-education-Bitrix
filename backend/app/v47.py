@@ -53,7 +53,7 @@ def disk_media(
     url = raw.get("DOWNLOAD_URL") or raw.get("downloadUrl") or raw.get("DOWNLOAD_URI") or raw.get("DOWNLOAD_LINK")
     if not url:
         raise HTTPException(status_code=404, detail="Disk download URL is unavailable")
-    headers = {"User-Agent": "RTM-Education/50.3.3"}
+    headers = {"User-Agent": "RTM-Education/50.3.4"}
     if request.headers.get("range"):
         headers["Range"] = request.headers["range"]
     try:
@@ -77,6 +77,10 @@ class LegacyRecordInput(BaseModel):
 class LegacyWrite(BaseModel):
     name: str = ""
     properties: dict[str, Any] = PydanticField(default_factory=dict)
+
+
+class WorkspaceRestore(BaseModel):
+    revision: int
 
 
 def _find_article(session: Session, legacy_id: str) -> Article | None:
@@ -484,6 +488,59 @@ def list_developer_workspace_revisions(
         DeveloperWorkspaceRevision.workspace_id == workspace.id,
     ).order_by(DeveloperWorkspaceRevision.revision.desc())).all()
     return [{"revision": row.revision, "created_at": row.created_at} for row in rows]
+
+
+@router.get("/developer-workspace/revisions/{revision}")
+def get_developer_workspace_revision(
+    revision: int,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    _assert_developer(identity)
+    workspace = session.exec(select(DeveloperWorkspace).where(
+        DeveloperWorkspace.owner_bitrix_user_id == "36",
+    )).first()
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    row = session.exec(select(DeveloperWorkspaceRevision).where(
+        DeveloperWorkspaceRevision.workspace_id == workspace.id,
+        DeveloperWorkspaceRevision.revision == revision,
+    )).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Revision not found")
+    return {"scene": row.scene, "revision": row.revision, "created_at": row.created_at}
+
+
+@router.post("/developer-workspace/restore")
+def restore_developer_workspace(
+    payload: WorkspaceRestore,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    _assert_developer(identity)
+    workspace = session.exec(select(DeveloperWorkspace).where(
+        DeveloperWorkspace.owner_bitrix_user_id == "36",
+    )).first()
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    source = session.exec(select(DeveloperWorkspaceRevision).where(
+        DeveloperWorkspaceRevision.workspace_id == workspace.id,
+        DeveloperWorkspaceRevision.revision == payload.revision,
+    )).first()
+    if source is None:
+        raise HTTPException(status_code=404, detail="Revision not found")
+    session.add(DeveloperWorkspaceRevision(
+        workspace_id=workspace.id,
+        revision=workspace.revision,
+        scene=workspace.scene,
+    ))
+    workspace.scene = source.scene
+    workspace.revision += 1
+    workspace.updated_by = identity.user.id
+    workspace.updated_at = utcnow()
+    session.add(workspace)
+    session.commit()
+    return {"restored": True, "source_revision": source.revision, "revision": workspace.revision, "updated_at": workspace.updated_at}
 
 
 @router.post("/import", status_code=status.HTTP_201_CREATED)
