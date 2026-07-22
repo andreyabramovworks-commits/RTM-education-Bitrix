@@ -1,10 +1,12 @@
 from datetime import datetime, timezone
 import json
 import time
+import urllib.request
 from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field as PydanticField
 from sqlalchemy import delete
 from sqlmodel import Session, select
@@ -33,6 +35,36 @@ SUPPORTED_ENTITIES = {
     "rtm_prj", "rtm_items", "rtm_assigns", "rtm_progress", "rtm_events",
     "rtm_attempts", "rtm_roles", "rtm_canvas",
 }
+
+
+@router.get("/disk-media/{file_id}")
+def disk_media(
+    file_id: str,
+    request: Request,
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> StreamingResponse:
+    """Refresh an expiring Bitrix download URL and stream it from our origin."""
+    raw = bitrix_call(identity, "disk.file.get", {"id": file_id}) or {}
+    if isinstance(raw, dict):
+        nested = raw.get("result")
+        raw = raw.get("file") or (nested.get("file") if isinstance(nested, dict) else None) or nested or raw
+    if not isinstance(raw, dict):
+        raise HTTPException(status_code=404, detail="Disk file not found")
+    url = raw.get("DOWNLOAD_URL") or raw.get("downloadUrl") or raw.get("DOWNLOAD_URI") or raw.get("DOWNLOAD_LINK")
+    if not url:
+        raise HTTPException(status_code=404, detail="Disk download URL is unavailable")
+    headers = {"User-Agent": "RTM-Education/50.3.1"}
+    if request.headers.get("range"):
+        headers["Range"] = request.headers["range"]
+    try:
+        upstream = urllib.request.urlopen(urllib.request.Request(str(url), headers=headers), timeout=30)
+    except Exception as error:
+        raise HTTPException(status_code=502, detail="Disk media is temporarily unavailable") from error
+    response_headers = {"Cache-Control": "private, no-store", "Accept-Ranges": upstream.headers.get("Accept-Ranges", "bytes")}
+    for source, target in (("Content-Length", "Content-Length"), ("Content-Range", "Content-Range"), ("Content-Disposition", "Content-Disposition")):
+        if upstream.headers.get(source):
+            response_headers[target] = upstream.headers[source]
+    return StreamingResponse(upstream, status_code=getattr(upstream, "status", 200), media_type=upstream.headers.get_content_type(), headers=response_headers)
 
 
 class LegacyRecordInput(BaseModel):

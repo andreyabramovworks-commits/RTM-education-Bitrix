@@ -43,7 +43,7 @@ def bitrix_page(*, install: bool = False) -> HTMLResponse:
   </style>
 </head>
 <body data-mode="{mode}">
-  {('<section class="install"><h1>Подключаем RTM Education</h1><p>Проверяем связь с порталом и сервером. На этом этапе приложение только читает данные текущего пользователя и ничего не записывает в Битрикс24.</p><div class="checks" id="checks"></div><p id="details"></p></section>' if install else '<div hidden><div id="checks"></div><div id="details"></div></div><main class="workspace"><iframe src="/?bitrix_frame=1&amp;rtm_release=50.2.1" title="RTM Education v50.2.1"></iframe></main>')}
+  {('<section class="install"><h1>Подключаем RTM Education</h1><p>Проверяем связь с порталом и сервером. На этом этапе приложение только читает данные текущего пользователя и ничего не записывает в Битрикс24.</p><div class="checks" id="checks"></div><p id="details"></p></section>' if install else '<div hidden><div id="checks"></div><div id="details"></div></div><main class="workspace"><iframe src="/?bitrix_frame=1&amp;rtm_release=50.3.1" title="RTM Education v50.3.1"></iframe></main>')}
   <script>
     (() => {{
       const mode = document.body.dataset.mode;

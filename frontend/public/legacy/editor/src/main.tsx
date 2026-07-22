@@ -334,6 +334,33 @@ const reconcileFrameMembership = (elements: readonly any[]) => {
   return changed ? next : elements;
 };
 
+const moveNestedFrameContents = (incoming: readonly any[], previous: readonly any[], selectedIds: Record<string, boolean>) => {
+  const before = new Map(previous.map((el: any) => [String(el.id), el]));
+  const after = new Map(incoming.map((el: any) => [String(el.id), el]));
+  const selectedFrames = previous.filter((el: any) => el.type === "frame" && selectedIds?.[el.id] && !el.isDeleted);
+  if (!selectedFrames.length) return incoming;
+  let changed = false;
+  const next = incoming.map((element: any) => {
+    const old = before.get(String(element.id));
+    if (!old || element.isDeleted || selectedIds?.[element.id]) return element;
+    for (const frame of selectedFrames as any[]) {
+      const moved = after.get(String(frame.id));
+      if (!moved) continue;
+      const dx = Number((moved as any).x || 0) - Number(frame.x || 0), dy = Number((moved as any).y || 0) - Number(frame.y || 0);
+      if (!dx && !dy) continue;
+      let parent = old.frameId ? before.get(String(old.frameId)) : null, nested = false;
+      while (parent) { if (String((parent as any).id) === String(frame.id)) { nested = true; break; } parent = (parent as any).frameId ? before.get(String((parent as any).frameId)) : null; }
+      if (!nested) continue;
+      const ownDx = Number(element.x || 0) - Number((old as any).x || 0), ownDy = Number(element.y || 0) - Number((old as any).y || 0);
+      if (Math.abs(ownDx - dx) < .01 && Math.abs(ownDy - dy) < .01) return element;
+      changed = true;
+      return { ...element, x: Number(element.x || 0) + dx - ownDx, y: Number(element.y || 0) + dy - ownDy, version: Number(element.version || 1) + 1, versionNonce: Math.floor(Math.random() * 2147483647), updated: Date.now() };
+    }
+    return element;
+  });
+  return changed ? next : incoming;
+};
+
 const mediaFromNode = (node: Element): RTMMediaSpec | null => {
   const media = node.matches("img,audio,video,iframe") ? node : node.querySelector("img,audio,video,iframe");
   const anchor = node.matches("a[href]") ? node : node.querySelector("a[href]");
@@ -422,8 +449,7 @@ export const htmlToScene = (html: string, title = "Страница"): RTMScene 
 
 const normalizeScene = (options: RTMCanvasOptions): RTMScene => {
   if (options.scene?.elements) {
-    const normalizedText = normalizeTextGeometryList(options.scene.elements);
-    const framed = reconcileFrameMembership(normalizedText);
+    const framed = reconcileFrameMembership(options.scene.elements);
     return {
       type: "excalidraw",
       version: 2,
@@ -483,7 +509,8 @@ function ActionOverlay({ elements, viewport, origin, readOnly, onComplete }: { e
 }
 
 function TestOverlay({ elements, viewport, origin, options }: { elements: readonly any[]; viewport: Viewport; origin: { left: number; top: number }; options: RTMCanvasOptions }) {
-  if (options.testMode !== "take" || !options.testDefinition) return null;
+  if (!options.testDefinition || (options.testMode !== "take" && options.testMode !== "author")) return null;
+  const taking = options.testMode === "take";
   const questions = options.testDefinition.questions || [];
   const byId = new Map(questions.map((question: any) => [String(question.id), question]));
   const answers = options.testAnswers || {};
@@ -493,7 +520,7 @@ function TestOverlay({ elements, viewport, origin, options }: { elements: readon
     const question: any = byId.get(String(binding.questionId));
     if (!question) return null;
     const style = overlayStyle(el, viewport, origin);
-    if (binding.kind === "free") return <textarea key={el.id} className="rtm-test-free" style={style} aria-label={question.text || "Свободный ответ"} value={String(answers[question.id] || "")} onChange={(event) => options.onTestAnswer?.(String(question.id), event.target.value)} />;
+    if (binding.kind === "free") return taking ? <textarea key={el.id} className="rtm-test-free" style={style} aria-label={question.text || "Свободный ответ"} value={String(answers[question.id] || "")} onChange={(event) => options.onTestAnswer?.(String(question.id), event.target.value)} /> : null;
     if (binding.kind === "media") {
       const media = question.media || {};
       if (!media.url) return null;
@@ -504,16 +531,20 @@ function TestOverlay({ elements, viewport, origin, options }: { elements: readon
     if (binding.kind !== "choice") return null;
     const option = (question.options || []).find((item: any) => String(item.id) === String(binding.optionId));
     if (!option) return null;
+    if (!taking && !option.image?.url) return null;
     const current = Array.isArray(answers[question.id]) ? answers[question.id].map(String) : [];
     const selected = current.includes(String(option.id));
     const multiple = question.type === "multiple";
-    const choose = () => options.onTestAnswer?.(String(question.id), multiple
+    const choose = () => taking && options.onTestAnswer?.(String(question.id), multiple
       ? (selected ? current.filter((id: string) => id !== String(option.id)) : [...current, String(option.id)])
       : (selected ? [] : [String(option.id)]));
-    return <button key={el.id} type="button" className={`rtm-test-choice ${selected ? "is-selected" : ""} ${option.image?.url ? "has-image" : ""}`} style={style} aria-pressed={selected} onClick={choose}>
+    return <button key={el.id} type="button" disabled={!taking} className={`rtm-test-choice ${selected ? "is-selected" : ""} ${option.image?.url ? "has-image" : ""}`} style={style} aria-pressed={selected} onClick={choose}>
       {option.image?.url && <img src={option.image.url} alt={option.text || "Вариант ответа"} />}
       {!option.image?.url && <span>{option.text || "Вариант ответа"}</span>}
     </button>;
+  })}{taking && elements.filter((el: any) => !el.isDeleted && el.customData?.rtmTestCheck).map((el: any) => {
+    const binding = el.customData.rtmTestCheck || {}, current = Array.isArray(answers[binding.questionId]) ? answers[binding.questionId].map(String) : [], selected = current.includes(String(binding.optionId));
+    return <div key={el.id} className={`rtm-test-check ${selected ? "is-selected" : ""}`} style={overlayStyle(el, viewport, origin)}>{selected && <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 21l8 8L32 10" /></svg>}</div>;
   })}</div>;
 }
 
@@ -645,12 +676,13 @@ function UnifiedReaderSurface({ options }: { options: RTMCanvasOptions }) {
             const href = safeHttpsUrl(el.link);
             return href ? <a className="rtm-unified-link-hit" style={style} key={el.id} href={href} target="_blank" rel="noopener noreferrer" aria-label={el.text || "Открыть ссылку"} /> : null;
           })}
-          {options.testMode === "take" && controls.map((el: any) => {
+          {(options.testMode === "take" || options.testMode === "author") && controls.map((el: any) => {
+            const taking = options.testMode === "take";
             const binding = el.customData.rtmTestControl || {};
             const question: any = questionById.get(String(binding.questionId));
             if (!question) return null;
             const style = intrinsicStyle(el, bounds);
-            if (binding.kind === "free") return <textarea key={el.id} className="rtm-unified-test-free" style={style} aria-label={question.text || "Свободный ответ"} value={String(answers[question.id] || "")} onChange={(event) => options.onTestAnswer?.(String(question.id), event.target.value)} />;
+            if (binding.kind === "free") return taking ? <textarea key={el.id} className="rtm-unified-test-free" style={style} aria-label={question.text || "Свободный ответ"} value={String(answers[question.id] || "")} onChange={(event) => options.onTestAnswer?.(String(question.id), event.target.value)} /> : null;
             if (binding.kind === "media") {
               const media = question.media || {};
               if (!media.url) return null;
@@ -661,15 +693,20 @@ function UnifiedReaderSurface({ options }: { options: RTMCanvasOptions }) {
             if (binding.kind !== "choice") return null;
             const option = (question.options || []).find((item: any) => String(item.id) === String(binding.optionId));
             if (!option) return null;
+            if (!taking && !option.image?.url) return null;
             const current = Array.isArray(answers[question.id]) ? answers[question.id].map(String) : [];
             const selected = current.includes(String(option.id));
             const multiple = question.type === "multiple";
-            const choose = () => options.onTestAnswer?.(String(question.id), multiple
+            const choose = () => taking && options.onTestAnswer?.(String(question.id), multiple
               ? (selected ? current.filter((id: string) => id !== String(option.id)) : [...current, String(option.id)])
               : (selected ? [] : [String(option.id)]));
-            return <button key={el.id} type="button" className={`rtm-unified-test-choice ${selected ? "is-selected" : ""} ${option.image?.url ? "has-image" : ""}`} style={style} aria-pressed={selected} onClick={choose}>
+            return <button key={el.id} type="button" disabled={!taking} className={`rtm-unified-test-choice ${selected ? "is-selected" : ""} ${option.image?.url ? "has-image" : ""}`} style={style} aria-pressed={selected} onClick={choose}>
               {option.image?.url && <img src={option.image.url} alt={option.text || "Вариант ответа"} />}
             </button>;
+          })}
+          {options.testMode === "take" && elements.filter((el: any) => !el.isDeleted && el.customData?.rtmTestCheck).map((el: any) => {
+            const binding = el.customData.rtmTestCheck || {}, current = Array.isArray(answers[binding.questionId]) ? answers[binding.questionId].map(String) : [], selected = current.includes(String(binding.optionId));
+            return <div key={el.id} className={`rtm-unified-test-check ${selected ? "is-selected" : ""}`} style={intrinsicStyle(el, bounds)}>{selected && <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 21l8 8L32 10" /></svg>}</div>;
           })}
         </div>
       </div>
@@ -717,11 +754,11 @@ function HandIcon({ kind }: { kind: HandIconKind }) {
   return <svg {...common}><path d="M10 4H4v6M18 4h6v6M10 24H4v-6M18 24h6v-6" /></svg>;
 }
 
-function MobilePreview({ scene, onClose }: { scene: RTMScene; onClose: () => void }) {
+function MobilePreview({ scene, onClose, options }: { scene: RTMScene; onClose: () => void; options: RTMCanvasOptions }) {
   return <div className="rtm-mobile-preview-backdrop" role="dialog" aria-label="Мобильный предпросмотр">
     <div className="rtm-mobile-preview-panel">
       <div className="rtm-mobile-preview-head"><b>Мобильный предпросмотр</b><button type="button" onClick={onClose}>×</button></div>
-      <div className="rtm-mobile-preview-phone"><UnifiedReaderSurface options={{ pageKey: "mobile-preview", scene, readOnly: true, completionRequired: false }} /></div>
+      <div className="rtm-mobile-preview-phone"><UnifiedReaderSurface options={{ ...options, pageKey: "mobile-preview", scene, readOnly: true, completionRequired: false, testMode: options.testDefinition ? "author" : options.testMode }} /></div>
     </div>
   </div>;
 }
@@ -732,6 +769,10 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const lastElementsRef = useRef("");
   const lastSceneElementsRef = useRef<readonly any[]>(initial.elements || []);
+  const historyCurrentRef = useRef<readonly any[]>(initial.elements || []);
+  const undoStackRef = useRef<any[][]>([]);
+  const redoStackRef = useRef<any[][]>([]);
+  const suppressHistoryRef = useRef(false);
   const [elements, setElements] = useState<readonly any[]>(initial.elements || []);
   const initialAppState = initial.appState || {};
   const [viewport, setViewport] = useState<Viewport>({ zoom: Number(initialAppState.zoom?.value || initialAppState.zoom || 1), left: Number(initialAppState.offsetLeft || 0), top: Number(initialAppState.offsetTop || 0), sx: Number(initialAppState.scrollX || 0), sy: Number(initialAppState.scrollY || 0) });
@@ -921,7 +962,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
       el.seed = Math.floor(Math.random() * 2147483647);
       el.versionNonce = Math.floor(Math.random() * 2147483647);
       el.updated = Date.now();
-      incoming[index] = normalizeTextGeometry(el);
+      incoming[index] = el;
     });
     const appState = api.getAppState();
     const rect = stageRef.current?.getBoundingClientRect();
@@ -1118,10 +1159,6 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
         const ids = api?.getAppState?.().selectedElementIds || {};
         if (!Object.keys(ids).some((id) => ids[id])) return;
         const current = api.getSceneElements();
-        const protectedSelected = current.some((el: any) => ids[el.id] && el.customData?.rtmProtectedCompletion);
-        // Normal deletions stay native: Excalidraw correctly handles groups,
-        // bindings, frame descendants and its own undo/redo history.
-        if (!protectedSelected) return;
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -1147,14 +1184,15 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
       const key = event.key.toLowerCase();
       if (key === "z" || key === "y") {
         const redo = key === "y" || event.shiftKey;
-        const button = stageRef.current?.querySelector<HTMLButtonElement>(redo
-          ? ".undo-redo-buttons .redo-button-container button"
-          : ".undo-redo-buttons .undo-button-container button");
-        if (!button || button.disabled) return;
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        button.click();
+        const source = redo ? redoStackRef.current : undoStackRef.current;
+        const target = redo ? undoStackRef.current : redoStackRef.current;
+        const snapshot = source[source.length - 1]; if (!snapshot) return;
+        source.pop(); target.push(historyCurrentRef.current.map((el: any) => ({ ...el })));
+        historyCurrentRef.current = snapshot.map((el: any) => ({ ...el })); suppressHistoryRef.current = true;
+        apiRef.current?.updateScene({ elements: historyCurrentRef.current, appState: { selectedElementIds: {} }, captureUpdate: CaptureUpdateAction.NEVER });
       } else if (key === "b" || key === "i") {
         event.preventDefault();
         event.stopPropagation();
@@ -1193,7 +1231,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
         <button type="button" className="rtm-canvas-save" onClick={save}>Сохранить статью</button>
         {saveState && <span className={`rtm-canvas-save-state ${saveState.includes("Ошибка") || saveState.includes("ожидаю") ? "is-error" : ""}`}>{saveState}</span>}
       </div>}
-      {mobilePreview && <MobilePreview scene={{ type: "excalidraw", version: 2, source: "rtm-v49-preview", elements: [...elements], appState: apiRef.current?.getAppState?.() || initial.appState || {}, files: initial.files || {} }} onClose={() => setMobilePreview(false)} />}
+      {mobilePreview && <MobilePreview options={options} scene={{ type: "excalidraw", version: 2, source: "rtm-v49-preview", elements: [...elements], appState: apiRef.current?.getAppState?.() || initial.appState || {}, files: initial.files || {} }} onClose={() => setMobilePreview(false)} />}
       <div className="rtm-canvas-stage" ref={stageRef} tabIndex={-1} onPointerMove={(event) => { lastPointerRef.current = { x: event.clientX, y: event.clientY }; }} onPointerDown={(event) => { lastPointerRef.current = { x: event.clientX, y: event.clientY }; setCaptureShortcuts(true); stageRef.current?.focus({ preventScroll: true }); }}>
         <Excalidraw
           key={options.pageKey}
@@ -1219,14 +1257,23 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
           onChange={(incomingElements: readonly any[], nextAppState: any, files: any) => {
             let nextElements = incomingElements;
             if (!readOnly) {
-              const normalizedText = normalizeTextGeometryList(nextElements);
-              if (normalizedText !== nextElements) { apiRef.current?.updateScene({ elements: normalizedText, captureUpdate: CaptureUpdateAction.NEVER }); return; }
+              // Preserve exact Excalidraw text width, height and manual wrapping.
               const protectedElements = options.completionRequired === false ? nextElements : protectRequiredCompletion(nextElements, lastSceneElementsRef.current);
               if (protectedElements !== nextElements) { apiRef.current?.updateScene({ elements: protectedElements, captureUpdate: CaptureUpdateAction.NEVER }); return; }
               const interacting = Boolean(nextAppState.selectedElementsAreBeingDragged || nextAppState.resizingElement || nextAppState.draggingElement || nextAppState.newElement || nextAppState.editingTextElement);
+              if (nextAppState.selectedElementsAreBeingDragged) {
+                const nested = moveNestedFrameContents(nextElements, lastSceneElementsRef.current, nextAppState.selectedElementIds || {});
+                if (nested !== nextElements) { lastSceneElementsRef.current = nested; apiRef.current?.updateScene({ elements: nested, captureUpdate: CaptureUpdateAction.NEVER }); return; }
+              }
               if (!interacting) {
                 const framedElements = reconcileFrameMembership(nextElements);
                 if (framedElements !== nextElements) { apiRef.current?.updateScene({ elements: framedElements, captureUpdate: CaptureUpdateAction.NEVER }); return; }
+                if (suppressHistoryRef.current) suppressHistoryRef.current = false;
+                else {
+                  const oldSignature = historyCurrentRef.current.map((el: any) => `${el.id}:${el.version}:${el.versionNonce}:${el.isDeleted ? 1 : 0}`).join("|");
+                  const newSignature = nextElements.map((el: any) => `${el.id}:${el.version}:${el.versionNonce}:${el.isDeleted ? 1 : 0}`).join("|");
+                  if (oldSignature !== newSignature) { undoStackRef.current.push(historyCurrentRef.current.map((el: any) => ({ ...el }))); if (undoStackRef.current.length > 60) undoStackRef.current.shift(); redoStackRef.current = []; historyCurrentRef.current = nextElements.map((el: any) => ({ ...el })); }
+                }
               }
               lastSceneElementsRef.current = protectedElements;
               const currentBaseFont = decodeStyledFont(Number(nextAppState.currentItemFontFamily || 5)).base;
