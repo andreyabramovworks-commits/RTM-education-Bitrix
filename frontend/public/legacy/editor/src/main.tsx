@@ -994,8 +994,8 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     historyCurrentRef.current = merged.map((el: any) => ({ ...el }));
     lastSceneElementsRef.current = merged;
     api.updateScene({ elements: merged, appState: { selectedElementIds: Object.fromEntries(incoming.map((el: any) => [el.id, true])) }, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
-    options.onChange?.({ type: "excalidraw", version: 2, source: "rtm-v45", elements: merged, appState: api.getAppState(), files: api.getFiles?.() || {} });
-    api.scrollToContent?.(incoming, { fitToContent: false });
+    api.scrollToContent?.(incoming, { fitToContent: true });
+    requestAnimationFrame(() => options.onChange?.({ type: "excalidraw", version: 2, source: "rtm-v45", elements: merged, appState: api.getAppState(), files: api.getFiles?.() || {} }));
     setSaveState("Макет вставлен — черновик будет сохранён автоматически");
     return true;
   };
@@ -1241,6 +1241,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
           excalidrawAPI={(nextApi: any) => {
             apiRef.current = nextApi;
             if (readOnly && options.fitToContent) requestAnimationFrame(() => fitReader(false));
+            else if (!readOnly && options.fitToContent && initial.elements?.length) requestAnimationFrame(() => nextApi.scrollToContent?.(initial.elements, { fitToContent: true }));
           }}
           initialData={initial as any}
           viewModeEnabled={readOnly}
