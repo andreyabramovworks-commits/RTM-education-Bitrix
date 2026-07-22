@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     bitrix_portal_host: str = "rtm-group.bitrix24.ru"
     session_cookie_name: str = "rtm_session"
     session_ttl_seconds: int = 43200
+    knowledge_sync_secret: str = ""
 
     model_config = SettingsConfigDict(case_sensitive=False)
 

@@ -41,7 +41,7 @@ export type RTMCanvasOptions = {
   brandColor?: string;
   onChange?: (scene: RTMScene) => void;
   onRequestDisk?: (kind: "image" | "audio" | "video") => Promise<RTMMediaSpec | null>;
-  onManualSave?: () => void | Promise<void>;
+  onManualSave?: (scene?: RTMScene) => void | Promise<void>;
   onComplete?: () => void | Promise<void>;
   contentHeight?: number;
   fitToContent?: boolean;
@@ -1079,7 +1079,9 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
 
   const save = async () => {
     setSaveState("Сохраняю…");
-    try { await options.onManualSave?.(); changed.current = false; setSaveState(""); }
+    const api = apiRef.current;
+    const snapshot: RTMScene | undefined = api ? { type: "excalidraw", version: 2, source: "rtm-v50.3.6-manual", elements: [...api.getSceneElementsIncludingDeleted()], appState: api.getAppState(), files: api.getFiles?.() || {} } : undefined;
+    try { if (snapshot) options.onChange?.(snapshot); await options.onManualSave?.(snapshot); changed.current = false; setSaveState(""); }
     catch { setSaveState("Сохранено на устройстве — ожидаю Bitrix24"); }
   };
   const toggleAppSetting = (key: string) => {

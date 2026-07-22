@@ -125,6 +125,7 @@ function initV46Canvas(){dbAll().then(function(rows){pendingDbCount=rows.length;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initV46Canvas);else initV46Canvas();
 
 window.RTMV46={renderArticlePages:renderArticlePages,saveCurrentArticlePage:saveCurrentArticlePage,renderUserArticle:renderUserArticle,readStoredScene:storedScene,resolveScene:resolveScene,pickDiskMedia:pickDisk,resolveDiskMedia:diskMedia,flushLocalScenes:flushLocal,sceneHasComplete:sceneHasComplete,confirmCompletion:confirmCompletion,insertComplete:insertComplete};
+window.RTMV46.saveInline=saveInline;
 window.RTMV45=window.RTMV46;
 window.RTMV43=window.RTMV46;
 window.RTMV42=window.RTMV46;

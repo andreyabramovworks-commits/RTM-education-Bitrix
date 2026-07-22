@@ -27,6 +27,7 @@ services:
       APP_VERSION: ${APP_VERSION:-unknown}
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       BITRIX_PORTAL_HOST: ${BITRIX_PORTAL_HOST:-rtm-group.bitrix24.ru}
+      KNOWLEDGE_SYNC_SECRET: ${KNOWLEDGE_SYNC_SECRET:-}
     depends_on:
       db:
         condition: service_healthy

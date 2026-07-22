@@ -32,6 +32,7 @@ class AppUser(SQLModel, table=True):
     manual_role: str = Field(default="student", max_length=20)
     is_bitrix_admin: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
     active: bool = Field(default=True, sa_column=Column(Boolean, nullable=False))
+    department_ids: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     created_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
     updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
 
@@ -206,4 +207,37 @@ class LegacyRecord(SQLModel, table=True):
     properties: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     date_create: str = Field(default="", max_length=80)
     created_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class KnowledgeDocument(SQLModel, table=True):
+    __tablename__ = "knowledge_documents"
+
+    id: int | None = Field(default=None, primary_key=True)
+    source_row: int = Field(index=True, unique=True)
+    title: str = Field(max_length=500)
+    description: str = Field(default="", sa_column=Column(Text, nullable=False))
+    document_url: str = Field(max_length=2000)
+    scene: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    light_test: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    full_test: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    article_assignments: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    light_test_assignments: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    full_test_assignments: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    reviewers: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    editors: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    active: bool = Field(default=True, sa_column=Column(Boolean, nullable=False))
+    source_updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class BitrixDepartment(SQLModel, table=True):
+    __tablename__ = "bitrix_departments"
+
+    id: int | None = Field(default=None, primary_key=True)
+    bitrix_department_id: str = Field(index=True, unique=True, max_length=40)
+    name: str = Field(max_length=500)
+    parent_id: str = Field(default="", max_length=40)
+    head_user_id: str = Field(default="", max_length=40)
+    active: bool = Field(default=True, sa_column=Column(Boolean, nullable=False))
     updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
