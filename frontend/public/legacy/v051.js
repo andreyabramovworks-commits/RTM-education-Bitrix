@@ -136,7 +136,11 @@
         if (question && binding.kind === 'question') nextText = question.text;
         if (question && binding.kind === 'option') { var option = (question.options || []).find(function (item) { return String(item.id) === String(binding.optionId); }); if (option) nextText = option.text; }
       }
-      if (nextText == null || element.text === nextText) return element;
+      // Manual line breaks are part of the Excalidraw layout. Do not replace
+      // them when the sidebar contains the same words.
+      var currentWords = String(element.text || '').replace(/\s+/g, ' ').trim();
+      var nextWords = String(nextText == null ? '' : nextText).replace(/\s+/g, ' ').trim();
+      if (nextText == null || currentWords === nextWords) return element;
       return Object.assign({}, element, {text: nextText, originalText: nextText, version: Number(element.version || 1) + 1, versionNonce: Math.floor(Math.random() * 2147483647), updated: Date.now()});
     });
     return scene;

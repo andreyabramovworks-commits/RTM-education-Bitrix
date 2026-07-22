@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var VERSION = '50.2.1';
+  var VERSION = '50.3';
   var designerTemplate = null;
   var templatePromise = null;
   var reviewState = {filter: 'pending_review', query: '', selected: ''};
@@ -13,7 +13,7 @@
   function structureSignature(meta) { return (meta.questions || []).map(function (question) { return [question.id, question.type, (question.options || []).map(function (option) { return option.id; }).join(',')].join(':'); }).join('|'); }
   function loadTemplate() {
     if (designerTemplate) return Promise.resolve(designerTemplate);
-    if (!templatePromise) templatePromise = fetch('/legacy/test-template-v52.json?v=050.2.1', {cache: 'no-store'}).then(function (response) {
+    if (!templatePromise) templatePromise = fetch('/legacy/test-template-v52.json?v=050.3', {cache: 'no-store'}).then(function (response) {
       if (!response.ok) throw new Error('Не удалось загрузить шаблон теста: HTTP ' + response.status);
       return response.json();
     }).then(function (scene) { designerTemplate = scene; return scene; });
@@ -60,11 +60,25 @@
       if (data.rtmTestControl) {
         var control = data.rtmTestControl, option = control.optionIndex == null ? null : options[control.optionIndex];
         data.rtmTestControl = Object.assign({}, control, {questionIndex: questionIndex, questionId: String(question.id), optionId: option ? String(option.id) : undefined});
-        if (prototypeIndex === 0 && control.kind === 'choice') data.rtmTestControl.controlWidth = 461;
         if (control.kind === 'choice') { element.strokeColor = '#2f9e44'; element.backgroundColor = '#ffffff'; element.strokeWidth = 2; }
       }
       if (data.rtmTestCheck) data.rtmTestCheck = Object.assign({}, data.rtmTestCheck, {questionIndex: questionIndex, questionId: String(question.id), optionId: String((options[data.rtmTestCheck.optionIndex] || {}).id || '')});
       return element;
+    });
+    result.forEach(function (element) {
+      var binding = element.customData && element.customData.rtmTestText;
+      if (!binding || binding.kind !== 'option') return;
+      var control = result.find(function (candidate) {
+        var value = candidate.customData && candidate.customData.rtmTestControl;
+        return value && value.kind === 'choice' && Number(value.optionIndex) === Number(binding.optionIndex);
+      });
+      if (!control) return;
+      var fontSize = Number(element.fontSize || 16), lineHeight = Number(element.lineHeight || 1.25);
+      element.x = Number(control.x || 0) + 8;
+      element.width = Math.max(1, Number(control.width || 1) - 16);
+      element.height = Math.max(fontSize * lineHeight, 1);
+      element.y = Number(control.y || 0) + (Number(control.height || 1) - element.height) / 2;
+      element.textAlign = 'center'; element.verticalAlign = 'middle'; element.autoResize = false;
     });
     return {elements: result, height: maxY - minY};
   }
@@ -105,7 +119,26 @@
     var item = findItem(state.testId), root = document.getElementById('testQuestionsEditor');
     if (!item || !root) return baseRenderTestEditor.apply(this, arguments);
     root.innerHTML = '<div class="v52-template-loading">Подготавливаем макет теста…</div>';
-    return ensureDesigner(item, false).catch(function (error) { console.error('v50.2.1 designer migration failed', error); }).then(function () { baseRenderTestEditor(); });
+    return ensureDesigner(item, false).catch(function (error) { console.error('v50.3 designer migration failed', error); }).then(function () { baseRenderTestEditor(); });
+  };
+
+  var baseRenderUserTestIntro = window.renderUserTestIntro;
+  window.renderUserTestIntro = function () {
+    var markup = baseRenderUserTestIntro.apply(this, arguments), index = 0;
+    var icons = [
+      '<path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/>',
+      '<path d="M7 7h10v10H7z"/><path d="M4 10V4h6M20 14v6h-6"/>',
+      '<path d="m5 12 4 4L19 6"/>',
+      '<path d="M12 3v18M8 7.5c0-2 1.8-3 4-3s4 1 4 3-1.8 3-4 3-4 1-4 3 1.8 3 4 3 4-1 4-3"/>',
+      '<path d="M4 7h12M4 12h9M4 17h6"/><path d="m17 14 3 3-3 3"/>',
+      '<path d="M4 7h12M4 12h9M4 17h6"/><path d="m17 14 3 3-3 3"/>',
+      '<path d="M5 12.5 9.5 17 19 7"/>',
+      '<path d="M12 3 15 8.5 21 9.5 16.5 14 17.5 20 12 17 6.5 20 7.5 14 3 9.5 9 8.5Z"/>'
+    ];
+    return markup.replace(/<span>/g, function (tag) {
+      var icon = icons[index++];
+      return icon ? tag + '<svg class="test-info-icon" viewBox="0 0 24 24" aria-hidden="true">' + icon + '</svg>' : tag;
+    });
   };
 
   function currentUserIdV52() { return String(typeof rtmCanonicalUserId === 'function' ? rtmCanonicalUserId(effectiveUserId()) : effectiveUserId()); }

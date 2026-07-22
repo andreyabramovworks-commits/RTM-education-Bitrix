@@ -513,7 +513,6 @@ function TestOverlay({ elements, viewport, origin, options }: { elements: readon
     return <button key={el.id} type="button" className={`rtm-test-choice ${selected ? "is-selected" : ""} ${option.image?.url ? "has-image" : ""}`} style={style} aria-pressed={selected} onClick={choose}>
       {option.image?.url && <img src={option.image.url} alt={option.text || "Вариант ответа"} />}
       {!option.image?.url && <span>{option.text || "Вариант ответа"}</span>}
-      {selected && <i aria-hidden="true">✓</i>}
     </button>;
   })}</div>;
 }
@@ -538,7 +537,7 @@ const sceneBounds = (elements: readonly any[]) => {
 const intrinsicStyle = (el: any, bounds: ReturnType<typeof sceneBounds>): React.CSSProperties => ({
   left: Number(el.x || 0) - bounds.x,
   top: Number(el.y || 0) - bounds.y,
-  width: Math.max(1, Number(el.customData?.rtmTestControl?.controlWidth || el.width || 1)),
+  width: Math.max(1, Number(el.width || 1)),
   height: Math.max(1, Number(el.height || 1)),
   transform: `rotate(${Number(el.angle || 0)}rad)`,
 });
@@ -670,7 +669,6 @@ function UnifiedReaderSurface({ options }: { options: RTMCanvasOptions }) {
               : (selected ? [] : [String(option.id)]));
             return <button key={el.id} type="button" className={`rtm-unified-test-choice ${selected ? "is-selected" : ""} ${option.image?.url ? "has-image" : ""}`} style={style} aria-pressed={selected} onClick={choose}>
               {option.image?.url && <img src={option.image.url} alt={option.text || "Вариант ответа"} />}
-              {selected && <i aria-hidden="true">✓</i>}
             </button>;
           })}
         </div>
@@ -720,18 +718,10 @@ function HandIcon({ kind }: { kind: HandIconKind }) {
 }
 
 function MobilePreview({ scene, onClose }: { scene: RTMScene; onClose: () => void }) {
-  const hostRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-    const bridge = (window as any).RTMV49;
-    if (bridge?.renderPreview) bridge.renderPreview(host, scene);
-    else host.innerHTML = '<div class="rtm-preview-wait">Подготавливаю мобильный предпросмотр…</div>';
-  }, [scene]);
   return <div className="rtm-mobile-preview-backdrop" role="dialog" aria-label="Мобильный предпросмотр">
     <div className="rtm-mobile-preview-panel">
       <div className="rtm-mobile-preview-head"><b>Мобильный предпросмотр</b><button type="button" onClick={onClose}>×</button></div>
-      <div className="rtm-mobile-preview-phone"><div ref={hostRef} /></div>
+      <div className="rtm-mobile-preview-phone"><UnifiedReaderSurface options={{ pageKey: "mobile-preview", scene, readOnly: true, completionRequired: false }} /></div>
     </div>
   </div>;
 }
