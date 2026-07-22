@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '50.3.1';
+  var VERSION = '50.3.2';
   var saveTimer = 0;
   var testScene = null;
   var takeAnswers = {};
@@ -42,13 +42,18 @@
     var meta = testDefaults(raw || {});
     meta.schemaVersion = 2;
     meta.questions = (meta.questions || []).map(normalizeQuestion);
-    meta.questions.forEach(function (question) {
-      if (question.media && question.media.diskId) question.media.url = '/api/v47/disk-media/' + encodeURIComponent(String(question.media.diskId));
-      (question.options || []).forEach(function (option) { if (option.image && option.image.diskId) option.image.url = '/api/v47/disk-media/' + encodeURIComponent(String(option.image.diskId)); });
-    });
     var automatic = meta.questions.filter(function (question) { return !isFree(question); }).length;
     meta.passRequired = Math.max(automatic ? 1 : 0, Math.min(automatic, Number(meta.passRequired == null ? Math.ceil(automatic * Number(meta.passScore || 100) / 100) : meta.passRequired)));
     return meta;
+  }
+  async function hydrateMetaMedia(meta) {
+    var next = clone(meta), jobs = [], resolver = window.RTMV46 && window.RTMV46.resolveDiskMedia;
+    if (!resolver) return next;
+    next.questions.forEach(function (question) {
+      if (question.media && question.media.diskId) jobs.push(resolver(question.media.diskId, question.media.title || 'media.' + (question.media.kind === 'audio' ? 'mp3' : question.media.kind === 'video' ? 'mp4' : 'jpg')).then(function (fresh) { question.media = Object.assign({}, question.media, fresh); }).catch(function (error) { console.warn('Test media refresh failed', error); }));
+      (question.options || []).forEach(function (option) { if (option.image && option.image.diskId) jobs.push(resolver(option.image.diskId, option.image.title || 'image.jpg').then(function (fresh) { option.image = Object.assign({}, option.image, fresh); }).catch(function (error) { console.warn('Test image refresh failed', error); })); });
+    });
+    await Promise.all(jobs); return next;
   }
   function defaultQuestion(type, number) {
     var question = {id: id('q'), type: type, text: 'Текст вопроса ' + number};
@@ -211,10 +216,11 @@
     testScene = scene; meta.testScene = scene;
   }
 
-  function mountEditorCanvas(meta, item) {
+  async function mountEditorCanvas(meta, item) {
     var host = document.getElementById('v51TestCanvas'); if (!host || !window.RTMCanvas) return setTimeout(function () { mountEditorCanvas(meta, item); }, 120);
     testScene = clone(meta.testScene || buildScene(meta, item.NAME)); meta.testScene = testScene;
-    window.RTMCanvas.mount(host, {pageKey: 'test-author:' + item.ID, scene: testScene, readOnly: false, completionRequired: false, testMode: 'author', testDefinition: meta, title: item.NAME, brandColor: '#ef174c', onRequestDisk: window.RTMV46 && window.RTMV46.pickDiskMedia, onChange: function (scene) { testScene = scene; scheduleSave(); }, onManualSave: function () { return persistEditor(true); }});
+    var displayMeta = await hydrateMetaMedia(meta); if (!host.isConnected) return;
+    window.RTMCanvas.mount(host, {pageKey: 'test-author:' + item.ID, scene: testScene, readOnly: false, completionRequired: false, testMode: 'author', testDefinition: displayMeta, title: item.NAME, brandColor: '#ef174c', onRequestDisk: window.RTMV46 && window.RTMV46.pickDiskMedia, onChange: function (scene) { testScene = scene; scheduleSave(); }, onManualSave: function () { return persistEditor(true); }});
   }
   function fullTemplate() { return [defaultQuestion('single', 1), defaultQuestion('freeText', 2), defaultQuestion('imageChoice', 3), defaultQuestion('imageTextChoice', 4), defaultQuestion('mediaFreeText', 5)]; }
   function bindEditor(meta, item) {
@@ -284,7 +290,7 @@
     // start-button click handler. Always schedule the visual scene here so a
     // reopened attempt cannot leave a zero-height canvas.
     setTimeout(function () { mountTakeCanvas(findItem(test.ID) || test); }, 0);
-    return '<form class="v51-take-test" data-take-test="' + test.ID + '" data-test-start="' + Date.now() + '"><div class="v51-take-error" role="alert" hidden></div><div id="v51TakeCanvas" class="v51-take-canvas"></div><div class="v51-test-submit-bar"><button class="primary" type="submit">Отправить ответы</button></div></form>';
+    return '<form class="v51-take-test" data-take-test="' + test.ID + '" data-test-start="' + Date.now() + '"><div class="v51-test-clock" data-v51-test-clock hidden></div><div id="v51TakeCanvas" class="v51-take-canvas"></div><div class="v51-test-submit-bar"><button class="primary" type="submit">Отправить ответы</button></div></form>';
   };
   function shuffleRows(rows) { var result = rows.slice(); for (var i = result.length - 1; i > 0; i -= 1) { var j = Math.floor(Math.random() * (i + 1)), value = result[i]; result[i] = result[j]; result[j] = value; } return result; }
   function orderKey(test) { return 'rtm_v5031_order:' + String(test.ID) + ':' + String(typeof rtmCanonicalUserId === 'function' ? rtmCanonicalUserId(effectiveUserId()) : effectiveUserId()); }
@@ -301,13 +307,15 @@
     var host = document.getElementById('v51TakeCanvas'), form = host && host.closest('form'); if (!host || !form || !window.RTMCanvas) return setTimeout(function () { mountTakeCanvas(test); }, 120);
     if (host.dataset.rtmMountedTest === String(test.ID)) return;
     host.dataset.rtmMountedTest = String(test.ID);
-    var originalMeta = normalizeMeta(j(test.PROPERTY_VALUES.meta)), meta = orderedMeta(test, originalMeta), latest = userAttempt(test.ID), existing = latest && latest.PROPERTY_VALUES && latest.PROPERTY_VALUES.answers, previous = {};
+    var originalMeta = normalizeMeta(j(test.PROPERTY_VALUES.meta)), meta = await hydrateMetaMedia(orderedMeta(test, originalMeta)), latest = userAttempt(test.ID), existing = latest && latest.PROPERTY_VALUES && latest.PROPERTY_VALUES.answers, previous = {};
     try { previous = existing ? JSON.parse(existing) : {}; } catch (_) { previous = {}; }
     takeAnswers = {}; meta.questions.forEach(function (question) { if (isFree(question) && previous[question.id] != null) takeAnswers[question.id] = previous[question.id]; });
     mountedTestHost = host;
     var scene = (meta.shuffleQuestions || meta.shuffleAnswers) && window.RTMV52 && window.RTMV52.createScene ? await window.RTMV52.createScene(meta, test.NAME) : meta.testScene || buildScene(meta, test.NAME);
     function remount() { if (!host.isConnected) return; window.RTMCanvas.mount(host, {pageKey: 'test-take:' + test.ID, scene: scene, readOnly: true, fitToContent: true, completionRequired: false, testMode: 'take', testDefinition: meta, testAnswers: takeAnswers, brandColor: '#ef174c', onTestAnswer: function (questionId, value) { takeAnswers[questionId] = value; remount(); }}); }
     remount(); form.onsubmit = window.takeTestSubmit;
+    clearTimeout(form._v51timer); var clock = form.querySelector('[data-v51-test-clock]');
+    if (meta.timeLimit && clock) { clock.hidden = false; (function tick() { var left = Number(form.dataset.testStart) + Number(meta.timeLimit) * 60000 - Date.now(); clock.textContent = 'Осталось ' + Math.max(0, Math.floor(left / 60000)) + ':' + String(Math.max(0, Math.ceil(left / 1000) % 60)).padStart(2, '0'); if (left <= 0) { if (!form.dataset.submitting) { form.dataset.timedOut = '1'; form.requestSubmit(); } return; } form._v51timer = setTimeout(tick, 500); })(); }
   }
   function selectedCorrect(question, value) {
     var selected = Array.isArray(value) ? value.map(String).sort() : [], correct = (question.options || []).filter(function (option) { return option.correct; }).map(function (option) { return String(option.id); }).sort();
@@ -320,11 +328,12 @@
   function courseReviewer(test) { var course = findItem(materialCourseId(test) || test.PROPERTY_VALUES.parentId), meta = course && j(course.PROPERTY_VALUES.meta); return String(meta && meta.reviewerId || ''); }
   window.takeTestSubmit = takeTestSubmit = async function (event) {
     event.preventDefault(); var form = event.currentTarget, test = findItem(form.dataset.takeTest); if (!test) return;
-    var meta = normalizeMeta(j(test.PROPERTY_VALUES.meta)), errorBox = form.querySelector('.v51-take-error'); function fail(message) { if (errorBox) { errorBox.textContent = message; errorBox.hidden = false; errorBox.scrollIntoView({block: 'center'}); } } if (meta.timeLimit && (Date.now() - Number(form.dataset.testStart || Date.now())) > meta.timeLimit * 60000) return fail('Время теста истекло.');
-    var good = 0, automatic = 0, hasFree = false, freeMissing = false;
-    meta.questions.forEach(function (question) { if (isFree(question)) { hasFree = true; if (!String(takeAnswers[question.id] || '').trim()) freeMissing = true; } else { automatic += 1; if (selectedCorrect(question, takeAnswers[question.id])) good += 1; } });
-    if (freeMissing) return fail('Заполните все свободные ответы.');
-    var autoPassed = automatic === 0 || good >= Number(meta.passRequired || 0), score = automatic ? Math.round(good / automatic * 100) : 100, reviewerId = courseReviewer(test), returned = userAttempt(test.ID, ['returned']);
+    if (form.dataset.submitting) return; form.dataset.submitting = '1'; clearTimeout(form._v51timer);
+    var meta = normalizeMeta(j(test.PROPERTY_VALUES.meta)), timedOut = form.dataset.timedOut === '1' || meta.timeLimit && (Date.now() - Number(form.dataset.testStart || Date.now())) > meta.timeLimit * 60000;
+    var good = 0, automatic = 0, hasFree = false;
+    meta.questions.forEach(function (question) { if (isFree(question)) hasFree = true; else { automatic += 1; if (selectedCorrect(question, takeAnswers[question.id])) good += 1; } });
+    if (timedOut) hasFree = false;
+    var autoPassed = !timedOut && (automatic === 0 || good >= Number(meta.passRequired || 0)), score = automatic ? Math.round(good / automatic * 100) : timedOut ? 0 : 100, reviewerId = courseReviewer(test), returned = timedOut ? null : userAttempt(test.ID, ['returned']);
     var props = {courseId: String(materialCourseId(test) || test.PROPERTY_VALUES.parentId || ''), testId: String(test.ID), userId: String(typeof rtmCanonicalUserId === 'function' ? rtmCanonicalUserId(effectiveUserId()) : effectiveUserId()), score: String(score), automaticCorrect: String(good), automaticTotal: String(automatic), automaticPassed: autoPassed ? 'Y' : 'N', passed: hasFree ? 'PENDING' : autoPassed ? 'Y' : 'N', pendingReview: hasFree ? 'Y' : 'N', reviewStatus: hasFree ? 'pending_review' : autoPassed ? 'auto_passed' : 'auto_failed', reviewerId: reviewerId, answers: JSON.stringify(takeAnswers), testSnapshot: JSON.stringify({schemaVersion: 2, title: test.NAME, questions: meta.questions}), revision: String(Number(returned && returned.PROPERTY_VALUES.revision || 0) + 1), createdAt: returned && returned.PROPERTY_VALUES.createdAt || now(), updatedAt: now()};
     var attemptId;
     if (returned) { attemptId = returned.ID; await upd(E.attempts, returned.ID, returned.NAME || 'Попытка теста', props); returned.PROPERTY_VALUES = props; }
@@ -332,9 +341,11 @@
     localStorage.removeItem(orderKey(test));
     if (autoPassed) await complete(test.ID, 'test');
     if (hasFree) { var destination = reviewerId || ((state.users || []).find(function (user) { return ['admin', 'developer'].includes(getAppRole(user)); }) || {}).ID; await notifyUser(destination, 'В RTM Education новый свободный ответ по тесту «' + test.NAME + '» ожидает проверки.'); }
-    var title = hasFree ? (autoPassed ? 'Автоматическая часть пройдена' : 'Автоматическая часть не пройдена') : autoPassed ? 'Тест пройден' : 'Тест не пройден';
+    var title = timedOut ? 'Время истекло — тест не пройден' : hasFree ? (autoPassed ? 'Автоматическая часть пройдена' : 'Автоматическая часть не пройдена') : autoPassed ? 'Тест пройден' : 'Тест не пройден';
     var message = hasFree ? '<p>Свободный ответ отправлен проверяющему.</p>' + (autoPassed ? '<p>Следующий материал доступен.</p>' : '<p>Для открытия следующего материала сначала пройдите автоматическую часть.</p>') : '';
-    modal('<div class="test-outcome ' + (autoPassed ? hasFree ? 'pending' : 'ok' : 'bad') + '"><h2>' + title + '</h2><p>Верно: <b>' + good + ' из ' + automatic + '</b></p>' + message + '<button class="primary" id="v51OutcomeNext">Продолжить</button></div>');
+    var left = remainingAttempts(test, meta);
+    modal('<div class="test-outcome ' + (autoPassed ? hasFree ? 'pending' : 'ok' : 'bad') + '"><h2>' + title + '</h2><p>Верно: <b>' + good + ' из ' + automatic + '</b></p>' + (timedOut ? '<p>Попыток осталось: <b>' + left + '</b></p>' : message) + (timedOut && left > 0 ? '<button class="primary" id="v51OutcomeRetry">Пройти заново</button>' : '') + '<button id="v51OutcomeNext">Продолжить</button></div>');
+    var retryButton = document.getElementById('v51OutcomeRetry'); if (retryButton) retryButton.onclick = function () { closeModal(); var body = document.getElementById('uMaterialBody'); if (body) { body.innerHTML = renderTakeTest(test); document.querySelectorAll('[data-take-test]').forEach(function (row) { row.onsubmit = takeTestSubmit; }); } };
     document.getElementById('v51OutcomeNext').onclick = function () { closeModal(); if (autoPassed || !meta.required) adjacentMat(1); else openUserMaterial(test); };
     renderProfile(); renderUserCourses();
   };

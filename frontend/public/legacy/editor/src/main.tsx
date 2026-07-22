@@ -350,6 +350,10 @@ const moveNestedFrameContents = (incoming: readonly any[], previous: readonly an
       if (!dx && !dy) continue;
       let parent = old.frameId ? before.get(String(old.frameId)) : null, nested = false;
       while (parent) { if (String((parent as any).id) === String(frame.id)) { nested = true; break; } parent = (parent as any).frameId ? before.get(String((parent as any).frameId)) : null; }
+      if (!nested) {
+        const centerX = Number((old as any).x || 0) + Number((old as any).width || 0) / 2, centerY = Number((old as any).y || 0) + Number((old as any).height || 0) / 2;
+        nested = centerX >= Number(frame.x || 0) && centerX <= Number(frame.x || 0) + Number(frame.width || 0) && centerY >= Number(frame.y || 0) && centerY <= Number(frame.y || 0) + Number(frame.height || 0);
+      }
       if (!nested) continue;
       const ownDx = Number(element.x || 0) - Number((old as any).x || 0), ownDy = Number(element.y || 0) - Number((old as any).y || 0);
       if (Math.abs(ownDx - dx) < .01 && Math.abs(ownDy - dy) < .01) return element;
@@ -1261,7 +1265,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
               const protectedElements = options.completionRequired === false ? nextElements : protectRequiredCompletion(nextElements, lastSceneElementsRef.current);
               if (protectedElements !== nextElements) { apiRef.current?.updateScene({ elements: protectedElements, captureUpdate: CaptureUpdateAction.NEVER }); return; }
               const interacting = Boolean(nextAppState.selectedElementsAreBeingDragged || nextAppState.resizingElement || nextAppState.draggingElement || nextAppState.newElement || nextAppState.editingTextElement);
-              if (nextAppState.selectedElementsAreBeingDragged) {
+              if (nextAppState.selectedElementsAreBeingDragged || nextAppState.draggingElement) {
                 const nested = moveNestedFrameContents(nextElements, lastSceneElementsRef.current, nextAppState.selectedElementIds || {});
                 if (nested !== nextElements) { lastSceneElementsRef.current = nested; apiRef.current?.updateScene({ elements: nested, captureUpdate: CaptureUpdateAction.NEVER }); return; }
               }

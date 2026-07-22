@@ -53,7 +53,7 @@ def disk_media(
     url = raw.get("DOWNLOAD_URL") or raw.get("downloadUrl") or raw.get("DOWNLOAD_URI") or raw.get("DOWNLOAD_LINK")
     if not url:
         raise HTTPException(status_code=404, detail="Disk download URL is unavailable")
-    headers = {"User-Agent": "RTM-Education/50.3.1"}
+    headers = {"User-Agent": "RTM-Education/50.3.2"}
     if request.headers.get("range"):
         headers["Range"] = request.headers["range"]
     try:

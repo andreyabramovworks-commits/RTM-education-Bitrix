@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var VERSION = '50.3.1';
+  var VERSION = '50.3.2';
   var designerTemplate = null;
   var templatePromise = null;
   var reviewState = {filter: 'pending_review', query: '', selected: ''};
@@ -13,7 +13,7 @@
   function structureSignature(meta) { return (meta.questions || []).map(function (question) { return [question.id, question.type, (question.options || []).map(function (option) { return option.id; }).join(',')].join(':'); }).join('|'); }
   function loadTemplate() {
     if (designerTemplate) return Promise.resolve(designerTemplate);
-    if (!templatePromise) templatePromise = fetch('/legacy/test-template-v52.json?v=050.3.1', {cache: 'no-store'}).then(function (response) {
+    if (!templatePromise) templatePromise = fetch('/legacy/test-template-v52.json?v=050.3.2', {cache: 'no-store'}).then(function (response) {
       if (!response.ok) throw new Error('Не удалось загрузить шаблон теста: HTTP ' + response.status);
       return response.json();
     }).then(function (scene) { designerTemplate = scene; return scene; });
@@ -119,7 +119,7 @@
     var item = findItem(state.testId), root = document.getElementById('testQuestionsEditor');
     if (!item || !root) return baseRenderTestEditor.apply(this, arguments);
     root.innerHTML = '<div class="v52-template-loading">Подготавливаем макет теста…</div>';
-    return ensureDesigner(item, false).catch(function (error) { console.error('v50.3.1 designer migration failed', error); }).then(function () { baseRenderTestEditor(); });
+    return ensureDesigner(item, false).catch(function (error) { console.error('v50.3.2 designer migration failed', error); }).then(function () { baseRenderTestEditor(); });
   };
 
   var baseRenderUserTestIntro = window.renderUserTestIntro;
@@ -208,7 +208,10 @@
     prevButton.classList.toggle('hidden', !prev); nextButton.classList.toggle('hidden', !next || !canOpenCourseMaterial(next));
   }
   var baseOpenMaterial = window.openUserMaterial;
-  window.openUserMaterial = openUserMaterial = function (material) { var result = baseOpenMaterial.apply(this, arguments); setTimeout(function () { updateMaterialNavigation(material); }, 0); return result; };
+  window.openUserMaterial = openUserMaterial = function (material) {
+    if (material && materialKind(material) === 'test') { try { var sessions = JSON.parse(localStorage.getItem('rtm_v035_test_sessions') || '{}'), key = String(effectiveUserId()) + ':' + String(material.ID); delete sessions[key]; localStorage.setItem('rtm_v035_test_sessions', JSON.stringify(sessions)); } catch (_) {} }
+    var result = baseOpenMaterial.apply(this, arguments); setTimeout(function () { updateMaterialNavigation(material); }, 0); return result;
+  };
 
   function activeTableRows() { return Array.from(document.querySelectorAll('#analyticsContent table tbody tr')); }
   function rowDate(row, tab) {
