@@ -42,7 +42,7 @@ export type RTMCanvasOptions = {
   onChange?: (scene: RTMScene) => void;
   onRequestDisk?: (kind: "image" | "audio" | "video") => Promise<RTMMediaSpec | null>;
   onManualSave?: (scene?: RTMScene) => void | Promise<void>;
-  onComplete?: () => void | Promise<void>;
+  onComplete?: (completionId?: string) => void | Promise<void>;
   contentHeight?: number;
   fitToContent?: boolean;
   completionRequired?: boolean;
@@ -515,12 +515,12 @@ function MediaOverlay({ elements, viewport, readOnly, origin, activeId, onActiva
   );
 }
 
-function ActionOverlay({ elements, viewport, origin, readOnly, onComplete }: { elements: readonly any[]; viewport: Viewport; origin: { left: number; top: number }; readOnly: boolean; onComplete?: () => void | Promise<void> }) {
+function ActionOverlay({ elements, viewport, origin, readOnly, onComplete }: { elements: readonly any[]; viewport: Viewport; origin: { left: number; top: number }; readOnly: boolean; onComplete?: (completionId?: string) => void | Promise<void> }) {
   if (!readOnly) return null;
   const complete = completionTarget(elements);
   return <div className="rtm-action-layer">{elements.filter((el) => !el.isDeleted && (el.link || el.customData?.rtmAction === "complete-material" || el.id === complete?.id)).map((el) => {
     const style = overlayStyle(el, viewport, origin);
-    if (el.id === complete?.id || isCompleteMarker(el)) return <button type="button" aria-label="Завершить материал" className="rtm-complete-hit" style={style} key={el.id} onClick={() => onComplete?.()} />;
+    if (el.id === complete?.id || isCompleteMarker(el)) return <button type="button" aria-label="Завершить материал" className="rtm-complete-hit" style={style} key={el.id} onClick={() => onComplete?.(String(el.customData?.rtmCompletionId || el.id))} />;
     const href = safeHttpsUrl(el.link);
     return href ? <a className="rtm-link-hit" style={style} key={el.id} href={href} target="_blank" rel="noopener noreferrer" aria-label={el.text || "Открыть ссылку"} /> : null;
   })}</div>;
@@ -699,7 +699,7 @@ function UnifiedReaderSurface({ options }: { options: RTMCanvasOptions }) {
           })}
           {elements.filter((el: any) => !el.isDeleted && (el.link || el.customData?.rtmAction === "complete-material" || el.id === complete?.id)).map((el: any) => {
             const style = intrinsicStyle(el, bounds);
-            if (el.id === complete?.id || isCompleteMarker(el)) return <button type="button" aria-label="Завершить материал" className="rtm-unified-complete-hit" style={style} key={el.id} onClick={() => options.onComplete?.()} />;
+            if (el.id === complete?.id || isCompleteMarker(el)) return <button type="button" aria-label="Завершить материал" className="rtm-unified-complete-hit" style={style} key={el.id} onClick={() => options.onComplete?.(String(el.customData?.rtmCompletionId || el.id))} />;
             const href = safeHttpsUrl(el.link);
             return href ? <a className="rtm-unified-link-hit" style={style} key={el.id} href={href} target="_blank" rel="noopener noreferrer" aria-label={el.text || "Открыть ссылку"} /> : null;
           })}
