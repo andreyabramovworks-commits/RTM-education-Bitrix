@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import time
 import urllib.request
@@ -53,7 +53,7 @@ def disk_media(
     url = raw.get("DOWNLOAD_URL") or raw.get("downloadUrl") or raw.get("DOWNLOAD_URI") or raw.get("DOWNLOAD_LINK")
     if not url:
         raise HTTPException(status_code=404, detail="Disk download URL is unavailable")
-    headers = {"User-Agent": "RTM-Education/50.3.7"}
+    headers = {"User-Agent": "RTM-Education/50.3.8"}
     if request.headers.get("range"):
         headers["Range"] = request.headers["range"]
     try:
@@ -125,6 +125,27 @@ class SceneWrite(BaseModel):
 def _assert_developer(identity: BitrixIdentity) -> None:
     if identity.user.role != "developer":
         raise HTTPException(status_code=403, detail="Developer workspace is private")
+
+
+def _prune_workspace_revisions(session: Session, workspace_id: int) -> None:
+    now = utcnow()
+    frequent_cutoff = now - timedelta(hours=24)
+    daily_cutoff = now - timedelta(days=30)
+    daily_kept: set[object] = set()
+    rows = session.exec(select(DeveloperWorkspaceRevision).where(
+        DeveloperWorkspaceRevision.workspace_id == workspace_id,
+    ).order_by(DeveloperWorkspaceRevision.created_at.desc())).all()
+    for row in rows:
+        created_at = row.created_at
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        if created_at >= frequent_cutoff:
+            continue
+        day = created_at.date()
+        if created_at >= daily_cutoff and day not in daily_kept:
+            daily_kept.add(day)
+            continue
+        session.delete(row)
 
 
 def _assert_attempt_manager(identity: BitrixIdentity) -> None:
@@ -464,11 +485,7 @@ def save_developer_workspace(
     workspace.updated_at = utcnow()
     session.add(workspace)
     session.flush()
-    revisions = session.exec(select(DeveloperWorkspaceRevision).where(
-        DeveloperWorkspaceRevision.workspace_id == workspace.id,
-    ).order_by(DeveloperWorkspaceRevision.revision.desc())).all()
-    for stale in revisions[30:]:
-        session.delete(stale)
+    _prune_workspace_revisions(session, workspace.id)
     session.commit()
     return {"saved": True, "revision": workspace.revision, "updated_at": workspace.updated_at}
 
@@ -539,6 +556,8 @@ def restore_developer_workspace(
     workspace.updated_by = identity.user.id
     workspace.updated_at = utcnow()
     session.add(workspace)
+    session.flush()
+    _prune_workspace_revisions(session, workspace.id)
     session.commit()
     return {"restored": True, "source_revision": source.revision, "revision": workspace.revision, "updated_at": workspace.updated_at}
 

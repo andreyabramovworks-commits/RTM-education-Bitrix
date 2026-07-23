@@ -1,4 +1,4 @@
-/** RTM v50.3.7. Developer-only Google Sheet feedback channel for PostgreSQL. */
+/** RTM v50.3.8. Developer-only Google Sheet feedback channel for PostgreSQL. */
 const RTM_API = 'https://rtmgroupdocs.fvds.ru/api/v47/knowledge';
 function onOpen(){ SpreadsheetApp.getUi().createMenu('RTM').addItem('Синхронизировать с БД сервера','syncKnowledgeBase').addToUi(); }
 function onEdit(e){var range=e&&e.range;if(!range||range.getSheet().getName()!=='Каталог документов'||range.getA1Notation()!=='Q2'||range.getValue()!==true)return;range.setValue(false);syncKnowledgeBase();}

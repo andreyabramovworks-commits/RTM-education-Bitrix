@@ -16,7 +16,7 @@ function workspace(){
   try{
    var data=await RTMV47.request('/api/v47/developer-workspace/revisions'),rows=Array.isArray(data)?data:(data.revisions||[]);
    modal('<div><h2>Резервные версии доски</h2><p>Перед восстановлением текущая доска тоже сохранится в истории.</p><div class="v54-revisions">'+rows.map(function(r){return'<article><span><b>Ревизия '+esc(r.revision)+'</b><br><small>'+esc(new Date(r.created_at).toLocaleString('ru-RU'))+'</small></span><button data-v54-restore="'+esc(r.revision)+'">Восстановить</button></article>'}).join('')+'</div><div class="inline-actions right"><button onclick="closeModal()">Закрыть</button></div></div>');
-   document.querySelectorAll('[data-v54-restore]').forEach(function(x){x.onclick=async function(){if(!confirm('Восстановить эту версию доски?'))return;x.disabled=true;await RTMV47.request('/api/v47/developer-workspace/restore',{method:'POST',body:JSON.stringify({revision:Number(x.dataset.v54Restore)})});closeModal();window.RTMV492&&window.RTMV492.mountWorkspace()}})
+   document.querySelectorAll('[data-v54-restore]').forEach(function(x){x.onclick=async function(){if(!confirm('Восстановить эту версию доски?'))return;x.disabled=true;try{closeModal();if(window.RTMV492&&window.RTMV492.restoreWorkspace)await window.RTMV492.restoreWorkspace(Number(x.dataset.v54Restore));else{await RTMV47.request('/api/v47/developer-workspace/restore',{method:'POST',body:JSON.stringify({revision:Number(x.dataset.v54Restore)})});window.RTMV492&&window.RTMV492.mountWorkspace()}}catch(error){alert('Не удалось восстановить версию: '+(error.message||error))}}})
   }catch(e){alert('Не удалось открыть историю: '+(e.message||e))}
  };
 }

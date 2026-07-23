@@ -158,7 +158,7 @@ const createRequiredCompletion = (elements: readonly any[]) => {
     { type: "rectangle", id: cardId, x, y, width: cardWidth, height: cardHeight, strokeColor: "#12b886", backgroundColor: "#e6fcf5", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 4, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId },
     { type: "text", id: noteId, x: x + 38, y: y + 34, width: 514, height: 58, text: "Не забудь нажать кнопку «Завершить», чтобы\nполучить доступ к следующему материалу!", originalText: "Не забудь нажать кнопку «Завершить», чтобы\nполучить доступ к следующему материалу!", fontSize: 23, fontFamily: 5, textAlign: "left", verticalAlign: "middle", autoResize: false, strokeColor: "#1e1e1e", groupIds: [groupId], frameId },
     { type: "rectangle", id: boxId, x: x + 214, y: y + 105, width: 162, height: 58, strokeColor: "#087f5b", backgroundColor: "#12b886", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId, boundElements: [{ id: textId, type: "text" }], link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 51 } },
-    { type: "text", id: textId, x: x + 214, y: y + 118, width: 162, height: 32, text: "Завершить", originalText: "Завершить", fontSize: 23, fontFamily: 5, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#ffffff", groupIds: [groupId], frameId, containerId: boxId, customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 51 } },
+    { type: "text", id: textId, x: x + 214, y: y + 118, width: 162, height: 32, text: "Завершить", originalText: "Завершить", fontSize: 20, fontFamily: 22, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#ffffff", groupIds: [groupId], frameId, containerId: boxId, customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 52 } },
   ] as any, { regenerateIds: false }) as any[];
   return created.map((el: any) => ({ ...el, groupIds: [groupId], frameId, customData: { ...(el.customData || {}), rtmProtectedCompletion: true, rtmCompletionCard: true } }));
 };
@@ -173,9 +173,9 @@ const repairCompletionCard = (elements: readonly any[]) => {
   return elements.map((el: any) => {
     if (label && el.id === label.id) return {
       ...el, x: Number(marker.x || 0), y: Number(marker.y || 0) + (Number(marker.height || 58) - 32) / 2,
-      width: Number(marker.width || 162), height: 32, text: "Завершить", originalText: "Завершить",
+      width: Number(marker.width || 162), height: 32, text: "Завершить", originalText: "Завершить", fontSize: 20, fontFamily: 22,
       textAlign: "center", verticalAlign: "middle", autoResize: false, containerId: marker.id,
-      customData: { ...(el.customData || {}), rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 51 },
+      customData: { ...(el.customData || {}), rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 52 },
     };
     if (reminder && el.id === reminder.id) {
       const text = String(el.text || el.originalText || "").replace(/что\s+бы/gi, "чтобы");
@@ -200,7 +200,21 @@ const ensureRequiredCompletion = (elements: readonly any[]) => {
 };
 
 const protectRequiredCompletion = (nextElements: readonly any[], previousElements: readonly any[]) => {
-  const protectedPrevious = previousElements.filter((el: any) => !el.isDeleted && el.customData?.rtmProtectedCompletion);
+  const previousMarkers = previousElements.filter((el: any) => isCompleteMarker(el));
+  const nextMarkers = nextElements.filter((el: any) => isCompleteMarker(el));
+  const markerGroup = (marker: any) => String(marker?.groupIds?.[0] || marker?.id || "");
+  const keptGroups = new Set(nextMarkers.map(markerGroup));
+  // Extra completion cards may be deleted as complete groups. If the user
+  // removes the final card, keep one previous group as the required fallback.
+  if (!keptGroups.size && previousMarkers.length) keptGroups.add(markerGroup(previousMarkers[0]));
+  const protectedPrevious = previousElements.filter((el: any) => {
+    if (el.isDeleted || !el.customData?.rtmProtectedCompletion) return false;
+    const groups = el.groupIds || [];
+    return previousMarkers.some((marker: any) => {
+      const group = markerGroup(marker);
+      return keptGroups.has(group) && (el.id === marker.id || groups.includes(group));
+    });
+  });
   if (!protectedPrevious.length) return ensureRequiredCompletion(nextElements);
   const protectedIds = new Set(protectedPrevious.map((el: any) => el.id));
   const previousById = new Map(protectedPrevious.map((el: any) => [el.id, el]));
@@ -556,11 +570,19 @@ const sceneBounds = (elements: readonly any[]) => {
   const visible = elements.filter((el: any) => !el.isDeleted);
   const frame = visible.find((el: any) => el.type === "frame" && !el.frameId)
     || visible.find((el: any) => el.type === "frame");
-  if (frame) return {
-    x: Number(frame.x || 0), y: Number(frame.y || 0),
-    width: Math.max(1, Number(frame.width || 1)), height: Math.max(1, Number(frame.height || 1)),
-    frame,
-  };
+  if (frame) {
+    const x = Number(frame.x || 0), y = Number(frame.y || 0);
+    const width = Math.max(1, Number(frame.width || 1));
+    const related = visible.filter((el: any) => el.id !== frame.id && (
+      String(el.frameId || "") === String(frame.id)
+      || (Number(el.x || 0) + Number(el.width || 0) / 2 >= x
+        && Number(el.x || 0) + Number(el.width || 0) / 2 <= x + width)
+    ));
+    const contentBottom = related.length
+      ? Math.max(...related.map((el: any) => Number(el.y || 0) + Number(el.height || 0)))
+      : y + Number(frame.height || 1);
+    return { x, y, width, height: Math.max(1, Number(frame.height || 1), contentBottom - y), frame };
+  }
   if (!visible.length) return { x: 0, y: 0, width: 900, height: 600, frame: null };
   const x = Math.min(...visible.map((el: any) => Number(el.x || 0)));
   const y = Math.min(...visible.map((el: any) => Number(el.y || 0)));
@@ -599,7 +621,8 @@ function UnifiedReaderSurface({ options }: { options: RTMCanvasOptions }) {
 
   useEffect(() => {
     let cancelled = false;
-    const visible = elements.filter((el: any) => !el.isDeleted) as any[];
+    // A frame defines the user viewport but its editor border is not content.
+    const visible = elements.filter((el: any) => !el.isDeleted && el.id !== bounds.frame?.id) as any[];
     exportToSvg({
       elements: visible,
       appState: {
@@ -1174,7 +1197,28 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        const deleteIds = new Set(current.filter((el: any) => ids[el.id] && !el.customData?.rtmProtectedCompletion).map((el: any) => String(el.id)));
+        const completionMarkers = current.filter((el: any) => isCompleteMarker(el));
+        const markerGroups = completionMarkers.map((marker: any) => String(marker.groupIds?.[0] || marker.id));
+        const selectedCompletionGroups = new Set(current.filter((el: any) => ids[el.id] && el.customData?.rtmProtectedCompletion)
+          .flatMap((el: any) => (el.groupIds?.length ? el.groupIds : [el.id])).map(String)
+          .filter((group: string) => markerGroups.includes(group)));
+        // Permit deleting selected completion groups while always retaining one.
+        const deletableCompletionGroups = new Set([...selectedCompletionGroups]);
+        if (deletableCompletionGroups.size >= completionMarkers.length && completionMarkers.length) {
+          deletableCompletionGroups.delete(markerGroups[0]);
+        }
+        const deleteIds = new Set(current.filter((el: any) => {
+          if (!ids[el.id]) return false;
+          if (!el.customData?.rtmProtectedCompletion) return true;
+          const groups = el.groupIds?.length ? el.groupIds.map(String) : [String(el.id)];
+          return groups.some((group: string) => deletableCompletionGroups.has(group));
+        }).map((el: any) => String(el.id)));
+        if (deletableCompletionGroups.size) {
+          current.forEach((el: any) => {
+            const groups = el.groupIds?.length ? el.groupIds.map(String) : [String(el.id)];
+            if (groups.some((group: string) => deletableCompletionGroups.has(group))) deleteIds.add(String(el.id));
+          });
+        }
         let expanded = true;
         while (expanded) {
           expanded = false;
@@ -1194,6 +1238,12 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
       }
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
       const key = event.key.toLowerCase();
+      if (key === "c" || key === "x") {
+        event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+        copySelectionToInternalClipboard();
+        if (key === "x") setSaveState("Безопасное копирование: исходная доска не изменена");
+        return;
+      }
       if (key === "z" || key === "y") {
         const redo = key === "y" || event.shiftKey;
         event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();

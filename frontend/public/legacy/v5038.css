@@ -1,0 +1,31 @@
+.v538-directory-status{display:inline-flex;margin:0 0 14px;padding:9px 14px;border:1px solid #dce4f3;border-radius:10px;background:#fff;color:#50647e}
+.v538-admin-search{min-height:0;margin:0 0 18px;padding:0;background:transparent}
+.v538-admin-search input{width:100%}
+.v538-admin-detail{max-width:1100px;padding:26px;border:1px solid #dce4f3;border-radius:16px;background:#fff}
+.v538-admin-detail h1{margin:22px 0 10px}
+.v538-action-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:22px 0}
+.v538-action-grid section{display:grid;align-content:start;gap:10px;padding:18px;border:1px solid #dce4f3;border-radius:14px;background:#f8fafc}
+.v538-action-grid h3{margin:0 0 5px}
+.v538-editor,.v538-test-editor,.v538-assignments{width:min(1220px,calc(100vw - 48px));max-height:calc(100dvh - 48px);overflow:auto}
+.v538-editor>label,.v538-test-editor>label{display:grid;gap:6px;margin:10px 0}
+.v538-editor textarea{min-height:80px}
+#v538ArticleCanvas{height:min(720px,64dvh);min-height:520px;margin:14px 0;border:1px solid #dce4f3;border-radius:14px;overflow:hidden}
+.v538-role-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}
+.v538-role-grid>section{min-width:0;padding:14px;border:1px solid #dce4f3;border-radius:12px}
+.v538-choice-list{display:grid;gap:5px;max-height:280px;margin:12px 0;overflow:auto}
+.v538-choice{display:flex;gap:8px;align-items:flex-start;padding:5px;border-radius:7px}
+.v538-choice:hover{background:#f1f5f9}
+.v538-choice small{margin-left:auto;color:#718096}
+.v538-inherit{display:flex;gap:8px;padding:14px;border-radius:10px;background:#eefcf6}
+.v538-course-picker{width:min(960px,calc(100vw - 50px))}
+#v538CourseDocuments{display:grid;gap:5px;max-height:340px;margin:10px 0;padding:8px;overflow:auto;border:1px solid #dce4f3;border-radius:12px}
+#v538CourseDocuments button{text-align:left;background:#fff}
+#v538CourseDocuments button.active{border-color:#ed174c;background:#fff1f5;color:#b20d3c}
+.v538-kind-choices{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+.v538-kind-choices label{display:flex;gap:7px;padding:10px 14px;border:1px solid #dce4f3;border-radius:10px;background:#fff}
+.v538-kind-choices label.disabled{opacity:.55}
+.v538-user-detail{min-height:0}
+.v538-test-editor .question-card{display:grid;gap:8px;margin:12px 0}
+.v538-test-editor textarea{min-height:90px}
+.v537-reader{height:auto!important;min-height:0!important;border:0!important;overflow:visible!important}
+@media(max-width:900px){.v538-action-grid,.v538-role-grid{grid-template-columns:1fr}.v538-editor,.v538-test-editor,.v538-assignments{width:calc(100vw - 28px)}#v538ArticleCanvas{min-height:460px}}
