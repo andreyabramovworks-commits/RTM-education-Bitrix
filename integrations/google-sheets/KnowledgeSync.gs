@@ -95,6 +95,10 @@ function writeServerState_(ss, sheet, result) {
   }
   const rich = articleValues.map((value, index) => SpreadsheetApp.newRichTextValue().setText(value[0]).setLinkUrl(value[0] ? 'https://rtmgroupdocs.fvds.ru/?view=kb&document=' + (byRow[String(index + 2)] || {}).id : null).build());
   sheet.getRange(2, 12, articleValues.length, 1).setRichTextValues(rich.map(x => [x]));
+  // M — служебное поле со списком тестов. В старом шаблоне на нём могла
+  // остаться проверка данных с фиксированным списком, из-за которой новая
+  // синхронизация падала при записи актуального названия теста.
+  sheet.getRange(2, 13, otherValues.length, 1).clearDataValidations();
   sheet.getRange(2, 13, otherValues.length, 4).setValues(otherValues);
   sheet.getRange(1, 12, 1, 6).setValues([['Статья документа', 'Тесты документа', 'Кому назначен', 'Проверяющие', 'Редакторы', 'СИНХРОНИЗИРОВАТЬ С БД']]);
   sheet.getRange('Q2').insertCheckboxes().setValue(false).setNote('Поставьте галочку, чтобы применить изменения из таблицы в PostgreSQL и получить актуальные данные с сервера.');
