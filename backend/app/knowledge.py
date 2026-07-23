@@ -61,13 +61,46 @@ def build_scene(row: int, title: str, description: str, url: str) -> dict[str, A
     els += [rect("link",50,y_link,500,link_h,"#38d9a9","#099268"), rect("link-button",90,y_link+28,420,55,"#ffffff","#099268"), text("link-text",title,108,y_link+38,384,18,22,"center","#099268",url), text("link-help","Нажми, чтобы перейти по ссылке",100,y_link+94,400,13,22,"center")]
     completion_id = _id(row, "completion")
     button_y = y_finish + finish_h - 60
-    els += [rect("finish",50,y_finish,500,finish_h,"#e6fcf5","#12b886"), text("finish-help",finish_value,78,y_finish+22,444,18,22), rect("finish-button",210,button_y,180,42,"#12b886","#099268",{"link":"#rtm-complete-material","customData":{"rtmAction":"complete-material","rtmCompletionCard":True,"rtmCompletionId":completion_id}}), text("finish-text","Завершить",225,button_y+8,150,17,22,"center","#ffffff")]
+    finish_button = rect("finish-button",210,button_y,180,42,"#12b886","#099268",{"link":"#rtm-complete-material","customData":{"rtmAction":"complete-material","rtmCompletionCard":True,"rtmCompletionId":completion_id}})
+    finish_text = text("finish-text","Завершить",225,button_y+8,150,17,22,"center","#ffffff")
+    finish_button["groupIds"] = [completion_id]
+    finish_text["groupIds"] = [completion_id]
+    els += [rect("finish",50,y_finish,500,finish_h,"#e6fcf5","#12b886"), text("finish-help",finish_value,78,y_finish+22,444,18,22), finish_button, finish_text]
     for index, (a,b) in enumerate(((y_yellow+yellow_h,y_blue),(y_blue+blue_h,y_link),(y_link+link_h,y_finish))):
         els.append({"id":_id(row,f"arrow-{index}"),"type":"arrow","x":300,"y":a+12,"width":0,"height":b-a-24,"angle":0,"strokeColor":"#111827","backgroundColor":"transparent","fillStyle":"solid","strokeWidth":2,"strokeStyle":"solid","roughness":0,"opacity":100,"groupIds":[],"frameId":None,"roundness":{"type":2},"seed":row+index,"version":1,"versionNonce":row*41+index,"isDeleted":False,"boundElements":[],"updated":0,"link":None,"locked":False,"points":[[0,0],[0,b-a-24]],"lastCommittedPoint":None,"startBinding":None,"endBinding":None,"startArrowhead":None,"endArrowhead":"arrow"})
     for element in els:
         if element["id"] != frame_id:
             element["frameId"] = frame_id
-    return {"type":"excalidraw","version":2,"source":"rtm-v50.3.9","elements":els,"appState":{"viewBackgroundColor":"#ffffff","scrollX":0,"scrollY":0,"zoom":{"value":1}},"files":{}}
+    return {"type":"excalidraw","version":2,"source":"rtm-v50.3.10","elements":els,"appState":{"viewBackgroundColor":"#ffffff","scrollX":0,"scrollY":0,"zoom":{"value":1}},"files":{}}
+
+
+def repair_completion_button(row: int, scene: dict[str, Any] | None) -> dict[str, Any]:
+    """Keep the protected completion label attached to its button.
+
+    Older generated scenes stored the rectangle and text as unrelated
+    Excalidraw elements. Moving the button could therefore leave its label
+    behind. Only the deterministic generated completion pair is repaired;
+    the rest of a manually edited scene is left untouched.
+    """
+    if not isinstance(scene, dict):
+        return scene or {}
+    elements = scene.get("elements")
+    if not isinstance(elements, list):
+        return scene
+    button_id, text_id = _id(row, "finish-button"), _id(row, "finish-text")
+    button = next((item for item in elements if item.get("id") == button_id and not item.get("isDeleted")), None)
+    label = next((item for item in elements if item.get("id") == text_id and not item.get("isDeleted")), None)
+    if not button or not label:
+        return scene
+    group_id = str((button.get("customData") or {}).get("rtmCompletionId") or _id(row, "completion"))
+    button["groupIds"] = [group_id]
+    label["groupIds"] = [group_id]
+    label["x"] = float(button.get("x") or 0) + 15
+    label["y"] = float(button.get("y") or 0) + max(4, (float(button.get("height") or 42) - float(label.get("height") or 22)) / 2)
+    label["width"] = max(40, float(button.get("width") or 180) - 30)
+    label["textAlign"] = "center"
+    label["verticalAlign"] = "middle"
+    return scene
 
 
 def ensure_catalog(session: Session) -> None:
@@ -93,7 +126,7 @@ def ensure_catalog(session: Session) -> None:
 
 def _document(row: KnowledgeDocument, include_scene=False) -> dict[str, Any]:
     data={"id":row.id,"sourceRow":row.source_row,"title":row.title,"description":row.description,"documentUrl":row.document_url,"lightTest":row.light_test,"fullTest":row.full_test,"articleAssignments":row.article_assignments,"lightTestAssignments":row.light_test_assignments,"fullTestAssignments":row.full_test_assignments,"reviewers":row.reviewers,"editors":row.editors,"articleReviewers":row.reviewers,"articleEditors":row.editors,"lightTestReviewers":row.light_test_reviewers,"fullTestReviewers":row.full_test_reviewers,"lightTestEditors":row.light_test_editors,"fullTestEditors":row.full_test_editors,"inheritTestAssignments":row.inherit_test_assignments,"active":row.active}
-    if include_scene: data["scene"]=row.scene
+    if include_scene: data["scene"]=repair_completion_button(row.source_row, row.scene)
     return data
 
 
@@ -226,7 +259,7 @@ def linked_document(
     if not course_reference and not _allows(row.article_assignments, identity, departments):
         raise HTTPException(403, "Knowledge document is not assigned to this user")
     if kind == "article":
-        return {"id": row.id, "title": row.title, "kind": kind, "scene": row.scene}
+        return {"id": row.id, "title": row.title, "kind": kind, "scene": repair_completion_button(row.source_row, row.scene)}
     test = row.light_test if kind == "light" else row.full_test
     if not test.get("created"):
         raise HTTPException(404, "Knowledge test has not been created")
@@ -238,6 +271,8 @@ def update_document(document_id:int,payload:KnowledgeUpdate,session:Annotated[Se
     if not row: raise HTTPException(404,"Knowledge document not found")
     mapping={"documentUrl":"document_url","lightTest":"light_test","fullTest":"full_test","articleAssignments":"article_assignments","lightTestAssignments":"light_test_assignments","fullTestAssignments":"full_test_assignments","articleReviewers":"reviewers","articleEditors":"editors","lightTestReviewers":"light_test_reviewers","fullTestReviewers":"full_test_reviewers","lightTestEditors":"light_test_editors","fullTestEditors":"full_test_editors","inheritTestAssignments":"inherit_test_assignments"}
     for key,value in payload.model_dump(exclude_unset=True).items(): setattr(row,mapping.get(key,key),value)
+    if "scene" in payload.model_fields_set:
+        row.scene = repair_completion_button(row.source_row, row.scene)
     if payload.inheritTestAssignments:
         row.light_test_assignments = list(row.article_assignments)
         row.full_test_assignments = list(row.article_assignments)

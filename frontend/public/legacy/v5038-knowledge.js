@@ -133,7 +133,7 @@
 
   function adminDocument(doc) {
     var light=doc.lightTest||{},full=doc.fullTest||{};
-    return '<div class="v538-admin-detail"><button data-v538-admin-back>← Назад</button><h1>'+html(doc.title)+'</h1><p>'+html(doc.description||"Описание пока не заполнено")+'</p>'+
+    return '<div class="v538-admin-detail" data-v538-document-id="'+html(doc.id)+'"><button data-v538-admin-back>← Назад</button><h1>'+html(doc.title)+'</h1><p>'+html(doc.description||"Описание пока не заполнено")+'</p>'+
       '<div class="v538-action-grid">'+
       '<section><h3>Статья</h3><button class="primary" data-v538-edit-article>Открыть и редактировать статью</button><button data-v538-assign="article">Настроить назначения</button></section>'+
       '<section><h3>Тест лайт</h3>'+(light.created?'<button data-v538-edit-test="light">Открыть тест лайт</button>':'<button data-v538-create-test="light">Создать тест лайт</button>')+'<button data-v538-assign="light">Настроить назначения</button></section>'+
@@ -271,5 +271,5 @@
   window.renderAll=renderAll=function(){var result=baseRenderAll5038.apply(this,arguments);installDatabaseRoute();if(state.aview==="database"&&["developer","admin","editor"].includes(String(state.currentRole||"")))renderAdminKnowledge().catch(function(error){toast(error.message||String(error));});return result;};
   load().then(function(){renderKb();}).catch(console.error);
   window.addEventListener("load",installDatabaseRoute);
-  window.RTMV5038={version:"50.3.9",renderAdmin:renderAdminKnowledge,getCurrentDocumentId:function(){return adminSelected;},reload:function(){loaded=false;directory=null;return load(true);}};
+  window.RTMV5038={version:"50.3.10",renderAdmin:renderAdminKnowledge,getCurrentDocumentId:function(){return adminSelected;},reload:function(){loaded=false;directory=null;return load(true);}};
 })();

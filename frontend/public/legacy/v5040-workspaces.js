@@ -14,7 +14,11 @@
     host().innerHTML = '<section class="v539-page v540-page"><header class="v539-page-head"><div><button id="v540Back">← Назад к Базе знаний</button><h1>'+esc(heading)+'</h1><p class="muted">'+esc(subtitle || "")+'</p></div></header>'+(actions ? '<div class="v539-sticky">'+actions+'</div>' : "")+body+'</section>';
     document.getElementById("v540Back").onclick = back;
   }
-  function currentId() { return window.RTMV5038 && window.RTMV5038.getCurrentDocumentId && window.RTMV5038.getCurrentDocumentId(); }
+  function currentId(button) {
+    var detail = button && button.closest && button.closest("[data-v538-document-id]");
+    return detail && detail.dataset.v538DocumentId ||
+      window.RTMV5038 && window.RTMV5038.getCurrentDocumentId && window.RTMV5038.getCurrentDocumentId();
+  }
   function question(q) { return Object.assign({ id: "q_"+Date.now()+"_"+Math.random().toString(36).slice(2), type: "single", text: "", answers: ["", ""], correct: [0], pairs: [{left:"",right:""}] }, q || {}); }
 
   async function article(id) {
@@ -63,7 +67,8 @@
   }
   document.addEventListener("click", function (event) {
     var button=event.target.closest("[data-v538-edit-article],[data-v538-edit-test],[data-v538-assign],[data-v538-create-test]");if(!button)return;
-    event.preventDefault();event.stopImmediatePropagation();var id=currentId();if(!id)return toast("Не удалось определить материал. Откройте его заново.");
+    var id=currentId(button);if(!id)return;
+    event.preventDefault();event.stopImmediatePropagation();
     var kind=button.dataset.v538EditTest || button.dataset.v538Assign || button.dataset.v538CreateTest;
     if(button.dataset.v538CreateTest){api("/api/v47/knowledge/documents/"+id+"/tests/"+kind,{method:"POST",body:"{}"}).then(function(){return test(id,kind);}).catch(function(error){toast(error.message||String(error));});}
     else if(button.dataset.v538EditArticle !== undefined)article(id).catch(function(error){toast(error.message||String(error));});

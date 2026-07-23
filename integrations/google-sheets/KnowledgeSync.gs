@@ -1,4 +1,4 @@
-/** RTM v50.3.9 — двусторонняя синхронизация назначений Базы знаний. */
+/** RTM v50.3.10 — двусторонняя синхронизация назначений Базы знаний. */
 const RTM_API = 'https://rtmgroupdocs.fvds.ru/api/v47/knowledge';
 const RTM_CATALOG = 'Каталог документов';
 const RTM_DIRECTORY = 'Н- Справочник';
@@ -71,14 +71,17 @@ function syncKnowledgeBase() {
   const ss = SpreadsheetApp.getActive(), sheet = ss.getSheetByName(RTM_CATALOG);
   if (!sheet) throw new Error('Не найден лист «' + RTM_CATALOG + '».');
   const state = request_('/sheet-state', 'get'), maps = directoryMaps_(state.directory), previous = readSnapshot_();
-  const changes = currentRows_(sheet, state.directory).map(input => {
+  const hasSnapshot = Object.keys(previous).length > 0;
+  const changes = (hasSnapshot ? currentRows_(sheet, state.directory) : []).map(input => {
     const old = previous[String(input.row)] || {}, changed = { row: input.row };
     ['title', 'description', 'articleAssignments', 'reviewers', 'editors'].forEach(key => { if (serial_(input[key]) !== serial_(old[key])) changed[key] = input[key]; });
     return Object.keys(changed).length > 1 ? changed : null;
   }).filter(Boolean);
-  const result = request_('/sheet-sync', 'post', { changes: changes });
+  // The first run is always server -> sheet. Without a snapshot we cannot
+  // distinguish intentional sheet edits from stale template values.
+  const result = changes.length ? request_('/sheet-sync', 'post', { changes: changes }) : state;
   writeServerState_(ss, sheet, result);
-  SpreadsheetApp.getUi().alert('Готово: серверная БД и таблица синхронизированы. Изменено строк: ' + changes.length + '.');
+  ss.toast('Серверная БД и таблица синхронизированы. Изменено строк: ' + changes.length + '.', 'RTM', 5);
 }
 
 function writeServerState_(ss, sheet, result) {
