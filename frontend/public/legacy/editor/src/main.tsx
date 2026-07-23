@@ -190,7 +190,7 @@ const repairCompletionCard = (elements: readonly any[]) => {
 };
 
 const ensureRequiredCompletion = (elements: readonly any[]) => {
-  const normalized = [...repairCompletionCard(dedupeCompletion(normalizeCompletion(elements)))] as any[];
+  const normalized = [...repairCompletionCard(normalizeCompletion(elements))] as any[];
   const direct = normalized.find(isCompleteMarker);
   if (direct) {
     const groups = new Set(direct.groupIds || []);
@@ -1038,8 +1038,6 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   const insertComplete = () => {
     const api = apiRef.current;
     if (!api) return;
-    const existing = completionTarget(api.getSceneElements());
-    if (existing) { api.updateScene({ appState: { selectedElementIds: { [existing.id]: true } }, captureUpdate: CaptureUpdateAction.NEVER }); api.scrollToContent?.([existing], { fitToContent: false }); return; }
     const created = createRequiredCompletion(api.getSceneElements());
     const selectedElementIds = Object.fromEntries(created.map((el: any) => [el.id, true]));
     api.updateScene({ elements: reconcileFrameMembership([...api.getSceneElements(), ...created]), appState: { selectedElementIds }, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
@@ -1233,6 +1231,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
         <button type="button" className="rtm-hand-circle" title="Добавить ссылку с названием" onClick={() => setDialog({ kind: "link", source: "url" })}><HandIcon kind="import" /></button>
         <button type="button" className="rtm-hand-expand" title={editorFullscreen ? "Свернуть" : "Развернуть редактор"} aria-pressed={editorFullscreen} onClick={() => setEditorFullscreen((value) => !value)}><HandIcon kind="expand" /></button>
         <button type="button" className="rtm-mobile-preview-open" title="Мобильный предпросмотр" onClick={() => setMobilePreview(true)}><HandIcon kind="phone" /></button>
+        <button type="button" className="rtm-insert-complete" title="Добавить отдельную карточку завершения" onClick={insertComplete}>+ Завершить</button>
         <button type="button" className="rtm-canvas-save" onClick={save}>Сохранить статью</button>
         {saveState && <span className={`rtm-canvas-save-state ${saveState.includes("Ошибка") || saveState.includes("ожидаю") ? "is-error" : ""}`}>{saveState}</span>}
       </div>}
@@ -1284,13 +1283,6 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
               lastSceneElementsRef.current = protectedElements;
               const currentBaseFont = decodeStyledFont(Number(nextAppState.currentItemFontFamily || 5)).base;
               if (currentBaseFont !== selectedFont) setSelectedFont(currentBaseFont);
-              const completion = nextElements.filter(isCompleteMarker);
-              if (completion.length > 1) {
-                const duplicateIds = new Set(completion.slice(1).flatMap((el: any) => el.groupIds?.length ? el.groupIds : [el.id]));
-                const normalized = nextElements.map((el: any) => !el.isDeleted && (duplicateIds.has(el.id) || el.groupIds?.some((id: string) => duplicateIds.has(id))) ? { ...el, isDeleted: true, version: Number(el.version || 1) + 1 } : el);
-                apiRef.current?.updateScene({ elements: normalized, captureUpdate: CaptureUpdateAction.NEVER });
-                return;
-              }
             }
             overlayElementsRef.current = nextElements;
             if (!overlayFrameRef.current) overlayFrameRef.current = requestAnimationFrame(() => { setElements(overlayElementsRef.current); overlayFrameRef.current = null; });

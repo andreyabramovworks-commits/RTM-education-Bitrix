@@ -49,7 +49,7 @@ def build_scene(row: int, title: str, description: str, url: str) -> dict[str, A
     els += [rect("finish",50,y_finish,500,finish_h,"#e6fcf5","#12b886"), text("finish-help","Не забудь нажать кнопку «Завершить», чтобы получить доступ к следующему материалу!",78,y_finish+22,444,18,22), rect("finish-button",210,y_finish+91,180,42,"#12b886","#099268",{"link":"#rtm-complete-material","customData":{"rtmAction":"complete-material","rtmCompletionCard":True}}), text("finish-text","Завершить",225,y_finish+99,150,17,22,"center","#ffffff")]
     for index, (a,b) in enumerate(((y_yellow+yellow_h,y_blue),(y_blue+blue_h,y_link),(y_link+link_h,y_finish))):
         els.append({"id":_id(row,f"arrow-{index}"),"type":"arrow","x":300,"y":a+12,"width":0,"height":b-a-24,"angle":0,"strokeColor":"#111827","backgroundColor":"transparent","fillStyle":"solid","strokeWidth":2,"strokeStyle":"solid","roughness":0,"opacity":100,"groupIds":[],"frameId":None,"roundness":{"type":2},"seed":row+index,"version":1,"versionNonce":row*41+index,"isDeleted":False,"boundElements":[],"updated":0,"link":None,"locked":False,"points":[[0,0],[0,b-a-24]],"lastCommittedPoint":None,"startBinding":None,"endBinding":None,"startArrowhead":None,"endArrowhead":"arrow"})
-    return {"type":"excalidraw","version":2,"source":"rtm-v50.3.6","elements":els,"appState":{"viewBackgroundColor":"#ffffff","scrollX":0,"scrollY":0,"zoom":{"value":1}},"files":{}}
+    return {"type":"excalidraw","version":2,"source":"rtm-v50.3.7","elements":els,"appState":{"viewBackgroundColor":"#ffffff","scrollX":0,"scrollY":0,"zoom":{"value":1}},"files":{}}
 
 
 def ensure_catalog(session: Session) -> None:
@@ -57,13 +57,62 @@ def ensure_catalog(session: Session) -> None:
     payload = json.loads(CATALOG.read_text(encoding="utf-8"))
     for source in payload["documents"]:
         row, title, description, url = source["row"], source["title"], source["description"], source["links"][0]
-        session.add(KnowledgeDocument(source_row=row,title=title,description=description,document_url=url,scene=build_scene(row,title,description,url),light_test={"title":f"Лайт — {title}","kind":"light","questions":[]},full_test={"title":f"Полный — {title}","kind":"full","questions":[]},article_assignments=[{"type":"all_active"}],reviewers=[{"type":"role","id":"admin"},{"type":"user","id":"36"}],editors=[{"type":"role","id":"admin"},{"type":"user","id":"36"}]))
+        session.add(KnowledgeDocument(source_row=row,title=title,description=description,document_url=url,scene=build_scene(row,title,description,url),light_test={"title":f"Лайт — {title}","kind":"light","created":False,"questions":[]},full_test={"title":f"Полный — {title}","kind":"full","created":False,"questions":[]},article_assignments=[{"type":"all_active"}],reviewers=[{"type":"role","id":"admin"},{"type":"user","id":"36"}],editors=[{"type":"role","id":"admin"},{"type":"user","id":"36"}]))
     session.commit()
 
 
 def _document(row: KnowledgeDocument, include_scene=False) -> dict[str, Any]:
     data={"id":row.id,"sourceRow":row.source_row,"title":row.title,"description":row.description,"documentUrl":row.document_url,"lightTest":row.light_test,"fullTest":row.full_test,"articleAssignments":row.article_assignments,"lightTestAssignments":row.light_test_assignments,"fullTestAssignments":row.full_test_assignments,"reviewers":row.reviewers,"editors":row.editors,"active":row.active}
     if include_scene: data["scene"]=row.scene
+    return data
+
+
+def _allows(
+    rules: list,
+    identity: BitrixIdentity,
+    departments: dict[str, BitrixDepartment],
+) -> bool:
+    if identity.user.role in {"developer", "admin"}:
+        return True
+    if not rules:
+        return False
+    user_id = str(identity.user.bitrix_user_id)
+    user_departments = {str(value) for value in identity.user.department_ids or []}
+    expanded_departments = set(user_departments)
+    for department_id in list(user_departments):
+        current = departments.get(department_id)
+        visited: set[str] = set()
+        while current and current.parent_id and current.parent_id not in visited:
+            visited.add(current.parent_id)
+            expanded_departments.add(current.parent_id)
+            current = departments.get(current.parent_id)
+    for rule in rules:
+        kind = str(rule.get("type") or "")
+        value = str(rule.get("id") or "")
+        if kind == "all_active" and identity.user.active:
+            return True
+        if kind == "user" and value == user_id:
+            return True
+        if kind == "department" and value in expanded_departments:
+            return True
+        if kind == "role" and value == identity.user.role:
+            return True
+    return False
+
+
+def _visible_document(
+    row: KnowledgeDocument,
+    identity: BitrixIdentity,
+    departments: dict[str, BitrixDepartment],
+    include_scene: bool = False,
+) -> dict[str, Any] | None:
+    if not _allows(row.article_assignments, identity, departments):
+        return None
+    data = _document(row, include_scene)
+    if not _allows(row.light_test_assignments, identity, departments):
+        data["lightTest"] = {**(row.light_test or {}), "created": False}
+    if not _allows(row.full_test_assignments, identity, departments):
+        data["fullTest"] = {**(row.full_test or {}), "created": False}
     return data
 
 
@@ -75,14 +124,58 @@ class KnowledgeUpdate(BaseModel):
 
 
 @router.get("/documents")
-def documents(session: Annotated[Session,Depends(get_session)], _: Annotated[BitrixIdentity,Depends(require_bitrix_identity)]):
-    ensure_catalog(session); return [_document(x) for x in session.exec(select(KnowledgeDocument).order_by(KnowledgeDocument.source_row)).all() if x.active]
+def documents(session: Annotated[Session,Depends(get_session)], identity: Annotated[BitrixIdentity,Depends(require_bitrix_identity)]):
+    ensure_catalog(session)
+    departments = {
+        row.bitrix_department_id: row
+        for row in session.exec(select(BitrixDepartment).where(BitrixDepartment.active == True)).all()
+    }
+    result = [
+        _visible_document(row, identity, departments)
+        for row in session.exec(select(KnowledgeDocument).order_by(KnowledgeDocument.source_row)).all()
+        if row.active
+    ]
+    return [row for row in result if row is not None]
 
 @router.get("/documents/{document_id}")
-def document(document_id:int, session:Annotated[Session,Depends(get_session)], _:Annotated[BitrixIdentity,Depends(require_bitrix_identity)]):
+def document(document_id:int, session:Annotated[Session,Depends(get_session)], identity:Annotated[BitrixIdentity,Depends(require_bitrix_identity)]):
     ensure_catalog(session); row=session.get(KnowledgeDocument,document_id)
     if not row or not row.active: raise HTTPException(404,"Knowledge document not found")
-    return _document(row,True)
+    departments = {
+        item.bitrix_department_id: item
+        for item in session.exec(select(BitrixDepartment).where(BitrixDepartment.active == True)).all()
+    }
+    visible = _visible_document(row, identity, departments, True)
+    if visible is None:
+        raise HTTPException(403, "Knowledge document is not assigned to this user")
+    return visible
+
+
+@router.get("/documents/{document_id}/linked/{kind}")
+def linked_document(
+    document_id: int,
+    kind: str,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+):
+    if kind not in {"article", "light", "full"}:
+        raise HTTPException(422, "Linked kind must be article, light or full")
+    ensure_catalog(session)
+    row = session.get(KnowledgeDocument, document_id)
+    if not row or not row.active:
+        raise HTTPException(404, "Knowledge document not found")
+    departments = {
+        item.bitrix_department_id: item
+        for item in session.exec(select(BitrixDepartment).where(BitrixDepartment.active == True)).all()
+    }
+    if not _allows(row.article_assignments, identity, departments):
+        raise HTTPException(403, "Knowledge document is not assigned to this user")
+    if kind == "article":
+        return {"id": row.id, "title": row.title, "kind": kind, "scene": row.scene}
+    test = row.light_test if kind == "light" else row.full_test
+    if not test.get("created"):
+        raise HTTPException(404, "Knowledge test has not been created")
+    return {"id": row.id, "title": test.get("title") or row.title, "kind": kind, "test": test}
 
 @router.put("/documents/{document_id}")
 def update_document(document_id:int,payload:KnowledgeUpdate,session:Annotated[Session,Depends(get_session)],_:Annotated[BitrixIdentity,Depends(require_editor)]):
@@ -98,6 +191,18 @@ def delete_document(document_id:int,session:Annotated[Session,Depends(get_sessio
     row=session.get(KnowledgeDocument,document_id)
     if not row: raise HTTPException(404,"Knowledge document not found")
     row.active=False; row.updated_at=utcnow(); session.add(row); session.commit(); return {"deleted":True}
+
+@router.post("/documents/{document_id}/tests/{kind}")
+def create_test(document_id:int,kind:str,session:Annotated[Session,Depends(get_session)],_:Annotated[BitrixIdentity,Depends(require_editor)]):
+    if kind not in {"light","full"}: raise HTTPException(422,"Test kind must be light or full")
+    row=session.get(KnowledgeDocument,document_id)
+    if not row: raise HTTPException(404,"Knowledge document not found")
+    test=dict(row.light_test if kind=="light" else row.full_test)
+    test.update({"kind":kind,"created":True,"questions":test.get("questions") or []})
+    if kind=="light": row.light_test=test
+    else: row.full_test=test
+    row.updated_at=utcnow(); session.add(row); session.commit()
+    return {"created":True,"test":test}
 
 @router.get("/directory")
 def directory(session:Annotated[Session,Depends(get_session)],_:Annotated[BitrixIdentity,Depends(require_bitrix_identity)]):
