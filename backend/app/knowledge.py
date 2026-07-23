@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field as PydanticField
 from sqlmodel import Session, select
 
-from app.bitrix_auth import BitrixIdentity, bitrix_call, require_admin, require_bitrix_identity
+from app.bitrix_auth import BitrixIdentity, bitrix_call, require_admin, require_bitrix_identity, require_editor
 from app.config import get_settings
 from app.database import get_session
 from app.models import AppUser, BitrixDepartment, KnowledgeDocument, LegacyRecord, utcnow
@@ -29,20 +29,30 @@ def _wrap(value: str, width: int) -> list[str]:
 
 
 def build_scene(row: int, title: str, description: str, url: str) -> dict[str, Any]:
-    title_lines = _wrap(title.upper(), 37)
+    # Excalidraw preserves the explicit line breaks that are stored in a scene.
+    # One conservative measure is therefore used for both wrapping and card
+    # height; this prevents text from ever escaping a generated card.
+    def scene_lines(value: str, width: int, size: int) -> list[str]:
+        return _wrap(value, max(12, int(width / (size * 0.62))))
+    title_lines = scene_lines(title.upper(), 500, 28)
     blue = description.strip() or f"В документе представлен материал «{title}». Изучите его, чтобы применять установленные правила и порядок работы."
     yellow = f"В этом обучении вы изучите материал «{title}» и узнаете, как использовать его в ежедневной работе."
-    yellow_lines, blue_lines = _wrap(yellow, 46), _wrap(blue, 46)
-    title_h, yellow_h, blue_h = len(title_lines) * 35, max(86, len(yellow_lines) * 25 + 46), max(86, len(blue_lines) * 25 + 46)
+    yellow_lines, blue_lines = scene_lines(yellow, 444, 20), scene_lines(blue, 444, 20)
+    finish_value = "Не забудь нажать кнопку «Завершить», чтобы получить доступ к следующему материалу!"
+    finish_lines = scene_lines(finish_value, 444, 18)
+    title_h = len(title_lines) * 35
+    yellow_h = max(96, len(yellow_lines) * 25 + 46)
+    blue_h = max(96, len(blue_lines) * 25 + 46)
     y_title = 28; y_yellow = y_title + title_h + 40; y_blue = y_yellow + yellow_h + 64
-    y_link = y_blue + blue_h + 64; link_h = 130; y_finish = y_link + link_h + 64; finish_h = 150
+    y_link = y_blue + blue_h + 64; link_h = 130; y_finish = y_link + link_h + 64
+    finish_h = max(150, len(finish_lines) * 23 + 92)
     outer_h = y_finish + finish_h + 30
     def rect(name: str, x: int, y: int, w: int, h: int, bg: str, stroke: str, extra=None):
         return {"id": _id(row,name), "type":"rectangle", "x":x,"y":y,"width":w,"height":h,"angle":0,"strokeColor":stroke,"backgroundColor":bg,"fillStyle":"solid","strokeWidth":3,"strokeStyle":"solid","roughness":0,"opacity":100,"groupIds":[],"frameId":None,"roundness":{"type":3},"seed":row,"version":1,"versionNonce":row*31,"isDeleted":False,"boundElements":[],"updated":0,"link":None,"locked":False, **(extra or {})}
     frame_id = _id(row, "viewport")
     def text(name: str, value: str, x: int, y: int, w: int, size: int, font: int, align="left", color="#111827", link=None):
-        lines = _wrap(value, max(12, int(w/(size*.48))))
-        return {"id":_id(row,name),"type":"text","x":x,"y":y,"width":w,"height":len(lines)*int(size*1.25),"angle":0,"strokeColor":color,"backgroundColor":"transparent","fillStyle":"solid","strokeWidth":1,"strokeStyle":"solid","roughness":0,"opacity":100,"groupIds":[],"frameId":None,"roundness":None,"seed":row+1,"version":1,"versionNonce":row*37,"isDeleted":False,"boundElements":[],"updated":0,"link":link,"locked":False,"fontSize":size,"fontFamily":font,"text":"\n".join(lines),"originalText":value,"textAlign":align,"verticalAlign":"middle","containerId":None,"lineHeight":1.25}
+        wrapped = scene_lines(value, w, size)
+        return {"id":_id(row,name),"type":"text","x":x,"y":y,"width":w,"height":len(wrapped)*int(size*1.25),"angle":0,"strokeColor":color,"backgroundColor":"transparent","fillStyle":"solid","strokeWidth":1,"strokeStyle":"solid","roughness":0,"opacity":100,"groupIds":[],"frameId":None,"roundness":None,"seed":row+1,"version":1,"versionNonce":row*37,"isDeleted":False,"boundElements":[],"updated":0,"link":link,"locked":False,"fontSize":size,"fontFamily":font,"text":"\n".join(wrapped),"originalText":value,"textAlign":align,"verticalAlign":"middle","containerId":None,"lineHeight":1.25}
     viewport = rect("viewport",10,10,580,outer_h,"transparent","#b8b8b8")
     viewport.update({"id": frame_id, "type": "frame", "name": title, "roundness": None})
     els=[viewport, text("title",title.upper(),50,y_title,500,28,23,"center")]
@@ -50,13 +60,14 @@ def build_scene(row: int, title: str, description: str, url: str) -> dict[str, A
     els += [rect("blue",50,y_blue,500,blue_h,"#4dabf7","#1971c2"), text("blue-text",blue,78,y_blue+21,444,20,22)]
     els += [rect("link",50,y_link,500,link_h,"#38d9a9","#099268"), rect("link-button",90,y_link+28,420,55,"#ffffff","#099268"), text("link-text",title,108,y_link+38,384,18,22,"center","#099268",url), text("link-help","Нажми, чтобы перейти по ссылке",100,y_link+94,400,13,22,"center")]
     completion_id = _id(row, "completion")
-    els += [rect("finish",50,y_finish,500,finish_h,"#e6fcf5","#12b886"), text("finish-help","Не забудь нажать кнопку «Завершить», чтобы получить доступ к следующему материалу!",78,y_finish+22,444,18,22), rect("finish-button",210,y_finish+91,180,42,"#12b886","#099268",{"link":"#rtm-complete-material","customData":{"rtmAction":"complete-material","rtmCompletionCard":True,"rtmCompletionId":completion_id}}), text("finish-text","Завершить",225,y_finish+99,150,17,22,"center","#ffffff")]
+    button_y = y_finish + finish_h - 60
+    els += [rect("finish",50,y_finish,500,finish_h,"#e6fcf5","#12b886"), text("finish-help",finish_value,78,y_finish+22,444,18,22), rect("finish-button",210,button_y,180,42,"#12b886","#099268",{"link":"#rtm-complete-material","customData":{"rtmAction":"complete-material","rtmCompletionCard":True,"rtmCompletionId":completion_id}}), text("finish-text","Завершить",225,button_y+8,150,17,22,"center","#ffffff")]
     for index, (a,b) in enumerate(((y_yellow+yellow_h,y_blue),(y_blue+blue_h,y_link),(y_link+link_h,y_finish))):
         els.append({"id":_id(row,f"arrow-{index}"),"type":"arrow","x":300,"y":a+12,"width":0,"height":b-a-24,"angle":0,"strokeColor":"#111827","backgroundColor":"transparent","fillStyle":"solid","strokeWidth":2,"strokeStyle":"solid","roughness":0,"opacity":100,"groupIds":[],"frameId":None,"roundness":{"type":2},"seed":row+index,"version":1,"versionNonce":row*41+index,"isDeleted":False,"boundElements":[],"updated":0,"link":None,"locked":False,"points":[[0,0],[0,b-a-24]],"lastCommittedPoint":None,"startBinding":None,"endBinding":None,"startArrowhead":None,"endArrowhead":"arrow"})
     for element in els:
         if element["id"] != frame_id:
             element["frameId"] = frame_id
-    return {"type":"excalidraw","version":2,"source":"rtm-v50.3.8","elements":els,"appState":{"viewBackgroundColor":"#ffffff","scrollX":0,"scrollY":0,"zoom":{"value":1}},"files":{}}
+    return {"type":"excalidraw","version":2,"source":"rtm-v50.3.9","elements":els,"appState":{"viewBackgroundColor":"#ffffff","scrollX":0,"scrollY":0,"zoom":{"value":1}},"files":{}}
 
 
 def ensure_catalog(session: Session) -> None:
@@ -65,7 +76,7 @@ def ensure_catalog(session: Session) -> None:
         changed = False
         for document in existing:
             scene = document.scene if isinstance(document.scene, dict) else {}
-            if scene.get("source") not in {"rtm-v50.3.6", "rtm-v50.3.7"}:
+            if scene.get("source") not in {"rtm-v50.3.6", "rtm-v50.3.7", "rtm-v50.3.8"}:
                 continue
             document.scene = build_scene(document.source_row, document.title, document.description, document.document_url)
             session.add(document)
@@ -222,7 +233,7 @@ def linked_document(
     return {"id": row.id, "title": test.get("title") or row.title, "kind": kind, "test": test}
 
 @router.put("/documents/{document_id}")
-def update_document(document_id:int,payload:KnowledgeUpdate,session:Annotated[Session,Depends(get_session)],_:Annotated[BitrixIdentity,Depends(require_admin)]):
+def update_document(document_id:int,payload:KnowledgeUpdate,session:Annotated[Session,Depends(get_session)],_:Annotated[BitrixIdentity,Depends(require_editor)]):
     row=session.get(KnowledgeDocument,document_id)
     if not row: raise HTTPException(404,"Knowledge document not found")
     mapping={"documentUrl":"document_url","lightTest":"light_test","fullTest":"full_test","articleAssignments":"article_assignments","lightTestAssignments":"light_test_assignments","fullTestAssignments":"full_test_assignments","articleReviewers":"reviewers","articleEditors":"editors","lightTestReviewers":"light_test_reviewers","fullTestReviewers":"full_test_reviewers","lightTestEditors":"light_test_editors","fullTestEditors":"full_test_editors","inheritTestAssignments":"inherit_test_assignments"}
@@ -245,7 +256,7 @@ def delete_document(document_id:int,session:Annotated[Session,Depends(get_sessio
     raise HTTPException(409,"Центральные статьи и тесты нельзя удалять. Их можно только редактировать.")
 
 @router.post("/documents/{document_id}/tests/{kind}")
-def create_test(document_id:int,kind:str,session:Annotated[Session,Depends(get_session)],_:Annotated[BitrixIdentity,Depends(require_admin)]):
+def create_test(document_id:int,kind:str,session:Annotated[Session,Depends(get_session)],_:Annotated[BitrixIdentity,Depends(require_editor)]):
     if kind not in {"light","full"}: raise HTTPException(422,"Test kind must be light or full")
     row=session.get(KnowledgeDocument,document_id)
     if not row: raise HTTPException(404,"Knowledge document not found")
@@ -276,32 +287,69 @@ def refresh_directory(session:Annotated[Session,Depends(get_session)],identity:A
         dep.name=str(source.get("NAME") or ""); dep.parent_id=str(source.get("PARENT") or ""); dep.head_user_id=str(source.get("UF_HEAD") or ""); dep.active=True; dep.updated_at=utcnow(); session.add(dep)
     session.commit(); return {"users":len(raw_users),"departments":len(raw_departments)}
 
-class SheetRow(BaseModel):
-    row:int; title:str=""; description:str=""; documentUrl:str=""; articleAssignments:list=PydanticField(default_factory=list); lightTestAssignments:list=PydanticField(default_factory=list); fullTestAssignments:list=PydanticField(default_factory=list); reviewers:list=PydanticField(default_factory=list); editors:list=PydanticField(default_factory=list)
-class SheetSync(BaseModel): rows:list[SheetRow]
+class SheetChange(BaseModel):
+    row: int
+    title: str | None = None
+    description: str | None = None
+    articleAssignments: list | None = None
+    reviewers: list | None = None
+    editors: list | None = None
+
+
+class SheetSync(BaseModel):
+    # Only values that were actually changed in the sheet are sent.  This
+    # avoids an empty cell accidentally overwriting a newer server value.
+    changes: list[SheetChange] = PydanticField(default_factory=list)
+
+
+def _sheet_state(session: Session) -> dict[str, Any]:
+    documents = [_document(x) for x in session.exec(select(KnowledgeDocument).order_by(KnowledgeDocument.source_row)).all()]
+    users = session.exec(select(AppUser).where(AppUser.active == True)).all()
+    departments = session.exec(select(BitrixDepartment).where(BitrixDepartment.active == True)).all()
+    children = {d.bitrix_department_id: {d.bitrix_department_id} for d in departments}
+    changed = True
+    while changed:
+        changed = False
+        for department in departments:
+            if department.parent_id in children:
+                before = len(children[department.parent_id])
+                children[department.parent_id] |= children[department.bitrix_department_id]
+                changed = changed or len(children[department.parent_id]) != before
+    names = {u.bitrix_user_id: f"{u.first_name} {u.last_name}".strip() for u in users}
+    directory_rows = []
+    for department in departments:
+        member_names = [names[user.bitrix_user_id] for user in users if set(map(str, user.department_ids or [])) & children[department.bitrix_department_id]]
+        directory_rows.append({"id": department.bitrix_department_id, "name": department.name, "head": names.get(department.head_user_id, ""), "employees": member_names})
+    return {"documents": documents, "directory": {"users": [{"id": user.bitrix_user_id, "name": names[user.bitrix_user_id], "reviewerAllowed": user.role in {"teacher", "editor", "admin", "developer"}} for user in users], "departments": directory_rows}}
+
+
+def _sheet_secret(secret: str | None) -> None:
+    if not get_settings().knowledge_sync_secret or secret != get_settings().knowledge_sync_secret:
+        raise HTTPException(403, "Knowledge synchronization secret is invalid")
+
+
+@router.get("/sheet-state")
+def sheet_state(session: Annotated[Session, Depends(get_session)], x_rtm_knowledge_secret: Annotated[str | None, Header()] = None):
+    _sheet_secret(x_rtm_knowledge_secret)
+    ensure_catalog(session)
+    return _sheet_state(session)
 
 @router.post("/sheet-sync")
 def sheet_sync(payload:SheetSync,session:Annotated[Session,Depends(get_session)],x_rtm_knowledge_secret:Annotated[str|None,Header()]=None):
-    secret=get_settings().knowledge_sync_secret
-    if not secret or x_rtm_knowledge_secret!=secret: raise HTTPException(403,"Knowledge synchronization secret is invalid")
+    _sheet_secret(x_rtm_knowledge_secret)
     ensure_catalog(session)
-    for source in payload.rows:
+    for source in payload.changes:
         row=session.exec(select(KnowledgeDocument).where(KnowledgeDocument.source_row==source.row)).first()
-        if not row or not re.match(r"^https://docs\.google\.com/document/d/",source.documentUrl): continue
-        row.title=source.title or row.title; row.description=source.description; row.document_url=source.documentUrl; row.article_assignments=source.articleAssignments or row.article_assignments; row.light_test_assignments=source.lightTestAssignments; row.full_test_assignments=source.fullTestAssignments; row.reviewers=source.reviewers or row.reviewers; row.editors=source.editors or row.editors; row.scene=build_scene(row.source_row,row.title,row.description,row.document_url); row.source_updated_at=utcnow(); session.add(row)
+        if not row: continue
+        content_changed = False
+        if source.title is not None and source.title.strip(): row.title = source.title.strip(); content_changed = True
+        if source.description is not None: row.description = source.description; content_changed = True
+        if source.articleAssignments is not None: row.article_assignments = source.articleAssignments
+        if source.reviewers is not None: row.reviewers = source.reviewers
+        if source.editors is not None: row.editors = source.editors
+        # Do not overwrite a manually edited board for role-only changes.
+        if content_changed and str((row.scene or {}).get("source", "")).startswith("rtm-v50"):
+            row.scene = build_scene(row.source_row, row.title, row.description, row.document_url)
+        row.source_updated_at=utcnow(); session.add(row)
     session.commit()
-    documents=[_document(x) for x in session.exec(select(KnowledgeDocument).order_by(KnowledgeDocument.source_row)).all()]
-    users=session.exec(select(AppUser).where(AppUser.active==True)).all(); departments=session.exec(select(BitrixDepartment).where(BitrixDepartment.active==True)).all()
-    children={d.bitrix_department_id:{d.bitrix_department_id} for d in departments}
-    changed=True
-    while changed:
-        changed=False
-        for d in departments:
-            if d.parent_id in children:
-                before=len(children[d.parent_id]); children[d.parent_id]|=children[d.bitrix_department_id]; changed=changed or len(children[d.parent_id])!=before
-    names={u.bitrix_user_id:f"{u.first_name} {u.last_name}".strip() for u in users}
-    directory_rows=[]
-    for d in departments:
-        member_names=[names[u.bitrix_user_id] for u in users if set(map(str,u.department_ids or [])) & children[d.bitrix_department_id]]
-        directory_rows.append({"name":d.name,"head":names.get(d.head_user_id,""),"employees":member_names})
-    return {"documents":documents,"directory":{"users":list(names.values()),"departments":directory_rows}}
+    return _sheet_state(session)

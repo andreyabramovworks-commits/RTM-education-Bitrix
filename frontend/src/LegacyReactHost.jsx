@@ -16,6 +16,7 @@ const LEGACY_STYLES = [
   "/legacy/v053-review.css?v=050.3.4",
   "/legacy/v054.css?v=050.3.4",
   "/legacy/v5038.css?v=050.3.8",
+  "/legacy/v5039-pages.css?v=050.3.9",
 ];
 
 const LEGACY_SCRIPTS = [
@@ -36,6 +37,8 @@ const LEGACY_SCRIPTS = [
   ["/legacy/v053.js?v=050.3.4", false],
   ["/legacy/v054.js?v=050.3.4", false],
   ["/legacy/v5038-knowledge.js?v=050.3.8", false],
+  ["/legacy/v5040-workspaces.js?v=050.4.0", false],
+  ["/legacy/v5039-pages.js?v=050.3.9", false],
 ];
 function loadScript(src, module) {
   return new Promise((resolve, reject) => {
@@ -75,7 +78,7 @@ export function LegacyReactHost() {
     try { localStorage.setItem("rtm_v492_test_ui", "modern"); } catch (_) {}
     window.__RTM_V48__ = true;
     window.__RTM_V49__ = true;
-    window.__RTM_VERSION__ = "50.3.8";
+    window.__RTM_VERSION__ = "50.3.9";
     window.__RTM_STANDALONE__ =
       new URLSearchParams(window.location.search).get("rtm_fullscreen") === "1";
 
@@ -98,7 +101,7 @@ export function LegacyReactHost() {
     })();
   }, [markup]);
 
-  if (error) return <div className="v48-load-error">Ошибка запуска v50.3.8: {error}</div>;
+  if (error) return <div className="v48-load-error">Ошибка запуска v50.3.9: {error}</div>;
   if (!markup) return <div className="v48-loading">Запускаем RTM обучение…</div>;
   return <div className="v48-react-host" dangerouslySetInnerHTML={{ __html: markup }} />;
 }

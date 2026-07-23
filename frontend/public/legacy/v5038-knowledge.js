@@ -208,14 +208,14 @@
 
   var baseSwitchAdmin=window.switchAdmin;
   window.switchAdmin=switchAdmin=function(view){
-    if(view==="database"&&!["developer","admin"].includes(String(state.currentRole||"")))return toast("Управление Базой знаний доступно администраторам и разработчику");
+    if(view==="database"&&!["developer","admin","editor"].includes(String(state.currentRole||"")))return toast("Управление Базой знаний доступно редакторам, администраторам и разработчику");
     var result=baseSwitchAdmin.apply(this,arguments);
     if(view==="database"){state.aview="database";renderAdminKnowledge().catch(function(error){toast(error.message||String(error));});}
     return result;
   };
   function installDatabaseRoute() {
     var button=document.querySelector('[data-admin-view="database"]');
-    if(button){var allowed=["developer","admin"].includes(String(state.currentRole||""));button.hidden=!allowed;button.style.display=allowed?"":"none";button.title="Управление Базой знаний";button.onclick=function(){switchAdmin("database");};}
+    if(button){var allowed=["developer","admin","editor"].includes(String(state.currentRole||""));button.hidden=!allowed;button.style.display=allowed?"":"none";button.title="Управление Базой знаний";button.onclick=function(){switchAdmin("database");};}
     var old=document.getElementById("v537KnowledgeNav");if(old)old.remove();
   }
 
@@ -268,8 +268,8 @@
 
   installDatabaseRoute();
   var baseRenderAll5038=window.renderAll;
-  window.renderAll=renderAll=function(){var result=baseRenderAll5038.apply(this,arguments);installDatabaseRoute();if(state.aview==="database"&&["developer","admin"].includes(String(state.currentRole||"")))renderAdminKnowledge().catch(function(error){toast(error.message||String(error));});return result;};
+  window.renderAll=renderAll=function(){var result=baseRenderAll5038.apply(this,arguments);installDatabaseRoute();if(state.aview==="database"&&["developer","admin","editor"].includes(String(state.currentRole||"")))renderAdminKnowledge().catch(function(error){toast(error.message||String(error));});return result;};
   load().then(function(){renderKb();}).catch(console.error);
   window.addEventListener("load",installDatabaseRoute);
-  window.RTMV5038={version:"50.3.8",renderAdmin:renderAdminKnowledge,reload:function(){loaded=false;directory=null;return load(true);}};
+  window.RTMV5038={version:"50.3.9",renderAdmin:renderAdminKnowledge,getCurrentDocumentId:function(){return adminSelected;},reload:function(){loaded=false;directory=null;return load(true);}};
 })();

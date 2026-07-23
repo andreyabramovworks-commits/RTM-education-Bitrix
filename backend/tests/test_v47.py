@@ -40,8 +40,8 @@ def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert "rtm_release=50.3.8" in response.text
-    assert "RTM Education v50.3.8" in response.text
+    assert "rtm_release=50.3.9" in response.text
+    assert "RTM Education v50.3.9" in response.text
 
 
 def test_only_primary_developer_can_manage_developer_roles() -> None:
@@ -257,6 +257,29 @@ def test_role_hierarchy_enforces_editor_and_teacher_boundaries() -> None:
         assert client.get("/api/v47/legacy/rtm_items").status_code == 200
         assert client.post("/api/v47/legacy/rtm_items", json={"name": "Forbidden", "properties": {"type": "article"}}).status_code == 403
         assert client.post("/api/v47/legacy/rtm_assigns", json={"name": "Teacher assignment", "properties": {"userId": "student-1"}}).status_code == 201
+    finally:
+        app.dependency_overrides[require_bitrix_identity] = admin_override
+
+
+def test_editor_can_manage_central_knowledge_content_but_not_roles() -> None:
+    def editor_override():
+        with Session(engine) as session:
+            user = session.exec(select(AppUser).where(AppUser.bitrix_user_id == "knowledge-editor")).first()
+            if user is None:
+                user = AppUser(bitrix_user_id="knowledge-editor", first_name="Knowledge", last_name="Editor", role="editor", manual_role="editor")
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+            return BitrixIdentity(user=user, access_token="test", domain="rtm-group.bitrix24.ru")
+
+    app.dependency_overrides[require_bitrix_identity] = editor_override
+    try:
+        documents = client.get("/api/v47/knowledge/documents")
+        assert documents.status_code == 200
+        document_id = documents.json()[0]["id"]
+        assert client.put(f"/api/v47/knowledge/documents/{document_id}", json={"description": "Edited by an editor"}).status_code == 200
+        assert client.post(f"/api/v47/knowledge/documents/{document_id}/tests/light", json={}).status_code == 200
+        assert client.post("/api/v47/legacy/rtm_roles", json={"name": "Forbidden role", "properties": {"userId": "x", "role": "admin"}}).status_code == 403
     finally:
         app.dependency_overrides[require_bitrix_identity] = admin_override
 
