@@ -95,6 +95,13 @@
         if(index>=0)state.items[index]=projection;
       }
       baseOpenUserMaterial.call(window,projection);
+      state.materialBackView=item?"learn":"kb";
+      var back=document.getElementById("uBackToCourse");
+      if(back)back.textContent=item?"← Назад к курсу":"← Назад в Базу знаний";
+      if(item&&linkedMeta(item)){
+        var body=document.getElementById("uMaterialBody");
+        if(body&&!body.querySelector(".v538-readonly-note"))body.insertAdjacentHTML("afterbegin",'<div class="v538-readonly-note">Материал связан с Базой знаний и доступен в курсе только для просмотра. Изменения вносит администратор через Управление Базой знаний.</div>');
+      }
     } catch(error) { toast(error.message||String(error)); }
   }
   window.openUserMaterial=openUserMaterial=async function(item) {
@@ -239,7 +246,14 @@
 
   var baseArticleEditor=window.openArticleEditor,baseTestEditor=window.openTestEditor;
   window.openArticleEditor=openArticleEditor=function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseArticleEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);});openCentralForUser(doc,"article",item);toast("Связанная статья редактируется только через Управление Базой знаний");};
-  window.openTestEditor=openTestEditor=function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);});if(doc&&window.RTMV51&&window.RTMV51.openKnowledgeTest&&['developer','admin','moderator','editor'].includes(String(state.currentRole||getAppRole(state.user))))return window.RTMV51.openKnowledgeTest(doc,meta.knowledgeKind);openCentralForUser(doc,meta.knowledgeKind,item);};
+  window.openTestEditor=openTestEditor=function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);});openCentralForUser(doc,meta.knowledgeKind,item);toast("Связанный тест редактируется только через Управление Базой знаний");};
+
+  var baseInlineTestEditor=window.renderInlineTestEditor;
+  window.renderInlineTestEditor=function(item){
+    var meta=linkedMeta(item);
+    if(!meta)return baseInlineTestEditor.apply(this,arguments);
+    return '<div class="inline-full-editor v538-linked-preview"><div class="inline-title">'+html(item.NAME)+'</div><div class="v538-readonly-note">Это общий тест из Базы знаний. В курсе он доступен только для просмотра, чтобы изменения не затронули другие курсы.</div><button type="button" class="primary" data-v51-open-inline-test="'+html(item.ID)+'">Просмотреть тест</button></div>';
+  };
 
   async function courseRoleEditor(item) {
     await loadDirectory();

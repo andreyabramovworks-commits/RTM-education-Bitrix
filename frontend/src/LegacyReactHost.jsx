@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 
 const LEGACY_STYLES = [
   "/legacy/style.css?v=046.3",
-  "/legacy/excalidraw-dist/rtm-canvas.css?v=050.3.8",
+  "/legacy/excalidraw-dist/rtm-canvas.css?v=050.4.0.2",
   "/legacy/v040-layout.css?v=046.3",
   "/legacy/v040-inline.css?v=046.3",
   "/legacy/v046-layout.css?v=050.3.2",
@@ -16,29 +16,28 @@ const LEGACY_STYLES = [
   "/legacy/v053-review.css?v=050.3.4",
   "/legacy/v054.css?v=050.3.4",
   "/legacy/v5038.css?v=050.4.0",
-  "/legacy/v5039-pages.css?v=050.4.0",
+  "/legacy/v5039-pages.css?v=050.4.0.2",
 ];
 
 const LEGACY_SCRIPTS = [
   ["/legacy/v046-shell.js?v=050.3.2", false],
   ["/legacy/kb-data.js?v=046.3", false],
-  ["/legacy/app.js?v=050.4.0", false],
+  ["/legacy/app.js?v=050.4.0.2", false],
   ["/legacy/v037-overrides.js?v=046.3", false],
   ["/legacy/v039-patch.js?v=046.3", false],
   ["/legacy/v040-assets.js?v=046.3", false],
-  ["/legacy/excalidraw-dist/rtm-canvas.js?v=050.3.8", true],
+  ["/legacy/excalidraw-dist/rtm-canvas.js?v=050.4.0.2", true],
   ["/legacy/v046-canvas.js?v=050.4.0", false],
   ["/legacy/v047-api.js?v=050.4.0", false],
   ["/legacy/v049.js?v=050.3.2", false],
-  ["/legacy/v0492.js?v=050.4.0", false],
+  ["/legacy/v0492.js?v=050.4.0.2", false],
   ["/legacy/v050.js?v=050.3.2", false],
-  ["/legacy/v051.js?v=050.4.0", false],
-  ["/legacy/v052.js?v=050.4.0", false],
+  ["/legacy/v051.js?v=050.4.0.2", false],
+  ["/legacy/v052.js?v=050.4.0.2", false],
   ["/legacy/v053.js?v=050.3.4", false],
   ["/legacy/v054.js?v=050.3.4", false],
-  ["/legacy/v5038-knowledge.js?v=050.4.0.1", false],
-  ["/legacy/v5040-workspaces.js?v=050.4.0", false],
-  ["/legacy/v5039-pages.js?v=050.4.0", false],
+  ["/legacy/v5038-knowledge.js?v=050.4.0.2", false],
+  ["/legacy/v5040-workspaces.js?v=050.4.0.2", false],
 ];
 function loadScript(src, module) {
   return new Promise((resolve, reject) => {
@@ -58,7 +57,7 @@ export function LegacyReactHost() {
 
   useEffect(() => {
     let active = true;
-    fetch("/legacy/index.html?v=050.4.0", { cache: "no-store" })
+    fetch("/legacy/index.html?v=050.4.0.2", { cache: "no-store" })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.text();

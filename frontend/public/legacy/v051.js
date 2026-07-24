@@ -14,7 +14,7 @@
   function actualRole() { return String(getAppRole(state.user) || 'employee'); }
   function canReview() { return roleRank(state.currentRole || actualRole()) >= 1; }
   function isFree(question) { return ['freeText', 'mediaFreeText', 'text'].includes(String(question && question.type || '')); }
-  function isImageChoice(question) { return ['imageChoice', 'imageTextChoice'].includes(String(question && question.type || '')); }
+  function isImageChoice(question) { return String(question && question.type || '') === 'imageChoice'; }
   function optionList(question) {
     if (Array.isArray(question.options) && question.options.length) return question.options.map(function (option, index) {
       return typeof option === 'string' ? {id: id('o'), text: option} : Object.assign({id: id('o'), text: 'Вариант ответа ' + (index + 1)}, option);
@@ -31,6 +31,7 @@
       if (!next.options.length) next.options = [{id: id('o'), text: 'Вариант ответа 1'}, {id: id('o'), text: 'Вариант ответа 2'}];
       var legacyCorrect = Array.isArray(next.correct) ? next.correct : [];
       next.options = next.options.map(function (option, optionIndex) { return Object.assign({}, option, {id: String(option.id || id('o')), correct: option.correct === true || legacyCorrect.includes(optionIndex)}); });
+      if (type === 'imageTextChoice') next.options.forEach(function (option) { delete option.image; });
       next.answers = next.options.map(function (option) { return option.text || ''; });
       next.correct = next.options.map(function (option, optionIndex) { return option.correct ? optionIndex : -1; }).filter(function (value) { return value >= 0; });
     } else {
@@ -478,13 +479,23 @@
     source.knowledgeCentralDocumentId = doc.id; source.knowledgeCentralKind = kind;
     var item = findItem(syntheticId), props = {type: 'test', status: 'draft', meta: json(source), updatedAt: now()};
     if (item) { item.NAME = source.title; item.PROPERTY_VALUES = props; } else state.items.push({ID: syntheticId, NAME: source.title, PROPERTY_VALUES: props});
-    state.testId = syntheticId; state.testEditorTab = 'questions'; showOnlyEditor('testEditorView');
+    state.testId = syntheticId; state.testEditorTab = 'questions'; state.knowledgeEditorReturn = true;
+    switchAdmin('materials'); showOnlyEditor('testEditorView');
     var heading = document.getElementById('testEditorTitle'); if (heading) heading.textContent = source.title;
-    window.renderTestEditor(); bindTestTabs();
+    if (window.RTMV492 && window.RTMV492.applyTestUiChoice) window.RTMV492.applyTestUiChoice('modern');
+    else window.renderTestEditor();
+    bindTestTabs();
+    var back = document.getElementById('backFromTestEditor');
+    if (back) back.onclick = function () {
+      state.knowledgeEditorReturn = false;
+      showMaterialsList();
+      switchAdmin('database');
+      if (window.RTMV5038) window.RTMV5038.reload().then(function () { window.RTMV5038.renderAdmin(); });
+    };
   }
   window.renderInlineTestEditor = function (item) {
     return '<div class="inline-full-editor v51-inline-test-launch"><div class="inline-title">' + esc(item.NAME) + '</div><p>Тест редактируется в едином визуальном редакторе: сцена слева, параметры вопросов справа.</p><button type="button" class="primary" data-v51-open-inline-test="' + item.ID + '">Открыть визуальный редактор</button></div>';
   };
-  document.addEventListener('click', function (event) { var button = event.target.closest('[data-v51-open-inline-test]'); if (!button) return; event.preventDefault(); window.openTestEditor(button.dataset.v51OpenInlineTest); });
+  document.addEventListener('click', function (event) { var button = event.target.closest('[data-v51-open-inline-test]'); if (!button) return; event.preventDefault(); var item=findItem(button.dataset.v51OpenInlineTest), meta=item&&j(item.PROPERTY_VALUES.meta); if(!(meta&&meta.linkedKnowledge))state.editorReturnCourseId=state.courseId; window.openTestEditor(button.dataset.v51OpenInlineTest); });
   window.RTMV51 = {version: VERSION, buildScene: buildScene, normalizeMeta: normalizeMeta, renderReviews: renderReviews, openKnowledgeTest: openKnowledgeTest};
 })();

@@ -8,13 +8,8 @@
   var classicTakeTest = window.renderTakeTest;
   var workspaceTimer = 0, workspaceScene = null, workspaceRevision = 0, workspaceMounted = false, workspaceRestoring = false, workspaceGeneration = 0, workspaceMountTimer = 0, developerPreviewRole = null, testUiChoice = 'modern';
   function visibleWorkspace(scene) {
-    var next = JSON.parse(JSON.stringify(scene || {})), elements = (next.elements || []).filter(function (item) { return !item.isDeleted; });
-    if (!elements.length) return next;
-    var minX = Math.min.apply(null, elements.map(function (item) { return Number(item.x || 0); })), minY = Math.min.apply(null, elements.map(function (item) { return Number(item.y || 0); }));
-    if (Math.abs(minX) > 1800 || Math.abs(minY) > 1800) {
-      (next.elements || []).forEach(function (item) { item.x = Number(item.x || 0) - minX + 80; item.y = Number(item.y || 0) - minY + 80; });
-    }
-    next.appState = Object.assign({}, next.appState || {}, {scrollX: 0, scrollY: 0, zoom: {value: 1}});
+    var next = JSON.parse(JSON.stringify(scene || {})), app = next.appState || {}, zoom = Number(app.zoom && app.zoom.value || app.zoom || 0.1);
+    next.appState = Object.assign({}, app, {isLoading: false, zoom: {value: Math.max(0.1, Math.min(4, isFinite(zoom) ? zoom : 0.1))}});
     return next;
   }
 

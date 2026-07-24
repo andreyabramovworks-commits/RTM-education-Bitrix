@@ -1,4 +1,4 @@
-/** RTM v50.4.0 — двусторонняя синхронизация назначений Базы знаний. */
+/** RTM v50.4.0.2 — двусторонняя синхронизация назначений Базы знаний. */
 const RTM_API = 'https://rtmgroupdocs.fvds.ru/api/v47/knowledge';
 const RTM_CATALOG = 'Каталог документов';
 const RTM_DIRECTORY = 'Н- Справочник';
@@ -12,7 +12,18 @@ function onOpen() {
 
 function onEdit(e) {
   const range = e && e.range;
-  if (!range || range.getSheet().getName() !== RTM_CATALOG || range.getA1Notation() !== 'Q2' || range.getValue() !== true) return;
+  if (!range || range.getSheet().getName() !== RTM_CATALOG) return;
+  if ([14, 15, 16, 18, 19, 20, 21, 22, 23].includes(range.getColumn()) && range.getRow() > 1 && e.value) {
+    const picked = String(e.value || '').trim(), old = split_(e.oldValue);
+    if (picked && !/[;\n]/.test(picked)) {
+      const index = old.map(x => x.toLowerCase()).indexOf(picked.toLowerCase());
+      if (index >= 0) old.splice(index, 1); else old.push(picked);
+      range.setValue(old.join('; '));
+    }
+    range.setNote('Выберите следующий пункт из списка — он добавится. Повторный выбор уберёт пункт. После изменений поставьте галочку в Q2.');
+    return;
+  }
+  if (range.getA1Notation() !== 'Q2' || range.getValue() !== true) return;
   range.setValue(false);
   syncKnowledgeBase();
 }
@@ -117,17 +128,34 @@ function writeServerState_(ss, sheet, result) {
   sheet.getRange('Q2').insertCheckboxes().setValue(false).setNote('Поставьте галочку, чтобы применить изменения из таблицы в PostgreSQL и получить актуальные данные с сервера.');
   PropertiesService.getScriptProperties().setProperty(RTM_SNAPSHOT_KEY, JSON.stringify(snapshot));
   refreshDirectory_(ss, result.directory, docs);
+  applyAssignmentDropdowns_(ss, sheet, result.directory, last);
 }
 
 function refreshDirectory_(ss, directory, docs) {
   const sheet = ss.getSheetByName(RTM_DIRECTORY) || ss.insertSheet(RTM_DIRECTORY);
   sheet.clearContents();
-  sheet.getRange(1, 1, 1, 5).setValues([['Все сотрудники', 'Структурная единица', 'Руководитель структурной единицы', 'Сотрудники этой единицы', 'Название статей и тестов']]);
+  sheet.getRange(1, 1, 1, 7).setValues([['Все сотрудники', 'Структурная единица', 'Руководитель структурной единицы', 'Сотрудники этой единицы', 'Название статей и тестов', 'Варианты назначения', 'Варианты проверяющих и редакторов']]);
   const users = directory.users || [], deps = directory.departments || [], names = [];
+  const studentOptions = ['Все активные сотрудники'].concat(deps.map(d => d.name), users.map(u => u.name));
+  const roleOptions = ['Роль: developer', 'Роль: admin', 'Роль: editor'].concat(users.filter(u => u.reviewerAllowed || u.editorAllowed).map(u => u.name));
   docs.forEach(d => { names.push(d.title); if (d.lightTest && d.lightTest.created) names.push(d.lightTest.title); if (d.fullTest && d.fullTest.created) names.push(d.fullTest.title); });
-  const rows = Math.max(users.length, deps.length, names.length, 1), values = Array.from({ length: rows }, () => ['', '', '', '', '']);
+  const rows = Math.max(users.length, deps.length, names.length, studentOptions.length, roleOptions.length, 1), values = Array.from({ length: rows }, () => ['', '', '', '', '', '', '']);
   users.forEach((u, i) => { values[i][0] = u.name; });
   deps.forEach((d, i) => { values[i][1] = d.name; values[i][2] = d.head || ''; values[i][3] = (d.employees || []).join('; '); });
   names.forEach((name, i) => { values[i][4] = name; });
-  sheet.getRange(2, 1, rows, 5).setValues(values);
+  studentOptions.forEach((name, i) => { values[i][5] = name; });
+  roleOptions.forEach((name, i) => { values[i][6] = name; });
+  sheet.getRange(2, 1, rows, 7).setValues(values);
+  sheet.hideColumns(6, 2);
+}
+
+function applyAssignmentDropdowns_(ss, sheet, directory, lastRow) {
+  const helper = ss.getSheetByName(RTM_DIRECTORY);
+  const studentCount = 1 + (directory.departments || []).length + (directory.users || []).length;
+  const roleCount = 3 + (directory.users || []).filter(u => u.reviewerAllowed || u.editorAllowed).length;
+  const students = SpreadsheetApp.newDataValidation().requireValueInRange(helper.getRange(2, 6, Math.max(1, studentCount), 1), true).setAllowInvalid(true).setHelpText('Выберите пункт. Следующий выбор добавится к уже выбранным.').build();
+  const roles = SpreadsheetApp.newDataValidation().requireValueInRange(helper.getRange(2, 7, Math.max(1, roleCount), 1), true).setAllowInvalid(true).setHelpText('Выберите роль или сотрудника. Следующий выбор добавится к уже выбранным.').build();
+  const rows = Math.max(1, lastRow - 1);
+  [14, 18, 21].forEach(column => sheet.getRange(2, column, rows, 1).setDataValidation(students));
+  [15, 16, 19, 20, 22, 23].forEach(column => sheet.getRange(2, column, rows, 1).setDataValidation(roles));
 }

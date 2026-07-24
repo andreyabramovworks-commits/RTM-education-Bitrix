@@ -1292,7 +1292,7 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
           excalidrawAPI={(nextApi: any) => {
             apiRef.current = nextApi;
             if (readOnly && options.fitToContent) requestAnimationFrame(() => fitReader(false));
-            else if (!readOnly && options.fitToContent && initial.elements?.length) requestAnimationFrame(() => nextApi.scrollToContent?.(initial.elements, { fitToContent: true }));
+            else if (!readOnly && options.fitToContent && !options.pageKey.startsWith("developer-workspace:") && initial.elements?.length) requestAnimationFrame(() => nextApi.scrollToContent?.(initial.elements, { fitToContent: true }));
           }}
           initialData={initial as any}
           viewModeEnabled={readOnly}
