@@ -9,7 +9,7 @@ const LEGACY_STYLES = [
   "/legacy/v0492.css?v=050.4.0",
   "/legacy/v050.css?v=050.3.2",
   "/legacy/v051.css?v=050.4.0",
-  "/legacy/v052.css?v=050.3.2",
+  "/legacy/v052.css?v=050.4.0.1",
   "/legacy/v053.css?v=050.3.4",
   "/legacy/v053-extra.css?v=050.3.4",
   "/legacy/v053-modal.css?v=050.3.4",
@@ -94,7 +94,7 @@ export function LegacyReactHost() {
       try {
         for (const [src, module] of LEGACY_SCRIPTS) await loadScript(src, module);
         // Keep the established visual selector contract used by v052.css.
-        document.documentElement.dataset.rtmVersion = "50.3.2";
+        document.documentElement.dataset.rtmVersion = "50.4.0";
       } catch (cause) {
         setError(String(cause.message || cause));
       }
