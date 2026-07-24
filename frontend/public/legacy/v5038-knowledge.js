@@ -122,6 +122,7 @@
 
   function renderUserDetail(doc, node) {
     var box=document.getElementById("kbArticlesList"),crumb=document.getElementById("kbBreadcrumbs");
+    if(crumb)crumb.classList.remove("root-hidden");
     if(crumb)crumb.innerHTML='<button data-v538-user-back>← Назад</button>';
     box.innerHTML='<div class="kb-detail v538-user-detail"><h1>'+html(doc.title)+'</h1>'+(doc.description?'<p>'+html(doc.description)+'</p>':'')+
       '<div class="kb-open-actions"><a class="primary kb-open-link" href="'+html(doc.documentUrl)+'" target="_blank" rel="noopener noreferrer">Открыть документ</a>'+
@@ -134,6 +135,7 @@
   window.renderKb=renderKb=function () {
     var box=document.getElementById("kbArticlesList"),crumb=document.getElementById("kbBreadcrumbs");
     if(!box)return;
+    if(crumb)crumb.classList.toggle("root-hidden",!(state.kbSelected||(state.kbPath&&state.kbPath.length)));
     var immediateTree=usableNode(root()),immediateSelected=state.kbSelected&&findNode(state.kbSelected,immediateTree);
     if(immediateSelected&&immediateSelected.type==="material"){
       var immediateDoc=byRow(immediateSelected.row);
