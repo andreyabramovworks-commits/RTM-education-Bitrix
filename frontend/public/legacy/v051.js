@@ -348,7 +348,7 @@
     });
     mountedTestHost = host;
     var scene = (meta.shuffleQuestions || meta.shuffleAnswers) && window.RTMV52 && window.RTMV52.createScene ? await window.RTMV52.createScene(meta, test.NAME) : meta.testScene || buildScene(meta, test.NAME);
-    function remount() { if (!host.isConnected) return; window.RTMCanvas.mount(host, {pageKey: 'test-take:' + test.ID, scene: scene, readOnly: true, fitToContent: true, completionRequired: false, testMode: 'take', testDefinition: meta, testAnswers: takeAnswers, brandColor: '#ef174c', onTestAnswer: preview?function(){}:function (questionId, value) { takeAnswers[questionId] = value; remount(); }}); }
+    function remount() { if (!host.isConnected) return; window.RTMCanvas.mount(host, {pageKey: 'test-take:' + test.ID, scene: scene, readOnly: true, fitToContent: true, completionRequired: false, testMode: 'take', testDefinition: meta, testAnswers: takeAnswers, brandColor: '#ef174c', onTestAnswer: preview?function(){}:function (questionId, value) { takeAnswers[questionId] = value; setTimeout(remount,0); }}); }
     remount(); if(!preview)form.onsubmit = window.takeTestSubmit;else form.onsubmit=function(event){event.preventDefault();};
     clearTimeout(form._v51timer); var clock = form.querySelector('[data-v51-test-clock]');
     if (meta.timeLimit && clock) { clock.hidden = false; (function tick() { var left = Number(form.dataset.testStart) + Number(meta.timeLimit) * 60000 - Date.now(); clock.textContent = 'Осталось ' + Math.max(0, Math.floor(left / 60000)) + ':' + String(Math.max(0, Math.ceil(left / 1000) % 60)).padStart(2, '0'); if (left <= 0) { if (!form.dataset.submitting) { form.dataset.timedOut = '1'; form.requestSubmit(); } return; } form._v51timer = setTimeout(tick, 500); })(); }

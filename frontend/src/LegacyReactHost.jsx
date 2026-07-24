@@ -15,7 +15,7 @@ const LEGACY_STYLES = [
   "/legacy/v053-modal.css?v=050.3.4",
   "/legacy/v053-review.css?v=050.3.4",
   "/legacy/v054.css?v=050.3.4",
-  "/legacy/v5038.css?v=050.4.0.3",
+  "/legacy/v5038.css?v=050.4.0.5",
   "/legacy/v5039-pages.css?v=050.4.0.2",
 ];
 
@@ -32,7 +32,7 @@ const LEGACY_SCRIPTS = [
   ["/legacy/v049.js?v=050.3.2", false],
   ["/legacy/v0492.js?v=050.4.0.3", false],
   ["/legacy/v050.js?v=050.3.2", false],
-  ["/legacy/v051.js?v=050.4.0.3", false],
+  ["/legacy/v051.js?v=050.4.0.5", false],
   ["/legacy/v052.js?v=050.4.0.3", false],
   ["/legacy/v053.js?v=050.3.4", false],
   ["/legacy/v054.js?v=050.3.4", false],

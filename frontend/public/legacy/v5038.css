@@ -43,3 +43,5 @@ html[data-rtm-theme="dark"] .muted,html[data-rtm-theme="dark"] .row-sub,html[dat
 html[data-rtm-theme="dark"] .hero.blue,html[data-rtm-theme="dark"] .hero.pink,html[data-rtm-theme="dark"] .hero.green{background:linear-gradient(180deg,#17243a,#0b1220)!important}
 html[data-rtm-theme="dark"] .project-row.active,html[data-rtm-theme="dark"] .rail-btn.active,html[data-rtm-theme="dark"] #v38MobileNav button.active{background:#263659!important;color:#e5edf8!important}
 html[data-rtm-theme="dark"] .rtm-canvas-stage,html[data-rtm-theme="dark"] .excalidraw{color-scheme:light}
+.rtm-unified-test-choice{background:transparent!important;color:transparent!important}
+.rtm-unified-test-choice.is-selected{background:rgba(255,248,225,.22)!important}
