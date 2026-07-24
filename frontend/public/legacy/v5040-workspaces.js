@@ -87,4 +87,24 @@
     else if(button.dataset.v538EditTest)test(id,kind).catch(function(error){toast(error.message||String(error));});
     else assignments(id,kind).catch(function(error){toast(error.message||String(error));});
   }, true);
+
+  (function installColorTheme(){
+    var key="rtm_color_theme";
+    function systemTheme(){return window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}
+    function apply(value){
+      var theme=value==="dark"?"dark":"light";
+      document.documentElement.dataset.rtmTheme=theme;
+      document.documentElement.style.colorScheme=theme;
+      try{localStorage.setItem(key,theme);}catch(_){}
+      var meta=document.querySelector('meta[name="color-scheme"]');if(meta)meta.setAttribute("content",theme);
+      document.querySelectorAll(".theme-btn").forEach(function(button){button.textContent=theme==="dark"?"☀":"☾";button.title=theme==="dark"?"Включить светлую тему":"Включить тёмную тему";button.setAttribute("aria-label",button.title);button.setAttribute("aria-pressed",String(theme==="dark"));});
+      window.dispatchEvent(new CustomEvent("rtm-theme-change",{detail:{theme:theme}}));
+    }
+    function bind(){document.querySelectorAll(".theme-btn").forEach(function(button){if(button.dataset.rtmThemeBound)return;button.dataset.rtmThemeBound="1";button.onclick=function(){apply(document.documentElement.dataset.rtmTheme==="dark"?"light":"dark");};});}
+    var saved="";try{saved=localStorage.getItem(key)||"";}catch(_){}
+    apply(saved||systemTheme());bind();
+    new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true});
+    var academy=document.querySelector('[data-admin-view="materials"]');if(academy)academy.title="Академия";
+    window.RTMTheme={apply:apply,current:function(){return document.documentElement.dataset.rtmTheme;}};
+  })();
 })();

@@ -70,9 +70,9 @@
       })
     };
   }
-  function testProjection(doc, kind, item) {
+  function testProjection(doc, kind, item, previewAnswers) {
     var test=kind==="light"?doc.lightTest:doc.fullTest, meta=item?j(item.PROPERTY_VALUES.meta):{};
-    meta=Object.assign({},meta,test||{},{knowledgeReference:true,knowledgeDocumentId:doc.id,knowledgeKind:kind});
+    meta=Object.assign({},meta,test||{},{knowledgeReference:true,knowledgeDocumentId:doc.id,knowledgeKind:kind,knowledgePreviewAnswers:Boolean(previewAnswers)});
     return {
       ID:item?item.ID:"kb_test_"+doc.id+"_"+kind, NAME:test.title,
       PROPERTY_VALUES:Object.assign({},item&&item.PROPERTY_VALUES||{},{
@@ -83,19 +83,19 @@
   }
 
   var baseOpenUserMaterial=window.openUserMaterial;
-  async function openCentralForUser(doc, kind, item) {
+  async function openCentralForUser(doc, kind, item, previewAnswers) {
     try {
+      state.materialBackView=item?"learn":"kb";
       var payload=await api("/api/v47/knowledge/documents/"+doc.id+"/linked/"+kind+(item?"?course_item_id="+encodeURIComponent(item.ID):""));
       var full=Object.assign({},doc, payload);
       if(kind==="article")full.scene=payload.scene;
-      var projection=kind==="article"?articleProjection(full,item):testProjection(Object.assign({},doc,{lightTest:kind==="light"?payload.test:doc.lightTest,fullTest:kind==="full"?payload.test:doc.fullTest}),kind,item);
+      var projection=kind==="article"?articleProjection(full,item):testProjection(Object.assign({},doc,{lightTest:kind==="light"?payload.test:doc.lightTest,fullTest:kind==="full"?payload.test:doc.fullTest}),kind,item,previewAnswers);
       if(!item)ephemeral(projection);
       else {
         var index=state.items.findIndex(function(row){return String(row.ID)===String(item.ID);});
         if(index>=0)state.items[index]=projection;
       }
       baseOpenUserMaterial.call(window,projection);
-      state.materialBackView=item?"learn":"kb";
       var back=document.getElementById("uBackToCourse");
       if(back)back.textContent=item?"← Назад к курсу":"← Назад в Базу знаний";
       if(item&&linkedMeta(item)){
@@ -104,6 +104,15 @@
       }
     } catch(error) { toast(error.message||String(error)); }
   }
+  var baseBackFromUserMaterial=window.backFromUserMaterial;
+  window.backFromUserMaterial=backFromUserMaterial=function(){
+    if(state.materialBackView==="kb"){
+      state.materialBackView=null;
+      var material=document.getElementById("userMaterialView");if(material)material.classList.add("hidden");
+      showUserView("kb");renderKb();return;
+    }
+    return baseBackFromUserMaterial.apply(this,arguments);
+  };
   window.openUserMaterial=openUserMaterial=async function(item) {
     var meta=linkedMeta(item);
     if(!meta)return baseOpenUserMaterial.apply(this,arguments);
@@ -125,6 +134,11 @@
   window.renderKb=renderKb=function () {
     var box=document.getElementById("kbArticlesList"),crumb=document.getElementById("kbBreadcrumbs");
     if(!box)return;
+    var immediateTree=usableNode(root()),immediateSelected=state.kbSelected&&findNode(state.kbSelected,immediateTree);
+    if(immediateSelected&&immediateSelected.type==="material"){
+      var immediateDoc=byRow(immediateSelected.row);
+      if(immediateDoc)renderUserDetail(immediateDoc,immediateSelected);
+    }else if(crumb)crumb.innerHTML=crumbs(state.kbPath||[],false);
     load().then(function(){
       var tree=usableNode(root()), selected=state.kbSelected&&findNode(state.kbSelected,tree);
       if(selected&&selected.type==="material"){var doc=byRow(selected.row);if(doc)return renderUserDetail(doc,selected);}
@@ -246,7 +260,7 @@
 
   var baseArticleEditor=window.openArticleEditor,baseTestEditor=window.openTestEditor;
   window.openArticleEditor=openArticleEditor=function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseArticleEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);});openCentralForUser(doc,"article",item);toast("Связанная статья редактируется только через Управление Базой знаний");};
-  window.openTestEditor=openTestEditor=function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);});openCentralForUser(doc,meta.knowledgeKind,item);toast("Связанный тест редактируется только через Управление Базой знаний");};
+  window.openTestEditor=openTestEditor=function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);});openCentralForUser(doc,meta.knowledgeKind,item,true);toast("Предпросмотр теста из Базы знаний: правильные ответы уже отмечены. Редактирование доступно только в Управлении Базой знаний.");};
 
   var baseInlineTestEditor=window.renderInlineTestEditor;
   window.renderInlineTestEditor=function(item){

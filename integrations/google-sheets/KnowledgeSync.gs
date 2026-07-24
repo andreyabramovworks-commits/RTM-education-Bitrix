@@ -1,4 +1,4 @@
-/** RTM v50.4.0.2 — двусторонняя синхронизация назначений Базы знаний. */
+/** RTM v50.4.0.3 — двусторонняя синхронизация назначений Базы знаний. */
 const RTM_API = 'https://rtmgroupdocs.fvds.ru/api/v47/knowledge';
 const RTM_CATALOG = 'Каталог документов';
 const RTM_DIRECTORY = 'Н- Справочник';
@@ -18,7 +18,9 @@ function onEdit(e) {
     if (picked && !/[;\n]/.test(picked)) {
       const index = old.map(x => x.toLowerCase()).indexOf(picked.toLowerCase());
       if (index >= 0) old.splice(index, 1); else old.push(picked);
-      range.setValue(old.join('; '));
+      const combined = old.join('; ');
+      rememberCombinedOption_(range.getSheet().getParent(), range.getColumn(), combined);
+      range.setValue(combined);
     }
     range.setNote('Выберите следующий пункт из списка — он добавится. Повторный выбор уберёт пункт. После изменений поставьте галочку в Q2.');
     return;
@@ -151,11 +153,28 @@ function refreshDirectory_(ss, directory, docs) {
 
 function applyAssignmentDropdowns_(ss, sheet, directory, lastRow) {
   const helper = ss.getSheetByName(RTM_DIRECTORY);
-  const studentCount = 1 + (directory.departments || []).length + (directory.users || []).length;
-  const roleCount = 3 + (directory.users || []).filter(u => u.reviewerAllowed || u.editorAllowed).length;
-  const students = SpreadsheetApp.newDataValidation().requireValueInRange(helper.getRange(2, 6, Math.max(1, studentCount), 1), true).setAllowInvalid(true).setHelpText('Выберите пункт. Следующий выбор добавится к уже выбранным.').build();
-  const roles = SpreadsheetApp.newDataValidation().requireValueInRange(helper.getRange(2, 7, Math.max(1, roleCount), 1), true).setAllowInvalid(true).setHelpText('Выберите роль или сотрудника. Следующий выбор добавится к уже выбранным.').build();
+  if (helper.getMaxRows() < 2001) helper.insertRowsAfter(helper.getMaxRows(), 2001 - helper.getMaxRows());
   const rows = Math.max(1, lastRow - 1);
+  const addCurrent = (columns, helperColumn) => {
+    const base = new Set(helper.getRange(2, helperColumn, helper.getLastRow(), 1).getDisplayValues().flat().map(String).map(x => x.trim()).filter(Boolean));
+    columns.forEach(column => sheet.getRange(2, column, rows, 1).getDisplayValues().flat().forEach(value => { value = String(value || '').trim(); if (value) base.add(value); }));
+    helper.getRange(2, helperColumn, 2000, 1).clearContent();
+    const values = Array.from(base); if (values.length) helper.getRange(2, helperColumn, values.length, 1).setValues(values.map(x => [x]));
+  };
+  addCurrent([14, 18, 21], 6); addCurrent([15, 16, 19, 20, 22, 23], 7);
+  const students = SpreadsheetApp.newDataValidation().requireValueInRange(helper.getRange(2, 6, 2000, 1), true).setAllowInvalid(false).setHelpText('Выберите пункт. Следующий выбор добавится к уже выбранным.').build();
+  const roles = SpreadsheetApp.newDataValidation().requireValueInRange(helper.getRange(2, 7, 2000, 1), true).setAllowInvalid(false).setHelpText('Выберите роль или сотрудника. Следующий выбор добавится к уже выбранным.').build();
   [14, 18, 21].forEach(column => sheet.getRange(2, column, rows, 1).setDataValidation(students));
   [15, 16, 19, 20, 22, 23].forEach(column => sheet.getRange(2, column, rows, 1).setDataValidation(roles));
+}
+
+function rememberCombinedOption_(ss, catalogColumn, value) {
+  if (!value) return;
+  const helper = ss.getSheetByName(RTM_DIRECTORY); if (!helper) return;
+  const helperColumn = [14, 18, 21].includes(catalogColumn) ? 6 : 7;
+  if (helper.getMaxRows() < 2001) helper.insertRowsAfter(helper.getMaxRows(), 2001 - helper.getMaxRows());
+  const values = helper.getRange(2, helperColumn, 2000, 1).getDisplayValues().flat().map(String);
+  if (values.some(item => item.trim().toLowerCase() === value.trim().toLowerCase())) return;
+  const index = values.findIndex(item => !item.trim());
+  if (index >= 0) helper.getRange(index + 2, helperColumn).setValue(value);
 }

@@ -53,3 +53,9 @@ html[data-rtm-version="50.4.0"] .v51-test-clock{position:sticky;top:10px;z-index
   .v52-review-detail-head{display:grid}.v52-review-actions{bottom:0;margin:14px -12px -12px;padding:10px 12px}
   .v52-answer-text{max-height:none}.v52-review-history>div{grid-template-columns:1fr}
 }
+@media(max-width:800px){
+  html[data-rtm-version="50.4.0"] .v51-take-test{padding-bottom:calc(96px + env(safe-area-inset-bottom));scroll-padding-bottom:calc(112px + env(safe-area-inset-bottom))}
+  html[data-rtm-version="50.4.0"] .v51-take-canvas,html[data-rtm-version="50.4.0"] .rtm-unified-reader,html[data-rtm-version="50.4.0"] .rtm-unified-reader-scroll{overflow:visible!important;min-height:0!important}
+  html[data-rtm-version="50.4.0"] .v51-test-submit-bar{bottom:calc(72px + env(safe-area-inset-bottom));margin-bottom:calc(12px + env(safe-area-inset-bottom))}
+  html[data-rtm-version="50.4.0"] .rtm-unified-reader-zoom{bottom:calc(70px + env(safe-area-inset-bottom))}
+}

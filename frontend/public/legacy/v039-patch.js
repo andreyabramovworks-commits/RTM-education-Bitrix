@@ -349,6 +349,6 @@ renderAll=function(){v39RenderAllBase();v39RepairMedia();v39EnsureVersionLabels(
 var v39Observer=new MutationObserver(function(){v39RepairMedia();v39EnsureVersionLabels()});
 v39Observer.observe(document.documentElement,{childList:true,subtree:true});
 window.addEventListener('online',function(){document.querySelectorAll('[data-disk-id]').forEach(function(block){v37RefreshDiskBlock(block,true)})});
-var v38RenderMobileMenuBase=v38RenderMobileMenu;v38RenderMobileMenu=function(){v38RenderMobileMenuBase();var database=document.querySelector('[data-v38-admin="database"]');if(database)database.textContent='Управление Базой знаний'};
+var v38RenderMobileMenuBase=v38RenderMobileMenu;v38RenderMobileMenu=function(){v38RenderMobileMenuBase();var database=document.querySelector('[data-v38-admin="database"]');if(database)database.textContent='Управление Базой знаний';var academy=document.querySelector('[data-v38-admin="materials"]');if(academy)academy.textContent='Академия'};
 setTimeout(function(){v39RepairMedia();v39EnsureVersionLabels()},0);
 })();

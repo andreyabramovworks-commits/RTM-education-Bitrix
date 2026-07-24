@@ -99,18 +99,24 @@
     var commonMap = {}; common.forEach(function (element) { commonMap[element.id] = localId('el'); });
     common = common.map(function (source) {
       var element = remapElementReferences(clone(source), commonMap, frameId);
-      if (element.customData && element.customData.rtmTestTitle) { element.text = title; element.originalText = title; element.fontFamily = 106; }
+      if (element.customData && element.customData.rtmTestTitle) {
+        var titleSize=28,titleLimit=Math.max(16,Math.floor(Number(element.width||500)/(titleSize*.52))),titleText=wrapText(title,titleLimit);
+        element.text=titleText;element.originalText=titleText;element.fontFamily=23;element.fontSize=titleSize;element.lineHeight=1.2;
+        element.textAlign='center';element.verticalAlign='middle';element.autoResize=false;element.height=Math.max(34,titleText.split('\n').length*titleSize*1.2);
+      }
       return element;
     });
     frame.id = frameId; frame.name = null; frame.x = 0; frame.y = 0; frame.customData = Object.assign({}, frame.customData || {}, {rtmTestFrame: true, rtmV52DesignerTemplate: true});
     var defaultTypes = ['single', 'freeText', 'imageChoice', 'imageTextChoice', 'mediaFreeText'];
     var exact = (meta.questions || []).length === 5 && meta.questions.every(function (question, index) { return defaultTypes[index] === question.type; });
-    var cursor = 107.46937564480686, blocks = [];
+    var titleBottom=common.reduce(function(value,element){return element.customData&&element.customData.rtmTestTitle?Math.max(value,Number(element.y||0)+Number(element.height||0)):value;},0);
+    var cursor = Math.max(107.46937564480686,titleBottom+28), blocks = [], exactOffset=Math.max(0,cursor-107.46937564480686);
     (meta.questions || []).forEach(function (question, index) {
       var prototype = templateIndex(question.type), prototypeElements = template.elements.filter(function (element) { return elementQuestionIndex(element) === prototype; });
       var originalY = Math.min.apply(null, prototypeElements.map(function (element) { return Number(element.y || 0); }));
-      var block = instantiateBlock(template, question, index, prototype, exact ? originalY : cursor, frameId);
-      blocks = blocks.concat(block.elements); cursor = (exact ? originalY : cursor) + block.height + 46;
+      var targetY=exact?originalY+exactOffset:cursor;
+      var block = instantiateBlock(template, question, index, prototype, targetY, frameId);
+      blocks = blocks.concat(block.elements); cursor = targetY + block.height + 46;
     });
     var lastBottom = blocks.length ? Math.max.apply(null, blocks.map(function (element) { return Number(element.y || 0) + Number(element.height || 0); })) : 150;
     frame.height = exact ? Number(frameSource.height || lastBottom + 50) : Math.max(360, lastBottom + 52);
@@ -124,12 +130,25 @@
       var changed=removedTextOptionImages, questions=new Map((meta.questions||[]).map(function(q,i){return [String(q.id),{q:q,i:i}];}));
       meta.testScene.elements.forEach(function(element){
         var data=element.customData||{}, binding=data.rtmTestText;
-        if(data.rtmTestTitle && Number(element.fontFamily)!==106){element.fontFamily=106;changed=true;}
+        if(data.rtmTestTitle){
+          var titleValue=item.NAME||meta.title||'Тест',titleSize=28,titleLimit=Math.max(16,Math.floor(Number(element.width||500)/(titleSize*.52))),titleWrapped=wrapText(titleValue,titleLimit),titleHeight=Math.max(34,titleWrapped.split('\n').length*titleSize*1.2);
+          if(Number(element.fontFamily)!==23||Number(element.fontSize)!==titleSize||element.text!==titleWrapped||Number(element.height)<titleHeight){element.fontFamily=23;element.fontSize=titleSize;element.text=titleWrapped;element.originalText=titleWrapped;element.height=titleHeight;element.lineHeight=1.2;element.textAlign='center';element.verticalAlign='middle';element.autoResize=false;changed=true;}
+        }
         if(!binding || binding.kind!=='question')return;
         var row=questions.get(String(binding.questionId));if(!row)return;
         var value=(row.i+1)+'. '+(row.q.text||'Вопрос'), limit=Math.max(26,Math.floor(Number(element.width||480)/(Number(element.fontSize||18)*.56))), wrapped=wrapText(value,limit);
         if(element.text!==wrapped){element.text=wrapped;element.originalText=wrapped;element.autoResize=false;element.height=Math.max(Number(element.height||0),wrapped.split('\n').length*Number(element.fontSize||18)*Number(element.lineHeight||1.25));changed=true;}
       });
+      var sceneTitle=meta.testScene.elements.find(function(element){return element.customData&&element.customData.rtmTestTitle&&!element.isDeleted;}),questionElements=meta.testScene.elements.filter(function(element){return !element.isDeleted&&elementQuestionIndex(element)!=null;});
+      if(sceneTitle&&questionElements.length){
+        var safeTop=Number(sceneTitle.y||0)+Number(sceneTitle.height||0)+28,firstTop=Math.min.apply(null,questionElements.map(function(element){return Number(element.y||0);}));
+        if(firstTop<safeTop){
+          var shift=safeTop-firstTop;
+          questionElements.forEach(function(element){element.y=Number(element.y||0)+shift;});
+          var testFrame=meta.testScene.elements.find(function(element){return element.type==='frame'&&!element.isDeleted;});if(testFrame)testFrame.height=Number(testFrame.height||0)+shift;
+          changed=true;
+        }
+      }
       if(changed){item.PROPERTY_VALUES.meta=json(meta);await saveItemMeta(item.ID,meta);return true;}
       return false;
     }

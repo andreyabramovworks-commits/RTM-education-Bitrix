@@ -156,7 +156,7 @@ const createRequiredCompletion = (elements: readonly any[]) => {
   const groupId = elementId(), cardId = elementId(), noteId = elementId(), boxId = elementId(), textId = elementId();
   const created = convertToExcalidrawElements([
     { type: "rectangle", id: cardId, x, y, width: cardWidth, height: cardHeight, strokeColor: "#12b886", backgroundColor: "#e6fcf5", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 4, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId },
-    { type: "text", id: noteId, x: x + 38, y: y + 34, width: 514, height: 58, text: "Не забудь нажать кнопку «Завершить», чтобы\nполучить доступ к следующему материалу!", originalText: "Не забудь нажать кнопку «Завершить», чтобы\nполучить доступ к следующему материалу!", fontSize: 23, fontFamily: 5, textAlign: "left", verticalAlign: "middle", autoResize: false, strokeColor: "#1e1e1e", groupIds: [groupId], frameId },
+    { type: "text", id: noteId, x: x + 38, y: y + 34, width: 514, height: 58, text: "Не забудь нажать кнопку «Завершить», чтобы\nполучить доступ к следующему материалу!", originalText: "Не забудь нажать кнопку «Завершить», чтобы\nполучить доступ к следующему материалу!", fontSize: 23, fontFamily: 22, textAlign: "left", verticalAlign: "middle", autoResize: false, strokeColor: "#1e1e1e", groupIds: [groupId], frameId },
     { type: "rectangle", id: boxId, x: x + 214, y: y + 105, width: 162, height: 58, strokeColor: "#087f5b", backgroundColor: "#12b886", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId, boundElements: [{ id: textId, type: "text" }], link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 51 } },
     { type: "text", id: textId, x: x + 214, y: y + 118, width: 162, height: 32, text: "Завершить", originalText: "Завершить", fontSize: 20, fontFamily: 22, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#ffffff", groupIds: [groupId], frameId, containerId: boxId, customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 52 } },
   ] as any, { regenerateIds: false }) as any[];
@@ -170,6 +170,7 @@ const repairCompletionCard = (elements: readonly any[]) => {
   const members = elements.filter((el: any) => el.id === marker.id || (el.groupIds || []).some((id: string) => groups.has(id)));
   const label = members.find((el: any) => el.type === "text" && (el.customData?.rtmActionLabel || COMPLETE_TEXT.test(String(el.text || el.originalText || ""))));
   const reminder = members.find((el: any) => el.type === "text" && /не забудь/i.test(String(el.text || el.originalText || "")));
+  const card = members.filter((el: any) => el.type === "rectangle").sort((a: any, b: any) => Number(b.width || 0) - Number(a.width || 0))[0];
   return elements.map((el: any) => {
     if (label && el.id === label.id) return {
       ...el, x: Number(marker.x || 0), y: Number(marker.y || 0) + (Number(marker.height || 58) - 32) / 2,
@@ -179,7 +180,7 @@ const repairCompletionCard = (elements: readonly any[]) => {
     };
     if (reminder && el.id === reminder.id) {
       const text = String(el.text || el.originalText || "").replace(/что\s+бы/gi, "чтобы");
-      return { ...el, text, originalText: text, customData: { ...(el.customData || {}), rtmCompletionVersion: 51 } };
+      return { ...el, x: card ? Number(card.x || 0) + 38 : el.x, width: card ? Math.max(120, Number(card.width || 0) - 76) : el.width, text, originalText: text, fontFamily: 22, textAlign: "left", autoResize: false, customData: { ...(el.customData || {}), rtmCompletionVersion: 52 } };
     }
     if (el.id === marker.id) return {
       ...el, boundElements: label ? [{ id: label.id, type: "text" }] : el.boundElements,
@@ -402,7 +403,7 @@ const textSkeleton = (text: string, y: number, size = 24, color = "#1f2937") => 
   y,
   text,
   fontSize: size,
-  fontFamily: 1,
+  fontFamily: 22,
   textAlign: "left" as const,
   verticalAlign: "top" as const,
   strokeColor: color,
@@ -447,6 +448,7 @@ export const htmlToScene = (html: string, title = "Страница"): RTMScene 
     if (node.closest(".rtm-content-block") && !node.classList.contains("rtm-content-block")) continue;
     const text = String(node.textContent || "").replace(/\s+/g, " ").trim();
     if (!text) continue;
+    if (/^новая страница$/i.test(text)) { visited.add(node); continue; }
     const tag = node.tagName.toLowerCase();
     const size = tag === "h1" ? 40 : tag === "h2" ? 32 : tag === "h3" ? 27 : 22;
     skeletons.push(textSkeleton(text, y, size, tag.startsWith("h") ? "#111827" : "#374151"));
@@ -874,10 +876,28 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   const updateSelectedText = (fontFor: (current: number) => number) => {
     const api = apiRef.current;
     if (!api) return;
-    const selected = new Set(selectedTextElements().map((el: any) => el.id));
-    const next = api.getSceneElements().map((el: any) => selected.has(el.id) ? { ...el, fontFamily: fontFor(Number(el.fontFamily || selectedFont)), version: Number(el.version || 1) + 1, versionNonce: Math.floor(Math.random() * 2147483647), updated: Date.now() } : el);
+    const selectedRows = selectedTextElements();
+    const selected = new Set(selectedRows.map((el: any) => String(el.id)));
+    const geometry = new Map<string, { x: number; y: number; width: number; height: number }>(selectedRows.map((el: any) => [String(el.id), { x: Number(el.x || 0), y: Number(el.y || 0), width: Number(el.width || 0), height: Number(el.height || 0) }]));
+    const next = api.getSceneElements().map((el: any) => {
+      const saved = geometry.get(String(el.id));
+      return saved ? { ...el, ...saved, autoResize: false, fontFamily: fontFor(Number(el.fontFamily || selectedFont)), version: Number(el.version || 1) + 1, versionNonce: Math.floor(Math.random() * 2147483647), updated: Date.now() } : el;
+    });
     const nextCurrent = fontFor(Number(api.getAppState().currentItemFontFamily || selectedFont));
     api.updateScene({ elements: next, appState: { currentItemFontFamily: nextCurrent }, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+    requestAnimationFrame(() => {
+      const currentApi = apiRef.current;
+      if (!currentApi) return;
+      let changed = false;
+      const repaired = currentApi.getSceneElements().map((el: any) => {
+        const saved = geometry.get(String(el.id));
+        if (!saved) return el;
+        if (el.x === saved.x && el.y === saved.y && el.width === saved.width && el.height === saved.height && el.autoResize === false) return el;
+        changed = true;
+        return { ...el, ...saved, autoResize: false, version: Number(el.version || 1) + 1, versionNonce: Math.floor(Math.random() * 2147483647), updated: Date.now() };
+      });
+      if (changed) currentApi.updateScene({ elements: repaired, captureUpdate: CaptureUpdateAction.NEVER });
+    });
     setSelectedFont(decodeStyledFont(nextCurrent).base);
   };
 
