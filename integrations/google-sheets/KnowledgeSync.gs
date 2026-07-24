@@ -108,7 +108,9 @@ function writeServerState_(ss, sheet, result) {
   // остаться проверка данных с фиксированным списком, из-за которой новая
   // синхронизация падала при записи актуального названия теста.
   sheet.getRange(2, 13, otherValues.length, 1).clearDataValidations();
+  sheet.getRange(2, 14, otherValues.length, 3).clearDataValidations();
   sheet.getRange(2, 13, otherValues.length, 4).setValues(otherValues);
+  sheet.getRange(2, 18, testRoleValues.length, 6).clearDataValidations();
   sheet.getRange(2, 18, testRoleValues.length, 6).setValues(testRoleValues);
   sheet.getRange(1, 12, 1, 12).setValues([['Статья документа', 'Тесты документа', 'Статья: кому назначена', 'Статья: проверяющие', 'Статья: редакторы', 'СИНХРОНИЗИРОВАТЬ С БД', 'Лайт-тест: кому назначен', 'Лайт-тест: проверяющие', 'Лайт-тест: редакторы', 'Полный тест: кому назначен', 'Полный тест: проверяющие', 'Полный тест: редакторы']]);
   sheet.getRange('Q2').insertCheckboxes().setValue(false).setNote('Поставьте галочку, чтобы применить изменения из таблицы в PostgreSQL и получить актуальные данные с сервера.');
