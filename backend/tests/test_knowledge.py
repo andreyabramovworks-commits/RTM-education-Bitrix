@@ -28,3 +28,6 @@ def test_completion_label_stays_grouped_and_centered_on_button():
     repaired_label = next(item for item in repaired["elements"] if item.get("originalText") == "Завершить")
     assert repaired_label["x"] == 355
     assert repaired_label["width"] == button["width"] - 30
+    assert repaired_label["fontFamily"] == 22
+    assert repaired_label["containerId"] == button["id"]
+    assert button["boundElements"] == [{"id": repaired_label["id"], "type": "text"}]

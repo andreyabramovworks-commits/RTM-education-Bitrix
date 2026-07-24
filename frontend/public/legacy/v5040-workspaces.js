@@ -40,7 +40,7 @@
     if(q.type === "match") q.pairs=by('[data-v540-left^="'+index+'_"]').map(function(left){var n=left.dataset.v540Left.split("_")[1], right=document.querySelector('[data-v540-right="'+index+'_'+n+'"]').value;return {left:left.value,right:right};});
     else { q.answers=by('[data-v540-answer^="'+index+'_"]').map(function(input){return input.value;}); q.correct=by('[data-v540-correct^="'+index+'_"]:checked').map(function(input){return Number(input.dataset.v540Correct.split("_")[1]);}); }
   }
-  async function test(id, kind) {
+  async function legacyTest(id, kind) {
     var doc=await api("/api/v47/knowledge/documents/"+id), key=kind === "light" ? "lightTest" : "fullTest", data=JSON.parse(JSON.stringify(doc[key] || {}));
     data.questions=(data.questions || []).map(question);
     function draw() {
@@ -55,6 +55,11 @@
     function collect(){data.title=document.getElementById("v540TestTitle").value.trim();data.questions.forEach(function(_,i){collectQuestion(data,i);});}
     async function save(){collect();var payload={};payload[key]=data;await api("/api/v47/knowledge/documents/"+id,{method:"PUT",body:JSON.stringify(payload)});toast("Тест сохранён и обновлён во всех курсах");back();}
     draw();
+  }
+  async function test(id, kind) {
+    var doc = await api("/api/v47/knowledge/documents/" + id);
+    if (!window.RTMV51 || !window.RTMV51.openKnowledgeTest) throw new Error("Визуальный редактор тестов ещё не загрузился. Обновите страницу.");
+    return window.RTMV51.openKnowledgeTest(doc, kind);
   }
   async function assignments(id, kind) {
     var doc=await api("/api/v47/knowledge/documents/"+id), directory=await api("/api/v47/knowledge/directory"), prefix=kind === "article" ? "article" : kind === "light" ? "lightTest" : "fullTest", active="students", sets={students:new Set((doc[prefix+"Assignments"]||[]).map(function(r){return r.type+":"+r.id;})),reviewers:new Set((doc[prefix+"Reviewers"]||doc.reviewers||[]).map(function(r){return r.type+":"+r.id;})),editors:new Set((doc[prefix+"Editors"]||doc.editors||[]).map(function(r){return r.type+":"+r.id;}))};

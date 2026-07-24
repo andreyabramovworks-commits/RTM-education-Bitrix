@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '50.3.4';
+  var VERSION = '50.4.0';
   var saveTimer = 0;
   var testScene = null;
   var takeAnswers = {};
@@ -183,6 +183,25 @@
   }
   function currentTest() { return findItem(state.testId); }
   function currentMeta() { var item = currentTest(); return normalizeMeta(j(item && item.PROPERTY_VALUES && item.PROPERTY_VALUES.meta)); }
+  function knowledgeTarget(meta) {
+    return meta && meta.knowledgeCentralDocumentId ? {documentId: meta.knowledgeCentralDocumentId, kind: meta.knowledgeCentralKind === 'full' ? 'full' : 'light'} : null;
+  }
+  async function saveKnowledgeMeta(item, meta, name) {
+    var target = knowledgeTarget(meta), cleanMeta = clone(meta); if (!target) return false;
+    delete cleanMeta.knowledgeCentralDocumentId; delete cleanMeta.knowledgeCentralKind;
+    cleanMeta.title = name || item.NAME; cleanMeta.kind = target.kind; cleanMeta.created = true;
+    var payload = {}; payload[target.kind === 'light' ? 'lightTest' : 'fullTest'] = cleanMeta;
+    await window.RTMV47.request('/api/v47/knowledge/documents/' + target.documentId, {method: 'PUT', body: JSON.stringify(payload)});
+    item.NAME = cleanMeta.title;
+    item.PROPERTY_VALUES.meta = json(Object.assign({}, cleanMeta, {knowledgeCentralDocumentId: target.documentId, knowledgeCentralKind: target.kind}));
+    return true;
+  }
+  var legacySaveItemMeta = window.saveItemMeta;
+  window.saveItemMeta = async function (itemId, meta) {
+    var item = findItem(itemId);
+    if (item && await saveKnowledgeMeta(item, meta, item.NAME)) return;
+    return legacySaveItemMeta(itemId, meta);
+  };
   async function persistEditor(showToast) {
     var item = currentTest(); if (!item) return;
     var meta = currentMeta(), name = String(document.getElementById('v51TestName') && document.getElementById('v51TestName').value || item.NAME).trim() || item.NAME;
@@ -202,7 +221,7 @@
     meta.testScene = syncSceneLabels(testScene || meta.testScene || buildScene(meta, name), meta, name);
     testScene = meta.testScene;
     var props = Object.assign({}, item.PROPERTY_VALUES, {meta: json(meta), updatedAt: now()});
-    updateLocalItem(item.ID, name, props); await upd(E.items, item.ID, name, props); var titleNode = document.getElementById('testEditorTitle'); if (titleNode) titleNode.textContent = name; if (showToast) toast('Тест сохранён');
+    updateLocalItem(item.ID, name, props); if (!await saveKnowledgeMeta(item, meta, name)) await upd(E.items, item.ID, name, props); var titleNode = document.getElementById('testEditorTitle'); if (titleNode) titleNode.textContent = name; if (showToast) toast('Тест сохранён');
   }
   function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(function () { persistEditor(false).catch(function (error) { console.error('v50.1 test autosave failed', error); }); }, 650); }
   function rebuildQuestion(meta, questionId, name) {
@@ -220,7 +239,7 @@
     var host = document.getElementById('v51TestCanvas'); if (!host || !window.RTMCanvas) return setTimeout(function () { mountEditorCanvas(meta, item); }, 120);
     testScene = clone(meta.testScene || buildScene(meta, item.NAME)); meta.testScene = testScene;
     var displayMeta = await hydrateMetaMedia(meta); if (!host.isConnected) return;
-    window.RTMCanvas.mount(host, {pageKey: 'test-author:' + item.ID, scene: testScene, readOnly: false, completionRequired: false, testMode: 'author', testDefinition: displayMeta, title: item.NAME, brandColor: '#ef174c', onRequestDisk: window.RTMV46 && window.RTMV46.pickDiskMedia, onChange: function (scene) { testScene = scene; scheduleSave(); }, onManualSave: function () { return persistEditor(true); }});
+    window.RTMCanvas.mount(host, {pageKey: 'test-author:' + item.ID, scene: testScene, readOnly: false, fitToContent: true, completionRequired: false, testMode: 'author', testDefinition: displayMeta, title: item.NAME, brandColor: '#ef174c', onRequestDisk: window.RTMV46 && window.RTMV46.pickDiskMedia, onChange: function (scene) { testScene = scene; scheduleSave(); }, onManualSave: function () { return persistEditor(true); }});
   }
   function fullTemplate() { return [defaultQuestion('single', 1), defaultQuestion('freeText', 2), defaultQuestion('imageChoice', 3), defaultQuestion('imageTextChoice', 4), defaultQuestion('mediaFreeText', 5)]; }
   function bindEditor(meta, item) {
@@ -271,7 +290,7 @@
       if (!isFree(question) && !(question.options || []).some(function (option) { return option.correct; })) return alert('Выберите правильный ответ в вопросе ' + (index + 1) + '.');
       if (!isFree(question) && (question.options || []).some(function (option) { return !String(option.text || '').trim() && !(option.image && option.image.url); })) return alert('Заполните все варианты вопроса ' + (index + 1) + '.');
     }
-    var props = Object.assign({}, item.PROPERTY_VALUES, {status: 'published', meta: json(meta), updatedAt: now()}); updateLocalItem(item.ID, item.NAME, props); await upd(E.items, item.ID, item.NAME, props); await addEvent('Публикация', item); await loadAll(true); openTestEditor(item.ID); toast('Тест опубликован');
+    var props = Object.assign({}, item.PROPERTY_VALUES, {status: 'published', meta: json(meta), updatedAt: now()}); updateLocalItem(item.ID, item.NAME, props); if (await saveKnowledgeMeta(item, meta, item.NAME)) { window.renderTestEditor(); toast('Тест сохранён'); return; } await upd(E.items, item.ID, item.NAME, props); await addEvent('Публикация', item); await loadAll(true); openTestEditor(item.ID); toast('Тест опубликован');
   };
 
   function userAttempt(testId, statuses) {
@@ -281,7 +300,7 @@
   function remainingAttempts(test, meta) { var returned = userAttempt(test.ID, ['returned']); return returned ? Math.max(1, Number(meta.attemptsLimit || 1) - testAttemptsUsed(test.ID) + 1) : Math.max(0, Number(meta.attemptsLimit || 1) - testAttemptsUsed(test.ID)); }
   window.renderUserTestIntro = function (test) {
     var meta = normalizeMeta(j(test.PROPERTY_VALUES.meta)), left = remainingAttempts(test, meta), pending = userAttempt(test.ID, ['pending_review']), returned = userAttempt(test.ID, ['returned']);
-    return '<div class="test-intro-card v492-test-intro v51-test-intro"><h2>' + esc(test.NAME) + '</h2>' + (pending ? '<div class="v51-status pending">Свободный ответ ожидает проверки. Можно пройти тест ещё раз; проверяющий увидит последнюю отправку.</div>' : '') + (returned ? '<div class="v51-status returned">Ответ возвращён на доработку' + (returned.PROPERTY_VALUES.reviewComment ? ': ' + esc(returned.PROPERTY_VALUES.reviewComment) : '') + '</div>' : '') + '<div class="test-info-grid"><span><small>Доступное время</small><b>' + (meta.timeLimit ? meta.timeLimit + ' мин' : 'Без ограничения') + '</b></span><span><small>Попыток доступно</small><b>' + left + '</b></span><span><small>Порог прохождения</small><b>' + meta.passRequired + ' из ' + meta.questions.filter(function (question) { return !isFree(question); }).length + '</b></span><span><small>Очки</small><b>' + meta.points + '</b></span><span><small>Показывать результат</small><b>' + (meta.showCorrect ? 'Да' : 'Нет') + '</b></span><span><small>Сертификат</small><b>' + (meta.certificate ? 'Да' : 'Нет') + '</b></span></div><button class="primary" data-start-user-test="' + test.ID + '" ' + (left <= 0 ? 'disabled' : '') + '>' + (returned ? 'Исправить ответы' : pending ? 'Пройти ещё раз' : 'Приступить') + '</button></div>';
+    return (window.RTMV492 && window.RTMV492.testSwitch ? window.RTMV492.testSwitch() : '') + '<div class="test-intro-card v492-test-intro v51-test-intro"><h2>' + esc(test.NAME) + '</h2>' + (pending ? '<div class="v51-status pending">Свободный ответ ожидает проверки. Можно пройти тест ещё раз; проверяющий увидит последнюю отправку.</div>' : '') + (returned ? '<div class="v51-status returned">Ответ возвращён на доработку' + (returned.PROPERTY_VALUES.reviewComment ? ': ' + esc(returned.PROPERTY_VALUES.reviewComment) : '') + '</div>' : '') + '<div class="test-info-grid"><span><small>Доступное время</small><b>' + (meta.timeLimit ? meta.timeLimit + ' мин' : 'Без ограничения') + '</b></span><span><small>Попыток доступно</small><b>' + left + '</b></span><span><small>Порог прохождения</small><b>' + meta.passRequired + ' из ' + meta.questions.filter(function (question) { return !isFree(question); }).length + '</b></span><span><small>Очки</small><b>' + meta.points + '</b></span><span><small>Показывать результат</small><b>' + (meta.showCorrect ? 'Да' : 'Нет') + '</b></span><span><small>Сертификат</small><b>' + (meta.certificate ? 'Да' : 'Нет') + '</b></span></div><button class="primary" data-start-user-test="' + test.ID + '" ' + (left <= 0 ? 'disabled' : '') + '>' + (returned ? 'Исправить ответы' : pending ? 'Пройти ещё раз' : 'Приступить') + '</button></div>';
   };
   window.renderTakeTest = function (test) {
     var meta = normalizeMeta(j(test.PROPERTY_VALUES.meta));
@@ -438,7 +457,7 @@
   };
 
   function fitMobileReaderHeight() {
-    var reader = document.querySelector('.v492-reader'); if (!reader || window.innerWidth > 800) return; var rect = reader.getBoundingClientRect(), available = Math.max(420, window.innerHeight - rect.top - 4); reader.style.height = available + 'px'; reader.style.minHeight = available + 'px';
+    var reader = document.querySelector('.v492-reader'); if (!reader || window.innerWidth > 800) return; var rect = reader.getBoundingClientRect(), available = Math.max(420, window.innerHeight - rect.top - 8); reader.style.height = available + 'px'; reader.style.minHeight = '0';
   }
   var baseSwitchAdmin = window.switchAdmin;
   window.switchAdmin = switchAdmin = function (view) { ensureReviewView(); var result = baseSwitchAdmin.apply(this, arguments); if (view === 'reviews') renderReviews(); return result; };
@@ -453,5 +472,19 @@
   new MutationObserver(function () { fitMobileReaderHeight(); }).observe(document.documentElement, {childList: true, subtree: true});
   document.addEventListener('DOMContentLoaded', function () { ensureReviewView(); fitMobileReaderHeight(); });
   ensureReviewView();
-  window.RTMV51 = {version: VERSION, buildScene: buildScene, normalizeMeta: normalizeMeta, renderReviews: renderReviews};
+  async function openKnowledgeTest(doc, kind) {
+    var key = kind === 'full' ? 'fullTest' : 'lightTest', source = clone(doc[key] || {}), syntheticId = 'knowledge_' + doc.id + '_' + kind;
+    source.title = source.title || ((kind === 'full' ? 'Полный — ' : 'Лайт — ') + doc.title); source.questions = source.questions || [];
+    source.knowledgeCentralDocumentId = doc.id; source.knowledgeCentralKind = kind;
+    var item = findItem(syntheticId), props = {type: 'test', status: 'draft', meta: json(source), updatedAt: now()};
+    if (item) { item.NAME = source.title; item.PROPERTY_VALUES = props; } else state.items.push({ID: syntheticId, NAME: source.title, PROPERTY_VALUES: props});
+    state.testId = syntheticId; state.testEditorTab = 'questions'; showOnlyEditor('testEditorView');
+    var heading = document.getElementById('testEditorTitle'); if (heading) heading.textContent = source.title;
+    window.renderTestEditor(); bindTestTabs();
+  }
+  window.renderInlineTestEditor = function (item) {
+    return '<div class="inline-full-editor v51-inline-test-launch"><div class="inline-title">' + esc(item.NAME) + '</div><p>Тест редактируется в едином визуальном редакторе: сцена слева, параметры вопросов справа.</p><button type="button" class="primary" data-v51-open-inline-test="' + item.ID + '">Открыть визуальный редактор</button></div>';
+  };
+  document.addEventListener('click', function (event) { var button = event.target.closest('[data-v51-open-inline-test]'); if (!button) return; event.preventDefault(); window.openTestEditor(button.dataset.v51OpenInlineTest); });
+  window.RTMV51 = {version: VERSION, buildScene: buildScene, normalizeMeta: normalizeMeta, renderReviews: renderReviews, openKnowledgeTest: openKnowledgeTest};
 })();

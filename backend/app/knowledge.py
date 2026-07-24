@@ -95,11 +95,25 @@ def repair_completion_button(row: int, scene: dict[str, Any] | None) -> dict[str
     group_id = str((button.get("customData") or {}).get("rtmCompletionId") or _id(row, "completion"))
     button["groupIds"] = [group_id]
     label["groupIds"] = [group_id]
+    button["boundElements"] = [{"id": text_id, "type": "text"}]
+    label["containerId"] = button_id
+    label["fontFamily"] = 22
     label["x"] = float(button.get("x") or 0) + 15
     label["y"] = float(button.get("y") or 0) + max(4, (float(button.get("height") or 42) - float(label.get("height") or 22)) / 2)
     label["width"] = max(40, float(button.get("width") or 180) - 30)
     label["textAlign"] = "center"
     label["verticalAlign"] = "middle"
+    generated_text_ids = {
+        _id(row, "yellow-text"),
+        _id(row, "blue-text"),
+        _id(row, "link-text"),
+        _id(row, "link-help"),
+        _id(row, "finish-help"),
+        text_id,
+    }
+    for element in elements:
+        if element.get("id") in generated_text_ids and element.get("type") == "text":
+            element["fontFamily"] = 22
     return scene
 
 
@@ -107,7 +121,22 @@ def ensure_catalog(session: Session) -> None:
     existing = session.exec(select(KnowledgeDocument)).all()
     if existing:
         changed = False
+        restore_role_defaults = all(
+            not document.article_assignments and not document.reviewers and not document.editors
+            for document in existing
+        )
         for document in existing:
+            if restore_role_defaults:
+                document.article_assignments = [{"type": "all_active"}]
+                document.reviewers = [{"type": "role", "id": "admin"}, {"type": "user", "id": "36"}]
+                document.editors = [{"type": "role", "id": "admin"}, {"type": "user", "id": "36"}]
+                document.light_test_assignments = list(document.article_assignments)
+                document.full_test_assignments = list(document.article_assignments)
+                document.light_test_reviewers = list(document.reviewers)
+                document.full_test_reviewers = list(document.reviewers)
+                document.light_test_editors = list(document.editors)
+                document.full_test_editors = list(document.editors)
+                changed = True
             scene = document.scene if isinstance(document.scene, dict) else {}
             if scene.get("source") not in {"rtm-v50.3.6", "rtm-v50.3.7", "rtm-v50.3.8"}:
                 continue
@@ -329,6 +358,12 @@ class SheetChange(BaseModel):
     articleAssignments: list | None = None
     reviewers: list | None = None
     editors: list | None = None
+    lightTestAssignments: list | None = None
+    lightTestReviewers: list | None = None
+    lightTestEditors: list | None = None
+    fullTestAssignments: list | None = None
+    fullTestReviewers: list | None = None
+    fullTestEditors: list | None = None
 
 
 class SheetSync(BaseModel):
@@ -382,6 +417,12 @@ def sheet_sync(payload:SheetSync,session:Annotated[Session,Depends(get_session)]
         if source.articleAssignments is not None: row.article_assignments = source.articleAssignments
         if source.reviewers is not None: row.reviewers = source.reviewers
         if source.editors is not None: row.editors = source.editors
+        if source.lightTestAssignments is not None: row.light_test_assignments = source.lightTestAssignments
+        if source.lightTestReviewers is not None: row.light_test_reviewers = source.lightTestReviewers
+        if source.lightTestEditors is not None: row.light_test_editors = source.lightTestEditors
+        if source.fullTestAssignments is not None: row.full_test_assignments = source.fullTestAssignments
+        if source.fullTestReviewers is not None: row.full_test_reviewers = source.fullTestReviewers
+        if source.fullTestEditors is not None: row.full_test_editors = source.fullTestEditors
         # Do not overwrite a manually edited board for role-only changes.
         if content_changed and str((row.scene or {}).get("source", "")).startswith("rtm-v50"):
             row.scene = build_scene(row.source_row, row.title, row.description, row.document_url)

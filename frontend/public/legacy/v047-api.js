@@ -372,6 +372,13 @@
     setTimeout(applyV47Labels, 0);
   });
   else setTimeout(applyV47Labels, 0);
+  ensureReady().then(function () {
+    setTimeout(function () {
+      if (typeof state !== 'undefined' && !state.lastSyncAt && !state.syncing && typeof window.loadAll === 'function') {
+        window.loadAll(false).catch(function (error) { console.warn('Initial automatic synchronization failed', error); });
+      }
+    }, 120);
+  }).catch(function (error) { console.warn('Initial server session failed', error); });
   if (window.__RTM_V48__ && typeof window.__RTM_V48_INIT__ === 'function') {
     setTimeout(function () { window.__RTM_V48_INIT__(); }, 0);
   }

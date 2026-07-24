@@ -239,7 +239,7 @@
 
   var baseArticleEditor=window.openArticleEditor,baseTestEditor=window.openTestEditor;
   window.openArticleEditor=openArticleEditor=function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseArticleEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);});openCentralForUser(doc,"article",item);toast("Связанная статья редактируется только через Управление Базой знаний");};
-  window.openTestEditor=openTestEditor=function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);});openCentralForUser(doc,meta.knowledgeKind,item);toast("Связанный тест редактируется только через Управление Базой знаний");};
+  window.openTestEditor=openTestEditor=function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);});if(doc&&window.RTMV51&&window.RTMV51.openKnowledgeTest&&['developer','admin','moderator','editor'].includes(String(state.currentRole||getAppRole(state.user))))return window.RTMV51.openKnowledgeTest(doc,meta.knowledgeKind);openCentralForUser(doc,meta.knowledgeKind,item);};
 
   async function courseRoleEditor(item) {
     await loadDirectory();
