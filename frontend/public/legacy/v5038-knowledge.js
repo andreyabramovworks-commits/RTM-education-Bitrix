@@ -256,13 +256,16 @@
   };
 
   var baseRenderProjectList=window.renderProjectList;
-  window.renderProjectList=renderProjectList=function(){
+  window.renderProjectList=function(){
     var box=document.getElementById("projectListArticles"),q=norm(document.getElementById("projectListSearch")&&document.getElementById("projectListSearch").value);if(!box)return;
-    if(!state.projectListProjectId)return baseRenderProjectList.apply(this,arguments);
+    if(!state.projectListProjectId){
+      if(typeof baseRenderProjectList==="function")return baseRenderProjectList.apply(this,arguments);
+      return;
+    }
     var project=state.projects.find(function(p){return String(p.ID)===String(state.projectListProjectId);});
     var rows=activeRows(state.items).filter(function(item){return String(item.PROPERTY_VALUES.projectId)===String(state.projectListProjectId)&&String(item.PROPERTY_VALUES.parentId||"root")==="root"&&norm(item.NAME+" "+(item.PROPERTY_VALUES.content||"")).includes(q);});
     box.innerHTML='<div class="kb-project-head"><button id="projectListBack">← Назад</button><b>'+html(project&&project.NAME||"Проект")+'</b></div><div class="kb-doc-grid">'+rows.map(function(item){return '<div class="kb-doc-card" data-project-material="'+item.ID+'"><span class="kb-icon">'+svgIcon(item.PROPERTY_VALUES.type||"article")+'</span><div><h3>'+html(item.NAME)+'</h3><p class="muted">'+html(typeLabel(item.PROPERTY_VALUES.type))+'</p></div></div>';}).join("")+'</div>';
-    document.getElementById("projectListBack").onclick=function(){state.projectListProjectId=null;renderProjectList();};
+    document.getElementById("projectListBack").onclick=function(){state.projectListProjectId=null;window.renderProjectList();};
     box.querySelectorAll("[data-project-material]").forEach(function(b){b.onclick=function(){var item=findItem(b.dataset.projectMaterial);if(item.PROPERTY_VALUES.type==="course")openUserCourse(item);else openUserMaterial(item);};});
   };
 
@@ -271,5 +274,5 @@
   window.renderAll=renderAll=function(){var result=baseRenderAll5038.apply(this,arguments);installDatabaseRoute();if(state.aview==="database"&&["developer","admin","editor"].includes(String(state.currentRole||"")))renderAdminKnowledge().catch(function(error){toast(error.message||String(error));});return result;};
   load().then(function(){renderKb();}).catch(console.error);
   window.addEventListener("load",installDatabaseRoute);
-  window.RTMV5038={version:"50.3.10",renderAdmin:renderAdminKnowledge,getCurrentDocumentId:function(){return adminSelected;},reload:function(){loaded=false;directory=null;return load(true);}};
+  window.RTMV5038={version:"50.4.0",renderAdmin:renderAdminKnowledge,getCurrentDocumentId:function(){return adminSelected;},reload:function(){loaded=false;directory=null;return load(true);}};
 })();

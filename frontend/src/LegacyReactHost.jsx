@@ -36,7 +36,7 @@ const LEGACY_SCRIPTS = [
   ["/legacy/v052.js?v=050.4.0", false],
   ["/legacy/v053.js?v=050.3.4", false],
   ["/legacy/v054.js?v=050.3.4", false],
-  ["/legacy/v5038-knowledge.js?v=050.4.0", false],
+  ["/legacy/v5038-knowledge.js?v=050.4.0.1", false],
   ["/legacy/v5040-workspaces.js?v=050.4.0", false],
   ["/legacy/v5039-pages.js?v=050.4.0", false],
 ];
