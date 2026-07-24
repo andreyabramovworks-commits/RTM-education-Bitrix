@@ -91,6 +91,7 @@ function syncKnowledgeBase() {
 
 function writeServerState_(ss, sheet, result) {
   const docs = result.documents || [], maps = directoryMaps_(result.directory), byRow = {};
+  if (sheet.getMaxColumns() < 23) sheet.insertColumnsAfter(sheet.getMaxColumns(), 23 - sheet.getMaxColumns());
   docs.forEach(doc => { byRow[String(doc.sourceRow)] = doc; });
   const last = Math.max(2, sheet.getLastRow()), articleValues = [], otherValues = [], testRoleValues = [], snapshot = {};
   for (let row = 2; row <= last; row++) {
