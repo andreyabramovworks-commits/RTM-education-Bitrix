@@ -17,6 +17,7 @@ const LEGACY_STYLES = [
   "/legacy/v054.css?v=050.3.4",
   "/legacy/v5038.css?v=050.4.0.5",
   "/legacy/v5039-pages.css?v=050.4.0.2",
+  "/legacy/v5041.css?v=050.4.1",
 ];
 
 const LEGACY_SCRIPTS = [
@@ -38,6 +39,7 @@ const LEGACY_SCRIPTS = [
   ["/legacy/v054.js?v=050.3.4", false],
   ["/legacy/v5038-knowledge.js?v=050.4.0.4", false],
   ["/legacy/v5040-workspaces.js?v=050.4.0.3", false],
+  ["/legacy/v5041.js?v=050.4.1", false],
 ];
 function loadScript(src, module) {
   return new Promise((resolve, reject) => {
@@ -57,7 +59,7 @@ export function LegacyReactHost() {
 
   useEffect(() => {
     let active = true;
-    fetch("/legacy/index.html?v=050.4.0.3", { cache: "no-store" })
+    fetch("/legacy/index.html?v=050.4.1", { cache: "no-store" })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.text();
@@ -77,7 +79,7 @@ export function LegacyReactHost() {
     try { localStorage.setItem("rtm_v492_test_ui", "modern"); } catch (_) {}
     window.__RTM_V48__ = true;
     window.__RTM_V49__ = true;
-    window.__RTM_VERSION__ = "50.4.0";
+    window.__RTM_VERSION__ = "50.4.1";
     window.__RTM_STANDALONE__ =
       new URLSearchParams(window.location.search).get("rtm_fullscreen") === "1";
 
@@ -93,14 +95,14 @@ export function LegacyReactHost() {
       try {
         for (const [src, module] of LEGACY_SCRIPTS) await loadScript(src, module);
         // Keep the established visual selector contract used by v052.css.
-        document.documentElement.dataset.rtmVersion = "50.4.0";
+        document.documentElement.dataset.rtmVersion = "50.4.1";
       } catch (cause) {
         setError(String(cause.message || cause));
       }
     })();
   }, [markup]);
 
-  if (error) return <div className="v48-load-error">Ошибка запуска v50.4.0: {error}</div>;
+  if (error) return <div className="v48-load-error">Ошибка запуска v50.4.1: {error}</div>;
   if (!markup) return <div className="v48-loading">Запускаем RTM обучение…</div>;
   return <div className="v48-react-host" dangerouslySetInnerHTML={{ __html: markup }} />;
 }

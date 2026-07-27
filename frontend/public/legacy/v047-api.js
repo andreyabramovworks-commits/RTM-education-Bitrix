@@ -292,13 +292,8 @@
   window.RTMV47.saveScene = saveServerScene;
   window.RTMV47.readDraft = async function (articleId, page, index) {
     var pageId = String(page && page.id || ('page_' + Number(index || 0)));
-    try {
-      var result = await request('/api/v47/drafts/' + encodeURIComponent(articleId) + '/' + encodeURIComponent(pageId));
-      return result.scene || null;
-    } catch (error) {
-      if (error.status === 404) return serverScene(articleId, pageId);
-      throw error;
-    }
+    var result = await request('/api/v47/drafts/' + encodeURIComponent(articleId) + '/' + encodeURIComponent(pageId));
+    return result.scene || serverScene(articleId, pageId);
   };
   window.RTMV47.saveDraft = async function (articleId, page, index, scene) {
     if (!scene || !Array.isArray(scene.elements)) return null;

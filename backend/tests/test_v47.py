@@ -311,7 +311,9 @@ def test_article_draft_is_private_until_publish() -> None:
     assert client.get(f"/api/v47/drafts/{article_id}/draft-page").json()["scene"] == draft
     assert client.post(f"/api/v47/drafts/{article_id}/draft-page/publish", json={"scene": draft}).status_code == 200
     assert client.get(f"/api/v47/scenes/{article_id}/draft-page").json()["scene"] == draft
-    assert client.get(f"/api/v47/drafts/{article_id}/draft-page").status_code == 404
+    missing = client.get(f"/api/v47/drafts/{article_id}/draft-page")
+    assert missing.status_code == 200
+    assert missing.json() == {"scene": None, "missing": True}
 
 
 def test_tasks_task_add_parameter_encoding():

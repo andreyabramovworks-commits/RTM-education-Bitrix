@@ -75,12 +75,11 @@ def build_scene(row: int, title: str, description: str, url: str) -> dict[str, A
 
 
 def repair_completion_button(row: int, scene: dict[str, Any] | None) -> dict[str, Any]:
-    """Keep the protected completion label attached to its button.
+    """Normalize the generated completion pair without Excalidraw binding.
 
-    Older generated scenes stored the rectangle and text as unrelated
-    Excalidraw elements. Moving the button could therefore leave its label
-    behind. Only the deterministic generated completion pair is repaired;
-    the rest of a manually edited scene is left untouched.
+    Bound text is resized by Excalidraw when font metrics change and was the
+    source of blank or displaced completion labels. The group keeps both
+    elements moving together while their geometry remains deterministic.
     """
     if not isinstance(scene, dict):
         return scene or {}
@@ -95,14 +94,24 @@ def repair_completion_button(row: int, scene: dict[str, Any] | None) -> dict[str
     group_id = str((button.get("customData") or {}).get("rtmCompletionId") or _id(row, "completion"))
     button["groupIds"] = [group_id]
     label["groupIds"] = [group_id]
-    button["boundElements"] = [{"id": text_id, "type": "text"}]
-    label["containerId"] = button_id
+    button["boundElements"] = []
+    label["containerId"] = None
     label["fontFamily"] = 22
     label["x"] = float(button.get("x") or 0) + 15
     label["y"] = float(button.get("y") or 0) + max(4, (float(button.get("height") or 42) - float(label.get("height") or 22)) / 2)
     label["width"] = max(40, float(button.get("width") or 180) - 30)
     label["textAlign"] = "center"
     label["verticalAlign"] = "middle"
+    label["autoResize"] = False
+    button["customData"] = {
+        **(button.get("customData") or {}),
+        "rtmCompletionVersion": 53,
+    }
+    label["customData"] = {
+        **(label.get("customData") or {}),
+        "rtmActionLabel": True,
+        "rtmCompletionVersion": 53,
+    }
     generated_text_ids = {
         _id(row, "yellow-text"),
         _id(row, "blue-text"),
@@ -126,6 +135,12 @@ def ensure_catalog(session: Session) -> None:
             for document in existing
         )
         for document in existing:
+            original_scene = json.dumps(document.scene, ensure_ascii=False, sort_keys=True)
+            repaired_scene = repair_completion_button(document.source_row, document.scene)
+            if json.dumps(repaired_scene, ensure_ascii=False, sort_keys=True) != original_scene:
+                document.scene = repaired_scene
+                session.add(document)
+                changed = True
             if restore_role_defaults:
                 document.article_assignments = [{"type": "all_active"}]
                 document.reviewers = [{"type": "role", "id": "admin"}, {"type": "user", "id": "36"}]

@@ -668,7 +668,7 @@ def get_scene(
         ExcalidrawScene.page_key == page_key,
     )).first()
     if scene is None or not scene.scene:
-        raise HTTPException(status_code=404, detail="Scene not found")
+        return {"scene": None, "missing": True}
     return {"scene": scene.scene, "title": scene.title, "revision": scene.revision, "updated_at": scene.updated_at}
 
 
@@ -715,7 +715,7 @@ def get_scene_draft(
         ArticleDraft.page_key == page_key,
     )).first()
     if draft is None or not draft.scene:
-        raise HTTPException(status_code=404, detail="Draft not found")
+        return {"scene": None, "missing": True}
     return {"scene": draft.scene, "title": draft.title, "revision": draft.revision, "updated_at": draft.updated_at}
 
 

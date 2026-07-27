@@ -157,8 +157,8 @@ const createRequiredCompletion = (elements: readonly any[]) => {
   const created = convertToExcalidrawElements([
     { type: "rectangle", id: cardId, x, y, width: cardWidth, height: cardHeight, strokeColor: "#12b886", backgroundColor: "#e6fcf5", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 4, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId },
     { type: "text", id: noteId, x: x + 38, y: y + 34, width: 514, height: 58, text: "Не забудь нажать кнопку «Завершить», чтобы\nполучить доступ к следующему материалу!", originalText: "Не забудь нажать кнопку «Завершить», чтобы\nполучить доступ к следующему материалу!", fontSize: 23, fontFamily: 22, textAlign: "left", verticalAlign: "middle", autoResize: false, strokeColor: "#1e1e1e", groupIds: [groupId], frameId },
-    { type: "rectangle", id: boxId, x: x + 214, y: y + 105, width: 162, height: 58, strokeColor: "#087f5b", backgroundColor: "#12b886", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId, boundElements: [{ id: textId, type: "text" }], link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 51 } },
-    { type: "text", id: textId, x: x + 214, y: y + 118, width: 162, height: 32, text: "Завершить", originalText: "Завершить", fontSize: 20, fontFamily: 22, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#ffffff", groupIds: [groupId], frameId, containerId: boxId, customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 52 } },
+    { type: "rectangle", id: boxId, x: x + 214, y: y + 105, width: 162, height: 58, strokeColor: "#087f5b", backgroundColor: "#12b886", fillStyle: "solid", strokeStyle: "solid", strokeWidth: 2, roughness: 1, roundness: { type: 3 }, groupIds: [groupId], frameId, boundElements: [], link: COMPLETE_LINK, customData: { rtmAction: "complete-material", rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 53 } },
+    { type: "text", id: textId, x: x + 214, y: y + 118, width: 162, height: 32, text: "Завершить", originalText: "Завершить", fontSize: 20, fontFamily: 22, textAlign: "center", verticalAlign: "middle", autoResize: false, strokeColor: "#ffffff", groupIds: [groupId], frameId, containerId: null, customData: { rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 53 } },
   ] as any, { regenerateIds: false }) as any[];
   return created.map((el: any) => ({ ...el, groupIds: [groupId], frameId, customData: { ...(el.customData || {}), rtmProtectedCompletion: true, rtmCompletionCard: true } }));
 };
@@ -175,16 +175,16 @@ const repairCompletionCard = (elements: readonly any[]) => {
     if (label && el.id === label.id) return {
       ...el, x: Number(marker.x || 0), y: Number(marker.y || 0) + (Number(marker.height || 58) - 32) / 2,
       width: Number(marker.width || 162), height: 32, text: "Завершить", originalText: "Завершить", fontSize: 20, fontFamily: 22,
-      textAlign: "center", verticalAlign: "middle", autoResize: false, containerId: marker.id,
-      customData: { ...(el.customData || {}), rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 52 },
+      textAlign: "center", verticalAlign: "middle", autoResize: false, containerId: null,
+      customData: { ...(el.customData || {}), rtmActionLabel: true, rtmProtectedCompletion: true, rtmCompletionCard: true, rtmCompletionVersion: 53 },
     };
     if (reminder && el.id === reminder.id) {
       const text = String(el.text || el.originalText || "").replace(/что\s+бы/gi, "чтобы");
       return { ...el, x: card ? Number(card.x || 0) + 38 : el.x, width: card ? Math.max(120, Number(card.width || 0) - 76) : el.width, text, originalText: text, fontFamily: 22, textAlign: "left", autoResize: false, customData: { ...(el.customData || {}), rtmCompletionVersion: 52 } };
     }
     if (el.id === marker.id) return {
-      ...el, boundElements: label ? [{ id: label.id, type: "text" }] : el.boundElements,
-      customData: { ...(el.customData || {}), rtmCompletionVersion: 51 },
+      ...el, boundElements: [],
+      customData: { ...(el.customData || {}), rtmCompletionVersion: 53 },
     };
     return el;
   });
@@ -1341,6 +1341,16 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
                 if (nested !== nextElements) { lastSceneElementsRef.current = nested; apiRef.current?.updateScene({ elements: nested, captureUpdate: CaptureUpdateAction.NEVER }); return; }
               }
               if (!interacting) {
+                // Excalidraw can retain a stale edit box after changing to a
+                // custom/bold/italic font. Normalize only clearly impossible
+                // text heights once editing has finished; manual wrapping and
+                // normal user resizing remain untouched.
+                const geometryElements = normalizeTextGeometryList(nextElements);
+                if (geometryElements !== nextElements) {
+                  lastSceneElementsRef.current = geometryElements;
+                  apiRef.current?.updateScene({ elements: geometryElements, captureUpdate: CaptureUpdateAction.NEVER });
+                  return;
+                }
                 const framedElements = reconcileFrameMembership(nextElements);
                 if (framedElements !== nextElements) { apiRef.current?.updateScene({ elements: framedElements, captureUpdate: CaptureUpdateAction.NEVER }); return; }
                 if (suppressHistoryRef.current) suppressHistoryRef.current = false;

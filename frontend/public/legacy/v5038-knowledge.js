@@ -85,6 +85,11 @@
   var baseOpenUserMaterial=window.openUserMaterial;
   async function openCentralForUser(doc, kind, item, previewAnswers) {
     try {
+      if(!doc&&item){
+        var itemMeta=linkedMeta(item);
+        if(itemMeta)doc=await api("/api/v47/knowledge/documents/"+itemMeta.knowledgeDocumentId);
+      }
+      if(!doc)throw new Error("Материал Базы знаний не найден. Обновите список и повторите.");
       state.materialBackView=item?"learn":"kb";
       var payload=await api("/api/v47/knowledge/documents/"+doc.id+"/linked/"+kind+(item?"?course_item_id="+encodeURIComponent(item.ID):""));
       var full=Object.assign({},doc, payload);
@@ -97,7 +102,10 @@
       }
       baseOpenUserMaterial.call(window,projection);
       var back=document.getElementById("uBackToCourse");
-      if(back)back.textContent=item?"← Назад к курсу":"← Назад в Базу знаний";
+      if(back){
+        back.textContent=item?"← Назад к курсу":"← Назад в Базу знаний";
+        back.dataset.v5041Back=item?"course":"knowledge";
+      }
       if(item&&linkedMeta(item)){
         var body=document.getElementById("uMaterialBody");
         if(body&&!body.querySelector(".v538-readonly-note"))body.insertAdjacentHTML("afterbegin",'<div class="v538-readonly-note">Материал связан с Базой знаний и доступен в курсе только для просмотра. Изменения вносит администратор через Управление Базой знаний.</div>');
@@ -261,8 +269,8 @@
   }
 
   var baseArticleEditor=window.openArticleEditor,baseTestEditor=window.openTestEditor;
-  window.openArticleEditor=openArticleEditor=function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseArticleEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);});openCentralForUser(doc,"article",item);toast("Связанная статья редактируется только через Управление Базой знаний");};
-  window.openTestEditor=openTestEditor=function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);});openCentralForUser(doc,meta.knowledgeKind,item,true);toast("Предпросмотр теста из Базы знаний: правильные ответы уже отмечены. Редактирование доступно только в Управлении Базой знаний.");};
+  window.openArticleEditor=openArticleEditor=async function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseArticleEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);})||await api("/api/v47/knowledge/documents/"+meta.knowledgeDocumentId);await openCentralForUser(doc,"article",item);toast("Связанная статья редактируется только через Управление Базой знаний");};
+  window.openTestEditor=openTestEditor=async function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);})||await api("/api/v47/knowledge/documents/"+meta.knowledgeDocumentId);await openCentralForUser(doc,meta.knowledgeKind,item,true);toast("Предпросмотр теста из Базы знаний: правильные ответы уже отмечены. Редактирование доступно только в Управлении Базой знаний.");};
 
   var baseInlineTestEditor=window.renderInlineTestEditor;
   window.renderInlineTestEditor=function(item){
