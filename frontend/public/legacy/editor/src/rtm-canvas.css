@@ -158,6 +158,8 @@
 .rtm-unified-test-media img,.rtm-unified-test-media video,.rtm-unified-test-media audio{display:block;width:100%;height:100%;border:0;object-fit:contain;background:#fff}
 .rtm-unified-complete-hit,.rtm-unified-link-hit,.rtm-unified-test-choice,.rtm-unified-test-free{position:absolute;box-sizing:border-box;transform-origin:center}
 .rtm-unified-complete-hit,.rtm-unified-link-hit{border:0;background:transparent;cursor:pointer}
+.rtm-unified-complete-hit{display:flex;align-items:center;justify-content:center;padding:0;color:#fff!important;font:500 20px/1.2 Montserrat,Arial,sans-serif!important;text-align:center;text-shadow:0 1px 1px rgba(0,0,0,.12)}
+.rtm-complete-hit{display:flex;align-items:center;justify-content:center;padding:0;color:#fff!important;font:500 20px/1.2 Montserrat,Arial,sans-serif!important;text-align:center;text-shadow:0 1px 1px rgba(0,0,0,.12)}
 .rtm-unified-complete-hit:focus-visible,.rtm-unified-link-hit:focus-visible{outline:4px solid rgba(245,159,0,.65);outline-offset:2px}
 .rtm-unified-test-choice{padding:0;border:3px solid transparent;border-radius:12px;background:transparent;color:transparent;cursor:pointer}
 .rtm-unified-test-choice:hover{border-color:rgba(245,159,0,.55)}

@@ -490,13 +490,15 @@
   document.addEventListener('DOMContentLoaded', function () { ensureReviewView(); fitMobileReaderHeight(); });
   ensureReviewView();
   async function openKnowledgeTest(doc, kind) {
+    state.v540Workspace = 'test';
     var key = kind === 'full' ? 'fullTest' : 'lightTest', source = clone(doc[key] || {}), syntheticId = 'knowledge_' + doc.id + '_' + kind;
     source.title = source.title || ((kind === 'full' ? 'Полный — ' : 'Лайт — ') + doc.title); source.questions = source.questions || [];
     source.knowledgeCentralDocumentId = doc.id; source.knowledgeCentralKind = kind;
     var item = findItem(syntheticId), props = {type: 'test', status: 'draft', meta: json(source), updatedAt: now()};
     if (item) { item.NAME = source.title; item.PROPERTY_VALUES = props; } else state.items.push({ID: syntheticId, NAME: source.title, PROPERTY_VALUES: props});
     state.testId = syntheticId; state.testEditorTab = 'questions'; state.knowledgeEditorReturn = true;
-    switchAdmin('database'); showOnlyEditor('testEditorView');
+    switchAdmin('materials'); showOnlyEditor('testEditorView');
+    document.querySelectorAll('.rail-btn').forEach(function (button) { button.classList.toggle('active', button.dataset.adminView === 'database'); });
     var heading = document.getElementById('testEditorTitle'); if (heading) heading.textContent = source.title;
     if (window.RTMV492 && window.RTMV492.applyTestUiChoice) window.RTMV492.applyTestUiChoice('modern');
     else window.renderTestEditor();
@@ -504,6 +506,7 @@
     var back = document.getElementById('backFromTestEditor');
     if (back) back.onclick = function () {
       state.knowledgeEditorReturn = false;
+      state.v540Workspace = '';
       switchAdmin('database');
       if (window.RTMV5038) window.RTMV5038.reload().then(function () { window.RTMV5038.renderAdmin(); });
     };

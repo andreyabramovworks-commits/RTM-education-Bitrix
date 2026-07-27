@@ -106,7 +106,8 @@
         back.textContent=item?"← Назад к курсу":"← Назад в Базу знаний";
         back.dataset.v5041Back=item?"course":"knowledge";
       }
-      if(item&&linkedMeta(item)){
+      var viewerRole=typeof actualRole==="function"?String(actualRole()):String(state.currentRole||"");
+      if(item&&linkedMeta(item)&&!["user","student"].includes(viewerRole)){
         var body=document.getElementById("uMaterialBody");
         if(body&&!body.querySelector(".v538-readonly-note"))body.insertAdjacentHTML("afterbegin",'<div class="v538-readonly-note">Материал связан с Базой знаний и доступен в курсе только для просмотра. Изменения вносит администратор через Управление Базой знаний.</div>');
       }
@@ -173,6 +174,7 @@
   }
   async function renderAdminKnowledge() {
     await load(true); await loadDirectory();
+    if(state.v540Workspace)return;
     var view=document.getElementById("adminDatabase"); if(!view)return;
     var tree=usableNode(root()),node=currentNode(adminPath);
     view.innerHTML='<div class="admin-page-head"><div><h1>Управление Базой знаний</h1><p class="muted">Источник истины: PostgreSQL · '+docs.length+' статей</p></div>'+
@@ -270,7 +272,16 @@
 
   var baseArticleEditor=window.openArticleEditor,baseTestEditor=window.openTestEditor;
   window.openArticleEditor=openArticleEditor=async function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseArticleEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);})||await api("/api/v47/knowledge/documents/"+meta.knowledgeDocumentId);await openCentralForUser(doc,"article",item);toast("Связанная статья редактируется только через Управление Базой знаний");};
-  window.openTestEditor=openTestEditor=async function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);})||await api("/api/v47/knowledge/documents/"+meta.knowledgeDocumentId);await openCentralForUser(doc,meta.knowledgeKind,item,true);toast("Предпросмотр теста из Базы знаний: правильные ответы уже отмечены. Редактирование доступно только в Управлении Базой знаний.");};
+  async function previewLinkedTest(doc,kind,item){
+    var payload=await api("/api/v47/knowledge/documents/"+doc.id+"/linked/"+kind+"?course_item_id="+encodeURIComponent(item.ID));
+    var merged=Object.assign({},doc);
+    if(kind==="light")merged.lightTest=payload.test;else merged.fullTest=payload.test;
+    var projection=testProjection(merged,kind,item,true),index=state.items.findIndex(function(row){return String(row.ID)===String(item.ID);});
+    if(index>=0)state.items[index]=projection;else ephemeral(projection);
+    modal('<div class="v542-test-preview"><header><div><h2>'+html(projection.NAME)+'</h2><p>Предпросмотр как у ученика · правильные ответы отмечены</p></div><button type="button" data-v542-close-preview>Закрыть</button></header>'+renderTakeTest(projection)+'</div>');
+    var close=document.querySelector("[data-v542-close-preview]");if(close)close.onclick=closeModal;
+  }
+  window.openTestEditor=openTestEditor=async function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);})||await api("/api/v47/knowledge/documents/"+meta.knowledgeDocumentId);return previewLinkedTest(doc,meta.knowledgeKind,item);};
 
   var baseInlineTestEditor=window.renderInlineTestEditor;
   window.renderInlineTestEditor=function(item){
@@ -309,7 +320,7 @@
 
   installDatabaseRoute();
   var baseRenderAll5038=window.renderAll;
-  window.renderAll=renderAll=function(){var result=baseRenderAll5038.apply(this,arguments);installDatabaseRoute();if(state.aview==="database"&&["developer","admin","editor"].includes(String(state.currentRole||"")))renderAdminKnowledge().catch(function(error){toast(error.message||String(error));});return result;};
+  window.renderAll=renderAll=function(){var result=baseRenderAll5038.apply(this,arguments);installDatabaseRoute();if(!state.v540Workspace&&state.aview==="database"&&["developer","admin","editor"].includes(String(state.currentRole||"")))renderAdminKnowledge().catch(function(error){toast(error.message||String(error));});return result;};
   load().then(function(){renderKb();}).catch(console.error);
   window.addEventListener("load",installDatabaseRoute);
   window.RTMV5038={version:"50.4.0",renderAdmin:renderAdminKnowledge,getCurrentDocumentId:function(){return adminSelected;},reload:function(){loaded=false;directory=null;return load(true);}};

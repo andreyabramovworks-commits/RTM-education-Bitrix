@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 
 const LEGACY_STYLES = [
   "/legacy/style.css?v=046.3",
-  "/legacy/excalidraw-dist/rtm-canvas.css?v=050.4.1.1",
+  "/legacy/excalidraw-dist/rtm-canvas.css?v=050.4.2",
   "/legacy/v040-layout.css?v=046.3",
   "/legacy/v040-inline.css?v=046.3",
   "/legacy/v046-layout.css?v=050.3.2",
@@ -18,6 +18,7 @@ const LEGACY_STYLES = [
   "/legacy/v5038.css?v=050.4.0.5",
   "/legacy/v5039-pages.css?v=050.4.0.2",
   "/legacy/v5041.css?v=050.4.1",
+  "/legacy/v5042.css?v=050.4.2",
 ];
 
 const LEGACY_SCRIPTS = [
@@ -27,19 +28,20 @@ const LEGACY_SCRIPTS = [
   ["/legacy/v037-overrides.js?v=046.3", false],
   ["/legacy/v039-patch.js?v=050.4.0.3", false],
   ["/legacy/v040-assets.js?v=046.3", false],
-  ["/legacy/excalidraw-dist/rtm-canvas.js?v=050.4.1.1", true],
+  ["/legacy/excalidraw-dist/rtm-canvas.js?v=050.4.2", true],
   ["/legacy/v046-canvas.js?v=050.4.0", false],
   ["/legacy/v047-api.js?v=050.4.0", false],
   ["/legacy/v049.js?v=050.3.2", false],
   ["/legacy/v0492.js?v=050.4.0.3", false],
   ["/legacy/v050.js?v=050.3.2", false],
-  ["/legacy/v051.js?v=050.4.0.5", false],
+  ["/legacy/v051.js?v=050.4.2", false],
   ["/legacy/v052.js?v=050.4.0.3", false],
   ["/legacy/v053.js?v=050.3.4", false],
   ["/legacy/v054.js?v=050.3.4", false],
-  ["/legacy/v5038-knowledge.js?v=050.4.0.4", false],
-  ["/legacy/v5040-workspaces.js?v=050.4.0.3", false],
+  ["/legacy/v5038-knowledge.js?v=050.4.2", false],
+  ["/legacy/v5040-workspaces.js?v=050.4.2", false],
   ["/legacy/v5041.js?v=050.4.1", false],
+  ["/legacy/v5042.js?v=050.4.2", false],
 ];
 function loadScript(src, module) {
   return new Promise((resolve, reject) => {
@@ -59,7 +61,7 @@ export function LegacyReactHost() {
 
   useEffect(() => {
     let active = true;
-    fetch("/legacy/index.html?v=050.4.1", { cache: "no-store" })
+    fetch("/legacy/index.html?v=050.4.2", { cache: "no-store" })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.text();
@@ -79,7 +81,7 @@ export function LegacyReactHost() {
     try { localStorage.setItem("rtm_v492_test_ui", "modern"); } catch (_) {}
     window.__RTM_V48__ = true;
     window.__RTM_V49__ = true;
-    window.__RTM_VERSION__ = "50.4.1";
+    window.__RTM_VERSION__ = "50.4.2";
     window.__RTM_STANDALONE__ =
       new URLSearchParams(window.location.search).get("rtm_fullscreen") === "1";
 
@@ -95,14 +97,14 @@ export function LegacyReactHost() {
       try {
         for (const [src, module] of LEGACY_SCRIPTS) await loadScript(src, module);
         // Keep the established visual selector contract used by v052.css.
-        document.documentElement.dataset.rtmVersion = "50.4.1";
+        document.documentElement.dataset.rtmVersion = "50.4.2";
       } catch (cause) {
         setError(String(cause.message || cause));
       }
     })();
   }, [markup]);
 
-  if (error) return <div className="v48-load-error">Ошибка запуска v50.4.1: {error}</div>;
+  if (error) return <div className="v48-load-error">Ошибка запуска v50.4.2: {error}</div>;
   if (!markup) return <div className="v48-loading">Запускаем RTM обучение…</div>;
   return <div className="v48-react-host" dangerouslySetInnerHTML={{ __html: markup }} />;
 }

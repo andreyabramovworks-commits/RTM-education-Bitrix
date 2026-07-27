@@ -6,6 +6,7 @@
   var title = { article: "Статья", light: "Тест лайт", full: "Тест полный" };
 
   function back() {
+    state.v540Workspace = "";
     var canvas = document.getElementById("v540Canvas");
     if (canvas && window.RTMCanvas) window.RTMCanvas.unmount(canvas);
     return window.RTMV5038.reload().then(function () { return window.RTMV5038.renderAdmin(); });
@@ -29,6 +30,7 @@
   }
 
   async function article(id) {
+    state.v540Workspace = "article";
     var doc = await api("/api/v47/knowledge/documents/"+id), scene = doc.scene;
     shell("Редактирование статьи", doc.title,
       '<div class="v539-form"><label>Название<input id="v540Title" value="'+esc(doc.title)+'"></label><label>Описание<textarea id="v540Description">'+esc(doc.description || "")+'</textarea></label><label>Ссылка на документ<input id="v540Url" value="'+esc(doc.documentUrl || "")+'"></label></div><div id="v540Canvas"></div>',
@@ -64,6 +66,7 @@
     draw();
   }
   async function test(id, kind) {
+    state.v540Workspace = "test";
     var doc = await api("/api/v47/knowledge/documents/" + id);
     if (!window.RTMV51 || !window.RTMV51.openKnowledgeTest) throw new Error("Визуальный редактор тестов ещё не загрузился. Обновите страницу.");
     return window.RTMV51.openKnowledgeTest(doc, kind);
@@ -83,8 +86,14 @@
     event.preventDefault();event.stopImmediatePropagation();
     var kind=button.dataset.v538EditTest || button.dataset.v538Assign || button.dataset.v538CreateTest;
     if(button.dataset.v538CreateTest){api("/api/v47/knowledge/documents/"+id+"/tests/"+kind,{method:"POST",body:"{}"}).then(function(){return test(id,kind);}).catch(function(error){toast(error.message||String(error));});}
-    else if(button.dataset.v538EditArticle !== undefined)article(id).catch(function(error){toast(error.message||String(error));});
-    else if(button.dataset.v538EditTest)test(id,kind).catch(function(error){toast(error.message||String(error));});
+    else if(button.dataset.v538EditArticle !== undefined)article(id).catch(function(error){
+      state.v540Workspace="";
+      toast(error.message||String(error));
+    });
+    else if(button.dataset.v538EditTest)test(id,kind).catch(function(error){
+      state.v540Workspace="";
+      toast(error.message||String(error));
+    });
     else assignments(id,kind).catch(function(error){toast(error.message||String(error));});
   }, true);
 
