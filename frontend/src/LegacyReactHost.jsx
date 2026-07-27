@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 
 const RELEASE_VERSION = "50.4.3";
-const releaseAsset = (path) => `${path}?v=${RELEASE_VERSION}`;
+const RELEASE_ASSET_REVISION = "50.4.3-r3";
+const releaseAsset = (path) => `${path}?v=${RELEASE_ASSET_REVISION}`;
 const LEGACY_STYLES = [
   "/legacy/style.css",
   "/legacy/excalidraw-dist/rtm-canvas.css",

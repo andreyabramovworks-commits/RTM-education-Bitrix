@@ -498,6 +498,9 @@
     if (item) { item.NAME = source.title; item.PROPERTY_VALUES = props; } else state.items.push({ID: syntheticId, NAME: source.title, PROPERTY_VALUES: props});
     state.testId = syntheticId; state.testEditorTab = 'questions'; state.knowledgeEditorReturn = true;
     switchAdmin('materials'); showOnlyEditor('testEditorView');
+    var adminShell = document.querySelector('.admin-shell'), projectsPanel = document.getElementById('projectsPanel');
+    if (adminShell) { adminShell.classList.remove('with-projects'); adminShell.classList.add('no-projects'); }
+    if (projectsPanel) projectsPanel.style.display = 'none';
     document.querySelectorAll('.rail-btn').forEach(function (button) { button.classList.toggle('active', button.dataset.adminView === 'database'); });
     var heading = document.getElementById('testEditorTitle'); if (heading) heading.textContent = source.title;
     if (window.RTMV492 && window.RTMV492.applyTestUiChoice) window.RTMV492.applyTestUiChoice('modern');
@@ -507,9 +510,11 @@
     if (back) back.onclick = function () {
       state.knowledgeEditorReturn = false;
       state.v540Workspace = '';
+      if (projectsPanel) projectsPanel.style.display = '';
       switchAdmin('database');
       if (window.RTMV5038) window.RTMV5038.reload().then(function () { window.RTMV5038.renderAdmin(); });
     };
+    if (back) back.textContent = '← Назад к Базе знаний';
   }
   window.renderInlineTestEditor = function (item) {
     return '<div class="inline-full-editor v51-inline-test-launch"><div class="inline-title">' + esc(item.NAME) + '</div><p>Тест редактируется в едином визуальном редакторе: сцена слева, параметры вопросов справа.</p><button type="button" class="primary" data-v51-open-inline-test="' + item.ID + '">Открыть визуальный редактор</button></div>';
