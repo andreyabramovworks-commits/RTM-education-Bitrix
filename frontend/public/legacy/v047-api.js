@@ -275,6 +275,28 @@
     }
   }
 
+  function visibleSceneElements(scene) {
+    return scene && Array.isArray(scene.elements)
+      ? scene.elements.filter(function (element) { return element && !element.isDeleted; })
+      : [];
+  }
+
+  function isCompletionOnlyScene(scene) {
+    var elements = visibleSceneElements(scene);
+    if (!elements.length) return true;
+    var meaningful = elements.filter(function (element) {
+      if (element.customData && element.customData.rtmAction === 'complete-material') return false;
+      if (String(element.link || '').endsWith('#rtm-complete-material')) return false;
+      if (element.type === 'text') {
+        var text = String(element.text || element.originalText || '').replace(/\s+/g, ' ').trim();
+        if (/^(завершить|не забудь нажать кнопку «?завершить»?.*)$/i.test(text)) return false;
+        return text.length > 0;
+      }
+      return element.type === 'image' || element.type === 'embeddable';
+    });
+    return meaningful.length === 0;
+  }
+
   async function saveServerScene(articleId, page, index, scene) {
     if (!scene || !Array.isArray(scene.elements)) return null;
     var pageId = String(page && page.id || ('page_' + Number(index || 0)));
@@ -292,8 +314,23 @@
   window.RTMV47.saveScene = saveServerScene;
   window.RTMV47.readDraft = async function (articleId, page, index) {
     var pageId = String(page && page.id || ('page_' + Number(index || 0)));
-    var result = await request('/api/v47/drafts/' + encodeURIComponent(articleId) + '/' + encodeURIComponent(pageId));
-    return result.scene || await serverScene(articleId, pageId);
+    var pair = await Promise.all([
+      request('/api/v47/drafts/' + encodeURIComponent(articleId) + '/' + encodeURIComponent(pageId)),
+      serverScene(articleId, pageId)
+    ]);
+    var draftScene = pair[0] && pair[0].scene;
+    var publishedScene = pair[1];
+    // Older inline course editors could create a draft containing only the
+    // mandatory completion card before the published scene finished loading.
+    // Never let that technical placeholder hide real published content.
+    if (draftScene && publishedScene && isCompletionOnlyScene(draftScene) && !isCompletionOnlyScene(publishedScene)) {
+      console.warn('RTM recovered a completion-only article draft from the published scene', {
+        articleId: String(articleId),
+        pageId: pageId
+      });
+      return publishedScene;
+    }
+    return draftScene || publishedScene;
   };
   window.RTMV47.saveDraft = async function (articleId, page, index, scene) {
     if (!scene || !Array.isArray(scene.elements)) return null;
