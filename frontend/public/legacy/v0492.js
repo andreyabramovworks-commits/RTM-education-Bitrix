@@ -6,11 +6,37 @@
   var classicTestEditor = window.renderTestEditor;
   var classicTestIntro = window.renderUserTestIntro;
   var classicTakeTest = window.renderTakeTest;
-  var workspaceTimer = 0, workspaceScene = null, workspaceRevision = 0, workspaceMounted = false, workspaceRestoring = false, workspaceGeneration = 0, workspaceMountTimer = 0, developerPreviewRole = null, testUiChoice = 'modern';
+  var workspaceTimer = 0, workspaceScene = null, workspaceRevision = 0, workspaceMounted = false, workspaceRestoring = false, workspaceGeneration = 0, workspaceMountTimer = 0, workspaceSavePromise = null, workspaceSaveQueued = false, developerPreviewRole = null, testUiChoice = 'modern';
   function visibleWorkspace(scene) {
     var next = JSON.parse(JSON.stringify(scene || {})), app = next.appState || {}, zoom = Number(app.zoom && app.zoom.value || app.zoom || 0.1);
     next.appState = Object.assign({}, app, {isLoading: false, zoom: {value: Math.max(0.1, Math.min(4, isFinite(zoom) ? zoom : 0.1))}});
     return next;
+  }
+  async function persistWorkspace(generation, status, manual) {
+    if (workspaceRestoring || generation !== workspaceGeneration) return null;
+    if (workspaceSavePromise) {
+      workspaceSaveQueued = true;
+      await workspaceSavePromise.catch(function () {});
+      if (!workspaceSaveQueued) return null;
+    }
+    workspaceSaveQueued = false;
+    var snapshot = workspaceScene;
+    workspaceSavePromise = window.RTMV47.request('/api/v47/developer-workspace', {
+      method: 'PUT', body: JSON.stringify({scene: snapshot})
+    });
+    try {
+      var saved = await workspaceSavePromise;
+      if (generation !== workspaceGeneration) return saved;
+      workspaceRevision = Number(saved.revision || workspaceRevision + 1);
+      if (status) status.textContent = 'Сохранено на сервере · ревизия ' + workspaceRevision + (manual ? '' : ' · резервная копия выгружается в Google Drive автоматически');
+      return saved;
+    } finally {
+      workspaceSavePromise = null;
+      if (workspaceSaveQueued && generation === workspaceGeneration) {
+        workspaceSaveQueued = false;
+        return persistWorkspace(generation, status, false);
+      }
+    }
   }
 
   try { testUiChoice = localStorage.getItem(TEST_UI_KEY) === 'classic' ? 'classic' : 'modern'; } catch (_) { var savedTestUi = String(document.cookie || '').match(/(?:^|;\s*)rtm_v492_test_ui=(classic|modern)/); if (savedTestUi) testUiChoice = savedTestUi[1]; }
@@ -152,7 +178,7 @@
     var previousHost = document.getElementById('v492DeveloperCanvas'); if (previousHost && window.RTMCanvas) try { window.RTMCanvas.unmount(previousHost); } catch (_) {}
     var generation = ++workspaceGeneration;
     root.classList.remove('placeholder-view'); root.innerHTML = '<div class="v492-workspace-status">Загружаю защищённый лист…</div><div id="v492DeveloperCanvas" class="v492-developer-canvas"></div>'; var host = document.getElementById('v492DeveloperCanvas');
-    try { var payload = await window.RTMV47.request('/api/v47/developer-workspace'); if (generation !== workspaceGeneration || state.aview !== 'info' || !root.isConnected || !host.isConnected) return; workspaceScene = visibleWorkspace(payload.scene); workspaceRevision = Number(payload.revision || 0); workspaceRestoring = false; var status = root.querySelector('.v492-workspace-status'); function save() { if (workspaceRestoring || generation !== workspaceGeneration) return; clearTimeout(workspaceTimer); workspaceTimer = setTimeout(async function () { if (workspaceRestoring || generation !== workspaceGeneration) return; status.textContent = 'Сохраняю…'; try { var saved = await window.RTMV47.request('/api/v47/developer-workspace', {method: 'PUT', body: JSON.stringify({scene: workspaceScene})}); if (generation !== workspaceGeneration) return; workspaceRevision = Number(saved.revision || workspaceRevision + 1); status.textContent = 'Сохранено на сервере · ревизия ' + workspaceRevision + ' · резервная копия выгружается в Google Drive автоматически'; } catch (error) { status.textContent = 'Не удалось отправить на сервер. Лист открыт, повторю при следующем изменении.'; } }, 1400); } window.RTMCanvas.mount(host, {pageKey: 'developer-workspace:'+workspaceRevision, scene: workspaceScene, readOnly: false, fitToContent: false, completionRequired: false, title: '', brandColor: '#ef174c', onChange: function (scene) { if (workspaceRestoring || generation !== workspaceGeneration) return; workspaceScene = scene; save(); }, onManualSave: async function () { if (workspaceRestoring || generation !== workspaceGeneration) return; clearTimeout(workspaceTimer); var saved = await window.RTMV47.request('/api/v47/developer-workspace', {method: 'PUT', body: JSON.stringify({scene: workspaceScene})}); if (generation !== workspaceGeneration) return; workspaceRevision = Number(saved.revision || workspaceRevision + 1); status.textContent = 'Сохранено на сервере · ревизия ' + workspaceRevision; }, onRequestDisk: window.RTMV46.pickDiskMedia}); host.dataset.rtmWorkspaceMounted = '1'; workspaceMounted = true; status.textContent = 'Лист загружен · ревизия ' + workspaceRevision + ' · автосохранение включено'; } catch (error) { workspaceMounted = false; workspaceRestoring = false; root.innerHTML = '<div class="v43-canvas-error"><b>Лист пока недоступен</b><span>' + esc(error.message || String(error)) + '</span><button type="button">Повторить</button></div>'; root.querySelector('button').onclick = mountWorkspace; }
+    try { var payload = await window.RTMV47.request('/api/v47/developer-workspace'); if (generation !== workspaceGeneration || state.aview !== 'info' || !root.isConnected || !host.isConnected) return; workspaceScene = visibleWorkspace(payload.scene); workspaceRevision = Number(payload.revision || 0); workspaceRestoring = false; var status = root.querySelector('.v492-workspace-status'); function save() { if (workspaceRestoring || generation !== workspaceGeneration) return; clearTimeout(workspaceTimer); workspaceTimer = setTimeout(async function () { if (workspaceRestoring || generation !== workspaceGeneration) return; status.textContent = 'Сохраняю…'; try { await persistWorkspace(generation, status, false); } catch (error) { status.textContent = 'Не удалось отправить на сервер. Лист открыт, повторю при следующем изменении.'; } }, 1400); } window.RTMCanvas.mount(host, {pageKey: 'developer-workspace:'+workspaceRevision, scene: workspaceScene, readOnly: false, fitToContent: false, completionRequired: false, title: '', brandColor: '#ef174c', onChange: function (scene) { if (workspaceRestoring || generation !== workspaceGeneration) return; workspaceScene = scene; save(); }, onManualSave: async function () { if (workspaceRestoring || generation !== workspaceGeneration) return; clearTimeout(workspaceTimer); await persistWorkspace(generation, status, true); }, onRequestDisk: window.RTMV46.pickDiskMedia}); host.dataset.rtmWorkspaceMounted = '1'; workspaceMounted = true; status.textContent = 'Лист загружен · ревизия ' + workspaceRevision + ' · автосохранение включено'; } catch (error) { workspaceMounted = false; workspaceRestoring = false; root.innerHTML = '<div class="v43-canvas-error"><b>Лист пока недоступен</b><span>' + esc(error.message || String(error)) + '</span><button type="button">Повторить</button></div>'; root.querySelector('button').onclick = mountWorkspace; }
   }
   function scheduleWorkspaceMount() {
     clearTimeout(workspaceMountTimer);

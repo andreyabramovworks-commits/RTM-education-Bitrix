@@ -1,9 +1,7 @@
 /* RTM v50.4.1: analytics controls, navigation and theme finalizer. */
 (function () {
   "use strict";
-  // Follow the host release. A fixed older value here can compete with the
-  // current release observer and lock the browser's main thread.
-  var VERSION = String(window.__RTM_VERSION__ || "50.4.1");
+  var VERSION = String(window.__RTM_VERSION__ || "50.4.3");
   var filters = {query:"", department:"all", from:""};
 
   function text(value){return String(value == null ? "" : value);}
@@ -92,7 +90,6 @@
 
   function finishTheme(){
     VERSION=String(window.__RTM_VERSION__ || VERSION);
-    document.documentElement.dataset.rtmVersion=VERSION;
     document.documentElement.style.minHeight="100%";
     document.body.style.minHeight="100%";
     document.querySelectorAll(".v39-version-label").forEach(function(node){
@@ -101,7 +98,5 @@
     });
   }
   finishTheme();
-  new MutationObserver(finishTheme).observe(document.documentElement,{childList:true,subtree:true});
-  window.__RTM_VERSION__=VERSION;
   window.RTMV5041={version:VERSION,enhanceAnalytics:enhance};
 })();

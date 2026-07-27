@@ -72,6 +72,7 @@
     return window.RTMV51.openKnowledgeTest(doc, kind);
   }
   async function assignments(id, kind) {
+    state.v540Workspace = "assignments";
     var doc=await api("/api/v47/knowledge/documents/"+id), directory=await api("/api/v47/knowledge/directory"), prefix=kind === "article" ? "article" : kind === "light" ? "lightTest" : "fullTest", active="students", sets={students:new Set((doc[prefix+"Assignments"]||[]).map(function(r){return r.type+":"+r.id;})),reviewers:new Set((doc[prefix+"Reviewers"]||doc.reviewers||[]).map(function(r){return r.type+":"+r.id;})),editors:new Set((doc[prefix+"Editors"]||doc.editors||[]).map(function(r){return r.type+":"+r.id;}))};
     function row(type,item,allowed,depth,children){var id=String(item.id),key=type+":"+id,style=type==="department"?' style="--tree-depth:'+(depth||0)+'"':"";return '<label class="v539-choice '+(type==="department"?"v540-department":"")+'"'+style+'><input type="checkbox" data-v540-rule="'+key+'" '+(sets[active].has(key)?"checked":"")+'><span>'+(type==="department"?'<i class="v540-tree-mark">'+(children?"▾":"└")+'</i>':"")+esc(item.name)+'</span><small>'+esc(allowed || "")+'</small></label>';}
     function draw(){var body="",people=(directory.users||[]).filter(function(user){return active === "students" ? true : active === "editors" ? user.editorAllowed : user.reviewerAllowed;});if(active === "students"){body+='<label class="v539-choice"><input type="checkbox" data-v540-rule="all_active:" '+(sets.students.has("all_active:")?"checked":"")+'><span>Все активные сотрудники</span><small>автоматически</small></label><h3>Подразделения, включая подотделы</h3><p class="v540-tree-help">Отступ показывает вложенность. Выбор отдела автоматически включает все его подотделы.</p>'+departmentTree(directory.departments).map(function(node){return row("department",node.item,node.children?"отдел и "+node.children+" подотд.":"подразделение",node.depth,node.children);}).join("")+"<h3>Сотрудники</h3>";}body+=people.map(function(user){return row("user",user,user.role);}).join("");shell("Назначения",doc.title+" · "+title[kind],'<input class="v539-search" id="v540Search" placeholder="Поиск сотрудника или подразделения"><div class="v539-tabs">'+[["students","Ученики"],["reviewers","Проверяющие"],["editors","Редакторы"]].map(function(tab){return '<button data-v540-tab="'+tab[0]+'" class="'+(active===tab[0]?"active":"")+'">'+tab[1]+' <b>'+sets[tab[0]].size+'</b></button>';}).join("")+'</div><div class="v539-choices">'+body+'</div>'+(kind === "article" ? '<label class="v539-inherit"><input id="v540Inherit" type="checkbox" '+(doc.inheritTestAssignments?"checked":"")+'> После сохранения применить назначения статьи к обоим тестам</label>' : ""),'<button class="primary" id="v540Save">Сохранить назначения</button>');
@@ -81,7 +82,7 @@
     draw();
   }
   document.addEventListener("click", function (event) {
-    var button=event.target.closest("[data-v538-edit-article],[data-v538-edit-test],[data-v538-assign],[data-v538-create-test]");if(!button)return;
+    var target=event.target,button=target&&target.closest&&target.closest("[data-v538-edit-article],[data-v538-edit-test],[data-v538-assign],[data-v538-create-test]");if(!button)return;
     var id=currentId(button);if(!id)return;
     event.preventDefault();event.stopImmediatePropagation();
     var kind=button.dataset.v538EditTest || button.dataset.v538Assign || button.dataset.v538CreateTest;
@@ -94,8 +95,14 @@
       state.v540Workspace="";
       toast(error.message||String(error));
     });
-    else assignments(id,kind).catch(function(error){toast(error.message||String(error));});
+    else assignments(id,kind).catch(function(error){state.v540Workspace="";toast(error.message||String(error));});
   }, true);
+
+  var baseRenderAllV540=window.renderAll;
+  window.renderAll=renderAll=function(){
+    if(state.v540Workspace)return;
+    return baseRenderAllV540.apply(this,arguments);
+  };
 
   (function installColorTheme(){
     var key="rtm_color_theme";

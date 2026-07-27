@@ -2,7 +2,8 @@
 (function () {
   "use strict";
 
-  var docs = [], directory = null, loaded = false, adminPath = [], adminSelected = null;
+  var docs = [], directory = null, loaded = false, loadPromise = null, directoryPromise = null;
+  var adminPath = [], adminSelected = null, adminRenderGeneration = 0;
   var api = function (path, options) { return window.RTMV47.request(path, options); };
   var html = function (value) { return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); };
   var norm = function (value) { return String(value || "").trim().toLowerCase(); };
@@ -12,14 +13,19 @@
 
   async function load(force) {
     if (loaded && !force) return docs;
-    docs = await api("/api/v47/knowledge/documents");
-    loaded = true;
-    return docs;
+    if (loadPromise) return loadPromise;
+    loadPromise = api("/api/v47/knowledge/documents").then(function (result) {
+      docs = result; loaded = true; return docs;
+    }).finally(function () { loadPromise = null; });
+    return loadPromise;
   }
   async function loadDirectory(force) {
     if (directory && !force) return directory;
-    directory = await api("/api/v47/knowledge/directory");
-    return directory;
+    if (directoryPromise) return directoryPromise;
+    directoryPromise = api("/api/v47/knowledge/directory").then(function (result) {
+      directory = result; return directory;
+    }).finally(function () { directoryPromise = null; });
+    return directoryPromise;
   }
   function usableNode(node) {
     if (!node) return null;
@@ -173,8 +179,9 @@
       '</div><p class="muted">Центральные материалы нельзя удалить: изменения автоматически применяются во всех курсах.</p></div>';
   }
   async function renderAdminKnowledge() {
-    await load(true); await loadDirectory();
-    if(state.v540Workspace)return;
+    var generation=++adminRenderGeneration;
+    await Promise.all([load(),loadDirectory()]);
+    if(generation!==adminRenderGeneration||state.v540Workspace)return;
     var view=document.getElementById("adminDatabase"); if(!view)return;
     var tree=usableNode(root()),node=currentNode(adminPath);
     view.innerHTML='<div class="admin-page-head"><div><h1>Управление Базой знаний</h1><p class="muted">Источник истины: PostgreSQL · '+docs.length+' статей</p></div>'+
@@ -323,5 +330,5 @@
   window.renderAll=renderAll=function(){var result=baseRenderAll5038.apply(this,arguments);installDatabaseRoute();if(!state.v540Workspace&&state.aview==="database"&&["developer","admin","editor"].includes(String(state.currentRole||"")))renderAdminKnowledge().catch(function(error){toast(error.message||String(error));});return result;};
   load().then(function(){renderKb();}).catch(console.error);
   window.addEventListener("load",installDatabaseRoute);
-  window.RTMV5038={version:"50.4.0",renderAdmin:renderAdminKnowledge,getCurrentDocumentId:function(){return adminSelected;},reload:function(){loaded=false;directory=null;return load(true);}};
+  window.RTMV5038={version:"current",renderAdmin:renderAdminKnowledge,getCurrentDocumentId:function(){return adminSelected;},reload:function(){loaded=false;directory=null;return load(true);}};
 })();

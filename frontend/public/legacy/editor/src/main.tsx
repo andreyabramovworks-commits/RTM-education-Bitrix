@@ -261,17 +261,26 @@ const normalizeTextGeometry = (element: any) => {
   if (!element || element.isDeleted || element.type !== "text" || element.containerId) return element;
   const text = String(element.text || element.originalText || "");
   if (!text) return element;
-  const lines = Math.max(1, text.split("\n").length);
+  const textLines = text.split("\n");
+  const lines = Math.max(1, textLines.length);
   const fontSize = Math.max(1, Number(element.fontSize || 20));
   const lineHeight = Math.max(.8, Math.min(2, Number(element.lineHeight || 1.25)));
   const contentHeight = Math.max(fontSize, Math.ceil(lines * fontSize * lineHeight));
   const currentHeight = Number(element.height || contentHeight);
+  const longestLine = Math.max(1, ...textLines.map((line) => Array.from(line).length));
+  const contentWidth = Math.max(32, Math.ceil(longestLine * fontSize * .68));
+  const currentWidth = Number(element.width || contentWidth);
   // Imported/clipboard text can retain the height of a source selection box.
-  // A normal text element should not contain hundreds of pixels of empty space.
-  if (currentHeight <= contentHeight * 2 + 12) return element;
+  // Custom fonts can also leave a stale, kilometre-wide editing box. Repair
+  // only obviously impossible geometry, preserving deliberate wrapping.
+  const repairHeight = currentHeight > contentHeight * 2 + 12;
+  const repairWidth = currentWidth > contentWidth * 2 + 100;
+  if (!repairHeight && !repairWidth) return element;
   return {
     ...element,
-    height: contentHeight,
+    width: repairWidth ? contentWidth : currentWidth,
+    height: repairHeight ? contentHeight : currentHeight,
+    autoResize: false,
     version: Number(element.version || 1) + 1,
     versionNonce: Math.floor(Math.random() * 2147483647),
     updated: Date.now(),
@@ -854,7 +863,9 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     const source = new Map(options.scene.elements.map((element: any) => [String(element.id), element]));
     const repaired = (initial.elements || []).some((element: any) => {
       const original: any = source.get(String(element.id));
-      return original && ((original.frameId || null) !== (element.frameId || null) || Number(original.height || 0) !== Number(element.height || 0));
+      return original && ((original.frameId || null) !== (element.frameId || null)
+        || Number(original.width || 0) !== Number(element.width || 0)
+        || Number(original.height || 0) !== Number(element.height || 0));
     });
     if (!repaired) return;
     changed.current = true;
@@ -1075,15 +1086,31 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
     }
     return null;
   };
-  const copySelectionToInternalClipboard = async () => {
+  const selectedClipboardPayload = () => {
     const api = apiRef.current; if (!api) return;
     const selectedIds = api.getAppState().selectedElementIds || {};
-    const selected = api.getSceneElements().filter((el: any) => !el.isDeleted && selectedIds[el.id]);
-    if (!selected.length) { window.alert("Сначала выделите объекты"); return; }
+    const all = api.getSceneElements().filter((el: any) => !el.isDeleted);
+    const selectedSet = new Set(all.filter((el: any) => selectedIds[el.id]).map((el: any) => String(el.id)));
+    let expanded = true;
+    while (expanded) {
+      expanded = false;
+      all.forEach((el: any) => {
+        const belongs = (el.frameId && selectedSet.has(String(el.frameId)))
+          || (el.containerId && selectedSet.has(String(el.containerId)))
+          || (el.boundElements || []).some((binding: any) => selectedSet.has(String(binding.id)));
+        if (belongs && !selectedSet.has(String(el.id))) { selectedSet.add(String(el.id)); expanded = true; }
+      });
+    }
+    const selected = all.filter((el: any) => selectedSet.has(String(el.id)));
+    if (!selected.length) return;
     const ids = new Set(selected.map((el: any) => el.fileId).filter(Boolean));
     const allFiles = api.getFiles?.() || {};
     const files = Object.fromEntries(Object.entries(allFiles).filter(([fileId]) => ids.has(fileId)));
-    const raw = JSON.stringify({ type: "excalidraw/clipboard", elements: selected, files });
+    return JSON.stringify({ type: "excalidraw/clipboard", elements: selected, files });
+  };
+  const copySelectionToInternalClipboard = async () => {
+    const raw = selectedClipboardPayload();
+    if (!raw) { window.alert("Сначала выделите объекты"); return; }
     try { sessionStorage.setItem("rtm_excalidraw_clipboard", raw); } catch { /* memory-only environments */ }
     try { await navigator.clipboard.writeText(raw); setSaveState("Скопировано"); }
     catch { setSaveState("Скопировано во внутренний буфер RTM"); }
@@ -1201,6 +1228,20 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
   const readerFit = () => fitReader(true);
 
   useEffect(() => {
+    const onCopy = (event: ClipboardEvent) => {
+      if (readOnly) return;
+      const target = event.target as HTMLElement | null;
+      if (!stageRef.current?.contains(target) || target?.closest("input,textarea,select,[contenteditable=true]")) return;
+      const raw = selectedClipboardPayload();
+      if (!raw) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      event.clipboardData?.setData("application/vnd.excalidraw+json", raw);
+      event.clipboardData?.setData("text/plain", raw);
+      try { sessionStorage.setItem("rtm_excalidraw_clipboard", raw); } catch { /* blocked storage */ }
+      setSaveState("Скопировано");
+    };
     const onPaste = (event: ClipboardEvent) => {
       if (readOnly) return;
       const target = event.target as HTMLElement | null;
@@ -1218,8 +1259,12 @@ function RTMCanvasApp({ options }: { options: RTMCanvasOptions }) {
       }
       if (!editingText && stageRef.current?.contains(target) && /^https?:\/\/\S+$/i.test(raw)) { event.preventDefault(); event.stopImmediatePropagation(); addMedia({ kind: "link", url: raw, title: raw }); }
     };
+    window.addEventListener("copy", onCopy, true);
     window.addEventListener("paste", onPaste, true);
-    return () => window.removeEventListener("paste", onPaste, true);
+    return () => {
+      window.removeEventListener("copy", onCopy, true);
+      window.removeEventListener("paste", onPaste, true);
+    };
   }, [readOnly, options.pageKey]);
 
   useEffect(() => {

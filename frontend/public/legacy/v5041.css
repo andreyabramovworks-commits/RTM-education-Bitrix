@@ -1,9 +1,9 @@
 /* RTM v50.4.1: complete theme coverage, readable canvas and stable previews. */
-html[data-rtm-version="50.4.1"],
-html[data-rtm-version="50.4.1"] body,
-html[data-rtm-version="50.4.1"] #root,
-html[data-rtm-version="50.4.1"] #app,
-html[data-rtm-version="50.4.1"] .v48-react-host{
+html,
+html body,
+html #root,
+html #app,
+html .v48-react-host{
   min-height:100%;background:var(--rtm-bg,#f4f7fb)
 }
 html[data-rtm-theme="dark"] body,

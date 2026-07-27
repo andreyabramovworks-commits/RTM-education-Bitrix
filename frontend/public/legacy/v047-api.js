@@ -293,7 +293,7 @@
   window.RTMV47.readDraft = async function (articleId, page, index) {
     var pageId = String(page && page.id || ('page_' + Number(index || 0)));
     var result = await request('/api/v47/drafts/' + encodeURIComponent(articleId) + '/' + encodeURIComponent(pageId));
-    return result.scene || serverScene(articleId, pageId);
+    return result.scene || await serverScene(articleId, pageId);
   };
   window.RTMV47.saveDraft = async function (articleId, page, index, scene) {
     if (!scene || !Array.isArray(scene.elements)) return null;
