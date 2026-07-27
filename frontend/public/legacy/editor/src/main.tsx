@@ -637,6 +637,10 @@ function UnifiedReaderSurface({ options }: { options: RTMCanvasOptions }) {
       exportingFrame: bounds.frame as any,
       exportPadding: bounds.frame ? 0 : 1,
       renderEmbeddables: true,
+      // RTM fonts are supplied by our CSS. Asking Excalidraw to inline them
+      // makes its private font registry report ids 20–23 as errors even
+      // though the browser has already loaded and renders those families.
+      skipInliningFonts: true,
     }).then((svg: SVGSVGElement) => {
       if (cancelled) return;
       svg.setAttribute("width", "100%");
