@@ -625,29 +625,43 @@ function UnifiedReaderSurface({ options }: { options: RTMCanvasOptions }) {
     let cancelled = false;
     // A frame defines the user viewport but its editor border is not content.
     const visible = elements.filter((el: any) => !el.isDeleted && el.id !== bounds.frame?.id) as any[];
-    exportToSvg({
-      elements: visible,
-      appState: {
-        ...(scene.appState || {}),
-        exportBackground: true,
-        exportWithDarkMode: false,
-        viewBackgroundColor: String(scene.appState?.viewBackgroundColor || "#f8fafc"),
-      } as any,
-      files: (scene.files || {}) as any,
-      exportingFrame: bounds.frame as any,
-      exportPadding: bounds.frame ? 0 : 1,
-      renderEmbeddables: true,
-      // RTM fonts are supplied by our CSS. Asking Excalidraw to inline them
-      // makes its private font registry report ids 20–23 as errors even
-      // though the browser has already loaded and renders those families.
-      skipInliningFonts: true,
-    }).then((svg: SVGSVGElement) => {
-      if (cancelled) return;
-      svg.setAttribute("width", "100%");
-      svg.setAttribute("height", "100%");
-      svg.setAttribute("preserveAspectRatio", "none");
-      setSvgMarkup(svg.outerHTML);
-    }).catch(() => { if (!cancelled) setSvgMarkup(""); });
+    const render = async () => {
+      // Excalidraw 0.18 logs missing *private registry* entries for custom
+      // font ids even with inlining disabled. Those fonts are already loaded
+      // by RTM CSS and the generated SVG correctly names them, so suppress
+      // only this known false-positive while export is running.
+      const originalConsoleError = console.error;
+      console.error = (...args: unknown[]) => {
+        if (String(args[0] || "").startsWith("Couldn't find registered fonts for font-family")) return;
+        originalConsoleError(...args);
+      };
+      try {
+        const svg = await exportToSvg({
+          elements: visible,
+          appState: {
+            ...(scene.appState || {}),
+            exportBackground: true,
+            exportWithDarkMode: false,
+            viewBackgroundColor: String(scene.appState?.viewBackgroundColor || "#f8fafc"),
+          } as any,
+          files: (scene.files || {}) as any,
+          exportingFrame: bounds.frame as any,
+          exportPadding: bounds.frame ? 0 : 1,
+          renderEmbeddables: true,
+          skipInliningFonts: true,
+        });
+        if (cancelled) return;
+        svg.setAttribute("width", "100%");
+        svg.setAttribute("height", "100%");
+        svg.setAttribute("preserveAspectRatio", "none");
+        setSvgMarkup(svg.outerHTML);
+      } catch {
+        if (!cancelled) setSvgMarkup("");
+      } finally {
+        console.error = originalConsoleError;
+      }
+    };
+    void render();
     return () => { cancelled = true; };
   }, [elements, scene.appState, scene.files, bounds.frame]);
 
