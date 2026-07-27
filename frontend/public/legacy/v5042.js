@@ -11,7 +11,6 @@
     });
   }
   finalize();
-  new MutationObserver(finalize).observe(document.documentElement,{childList:true,subtree:true});
   window.addEventListener("rtm-theme-change",finalize);
   window.__RTM_VERSION__=VERSION;
   window.RTMV5042={version:VERSION};

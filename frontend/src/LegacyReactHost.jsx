@@ -40,8 +40,8 @@ const LEGACY_SCRIPTS = [
   ["/legacy/v054.js?v=050.3.4", false],
   ["/legacy/v5038-knowledge.js?v=050.4.2", false],
   ["/legacy/v5040-workspaces.js?v=050.4.2", false],
-  ["/legacy/v5041.js?v=050.4.1", false],
-  ["/legacy/v5042.js?v=050.4.2", false],
+  ["/legacy/v5041.js?v=050.4.2.1", false],
+  ["/legacy/v5042.js?v=050.4.2.1", false],
 ];
 function loadScript(src, module) {
   return new Promise((resolve, reject) => {
