@@ -479,12 +479,25 @@ export const htmlToScene = (html: string, title = "Страница"): RTMScene 
 const normalizeScene = (options: RTMCanvasOptions): RTMScene => {
   if (options.scene?.elements) {
     const framed = reconcileFrameMembership(options.scene.elements);
+    const storedState = options.scene.appState || {};
+    const zoom = Number(storedState.zoom?.value || storedState.zoom || 1);
+    const safeAppState = {
+      viewBackgroundColor: String(storedState.viewBackgroundColor || "#f8fafc"),
+      scrollX: Number(storedState.scrollX || 0),
+      scrollY: Number(storedState.scrollY || 0),
+      zoom: { value: Number.isFinite(zoom) ? Math.max(0.1, Math.min(4, zoom)) : 1 },
+      gridSize: storedState.gridSize == null ? null : Number(storedState.gridSize),
+      gridStep: storedState.gridStep == null ? 5 : Number(storedState.gridStep),
+      gridModeEnabled: Boolean(storedState.gridModeEnabled),
+    };
     return {
       type: "excalidraw",
       version: 2,
       source: "rtm-v45",
       elements: options.completionRequired === false ? framed : reconcileFrameMembership(ensureRequiredCompletion(framed)),
-      appState: { viewBackgroundColor: "#f8fafc", ...(options.scene.appState || {}) },
+      // Runtime-only Excalidraw fields (notably collaborators: Map) must never
+      // be revived from JSON written by an older bundle.
+      appState: safeAppState,
       files: options.scene.files || {},
     };
   }
