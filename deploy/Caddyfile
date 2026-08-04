@@ -1,6 +1,26 @@
 {$DOMAIN:localhost} {
 	encode zstd gzip
 
+	# ELECTRONIC_ZRS
+	handle /zrs/* {
+		uri strip_prefix /zrs
+		header {
+			-X-Frame-Options
+			Content-Security-Policy "frame-ancestors 'self' https://rtm-group.bitrix24.ru"
+		}
+		reverse_proxy electronic-zrs-web-1:80
+	}
+
+	# RTM_STATISTICS
+	handle /statistics/* {
+		uri strip_prefix /statistics
+		header {
+			-X-Frame-Options
+			Content-Security-Policy "frame-ancestors 'self' https://rtm-group.bitrix24.ru"
+		}
+		reverse_proxy rtm-statistics-web-1:80
+	}
+
 	@bitrixApp path /bitrix/app /bitrix/app/
 	handle @bitrixApp {
 		header {
