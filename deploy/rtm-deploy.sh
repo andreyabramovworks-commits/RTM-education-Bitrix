@@ -21,8 +21,9 @@ git merge --ff-only "$TARGET"
 export APP_VERSION="${TARGET:0:12}"
 docker compose build
 docker compose up -d --remove-orphans
-docker compose run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile
-docker compose up -d --no-deps --force-recreate caddy
+docker compose cp deploy/Caddyfile caddy:/tmp/rtm-Caddyfile
+docker compose exec -T caddy caddy validate --config /tmp/rtm-Caddyfile
+docker compose exec -T caddy caddy reload --config /tmp/rtm-Caddyfile
 
 for attempt in {1..30}; do
     if curl --fail --silent --show-error https://rtmgroupdocs.fvds.ru/api/ready >/dev/null; then
