@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     session_cookie_name: str = "rtm_session"
     session_ttl_seconds: int = 43200
     knowledge_sync_secret: str = ""
+    public_origin: str = "http://localhost:5173"
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_token_encryption_key: str = ""
 
     model_config = SettingsConfigDict(case_sensitive=False)
 

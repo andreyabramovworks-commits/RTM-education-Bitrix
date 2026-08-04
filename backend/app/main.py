@@ -6,6 +6,7 @@ from app.config import get_settings
 from app.database import engine
 from app.v47 import router as v47_router
 from app.knowledge import router as knowledge_router
+from app.v51 import router as v51_router
 
 settings = get_settings()
 
@@ -17,6 +18,7 @@ app = FastAPI(
 )
 app.include_router(v47_router)
 app.include_router(knowledge_router)
+app.include_router(v51_router)
 
 
 @app.get("/api/health", tags=["system"])

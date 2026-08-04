@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 
-const RELEASE_VERSION = "50.4.3";
-const RELEASE_ASSET_REVISION = "50.4.3-r4";
+const RELEASE_VERSION = "51.0.0";
+const RELEASE_ASSET_REVISION = "51.0.0-r1";
 const releaseAsset = (path) => `${path}?v=${RELEASE_ASSET_REVISION}`;
 const LEGACY_STYLES = [
   "/legacy/style.css",
@@ -22,6 +22,7 @@ const LEGACY_STYLES = [
   "/legacy/v5039-pages.css",
   "/legacy/v5041.css",
   "/legacy/v5042.css",
+  "/legacy/v5100.css",
 ].map(releaseAsset);
 
 const LEGACY_SCRIPTS = [
@@ -45,6 +46,7 @@ const LEGACY_SCRIPTS = [
   [releaseAsset("/legacy/v5040-workspaces.js"), false],
   [releaseAsset("/legacy/v5041.js"), false],
   [releaseAsset("/legacy/v5042.js"), false],
+  [releaseAsset("/legacy/v5100.js"), false],
 ];
 function loadScript(src, module) {
   return new Promise((resolve, reject) => {

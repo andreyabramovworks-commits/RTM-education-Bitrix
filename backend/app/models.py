@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import JSON, BigInteger, Boolean, Column, DateTime, Text, UniqueConstraint
+from sqlalchemy import JSON, BigInteger, Boolean, Column, Date, DateTime, Text, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -245,4 +245,107 @@ class BitrixDepartment(SQLModel, table=True):
     parent_id: str = Field(default="", max_length=40)
     head_user_id: str = Field(default="", max_length=40)
     active: bool = Field(default=True, sa_column=Column(Boolean, nullable=False))
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class KnowledgeEdition(SQLModel, table=True):
+    __tablename__ = "knowledge_editions"
+    __table_args__ = (UniqueConstraint("document_id", "edition_date", name="uq_knowledge_edition_day"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    document_id: int = Field(foreign_key="knowledge_documents.id", index=True)
+    edition_date: date = Field(sa_column=Column(Date, nullable=False))
+    google_revision_id: str = Field(default="", max_length=200)
+    google_version_name: str = Field(default="", max_length=500)
+    change_log: str = Field(default="", sa_column=Column(Text, nullable=False))
+    created_by: int | None = Field(default=None, foreign_key="app_users.id", index=True)
+    created_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class AcknowledgementCampaign(SQLModel, table=True):
+    __tablename__ = "acknowledgement_campaigns"
+
+    id: int | None = Field(default=None, primary_key=True)
+    edition_id: int = Field(foreign_key="knowledge_editions.id", index=True)
+    mode: str = Field(default="confirm", max_length=30)
+    question: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    test_kind: str = Field(default="", max_length=20)
+    recipient_rules: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    responsible_rules: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    due_days: int = Field(default=7)
+    include_new_hires: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
+    notification_settings: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    status: str = Field(default="draft", max_length=30, index=True)
+    created_by: int | None = Field(default=None, foreign_key="app_users.id", index=True)
+    launched_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    closed_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    created_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class AcknowledgementAssignment(SQLModel, table=True):
+    __tablename__ = "acknowledgement_assignments"
+    __table_args__ = (UniqueConstraint("campaign_id", "user_id", name="uq_ack_campaign_user"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    campaign_id: int = Field(foreign_key="acknowledgement_campaigns.id", index=True)
+    user_id: int = Field(foreign_key="app_users.id", index=True)
+    status: str = Field(default="not_started", max_length=30, index=True)
+    answer: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    assigned_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+    due_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True, index=True))
+    started_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    completed_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    reviewed_by: int | None = Field(default=None, foreign_key="app_users.id", index=True)
+    reviewed_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    review_comment: str = Field(default="", sa_column=Column(Text, nullable=False))
+    manual_reason: str = Field(default="", sa_column=Column(Text, nullable=False))
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class AcknowledgementEvent(SQLModel, table=True):
+    __tablename__ = "acknowledgement_events"
+
+    id: int | None = Field(default=None, primary_key=True)
+    campaign_id: int = Field(foreign_key="acknowledgement_campaigns.id", index=True)
+    assignment_id: int | None = Field(default=None, foreign_key="acknowledgement_assignments.id", index=True)
+    user_id: int | None = Field(default=None, foreign_key="app_users.id", index=True)
+    actor_id: int | None = Field(default=None, foreign_key="app_users.id", index=True)
+    event_type: str = Field(max_length=60, index=True)
+    details: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    created_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False, index=True))
+
+
+class GoogleOAuthCredential(SQLModel, table=True):
+    __tablename__ = "google_oauth_credentials"
+
+    id: int | None = Field(default=None, primary_key=True)
+    account_email: str = Field(default="", max_length=320)
+    encrypted_refresh_token: str = Field(default="", sa_column=Column(Text, nullable=False))
+    encrypted_access_token: str = Field(default="", sa_column=Column(Text, nullable=False))
+    access_expires_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    scopes: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    connected_by: int | None = Field(default=None, foreign_key="app_users.id", index=True)
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class GoogleOAuthState(SQLModel, table=True):
+    __tablename__ = "google_oauth_states"
+
+    id: int | None = Field(default=None, primary_key=True)
+    state: str = Field(index=True, unique=True, max_length=200)
+    user_id: int = Field(foreign_key="app_users.id", index=True)
+    expires_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, index=True))
+    created_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class UserHelpPreference(SQLModel, table=True):
+    __tablename__ = "user_help_preferences"
+    __table_args__ = (UniqueConstraint("user_id", "help_key", name="uq_user_help_key"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="app_users.id", index=True)
+    help_key: str = Field(max_length=160, index=True)
+    hidden: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
     updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
