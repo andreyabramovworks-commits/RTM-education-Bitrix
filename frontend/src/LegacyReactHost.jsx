@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 const RELEASE_VERSION = "51.0.0";
-const RELEASE_ASSET_REVISION = "51.0.0-r1";
+const RELEASE_ASSET_REVISION = "51.0.0-r2";
 const releaseAsset = (path) => `${path}?v=${RELEASE_ASSET_REVISION}`;
 const LEGACY_STYLES = [
   "/legacy/style.css",
@@ -101,6 +101,7 @@ export function LegacyReactHost() {
 
     (async () => {
       try {
+        if (window.RTM_BITRIX_READY) await window.RTM_BITRIX_READY;
         for (const [src, module] of LEGACY_SCRIPTS) await loadScript(src, module);
       } catch (cause) {
         setError(String(cause.message || cause));

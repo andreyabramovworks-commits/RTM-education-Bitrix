@@ -1,30 +1,42 @@
 {$DOMAIN:localhost} {
-    encode zstd gzip
+	encode zstd gzip
 
-    handle /bitrix/* {
-        header {
-            -X-Frame-Options
-            Content-Security-Policy "frame-ancestors https://rtm-group.bitrix24.ru"
-        }
-        reverse_proxy backend:8000
-    }
+	@bitrixApp path /bitrix/app /bitrix/app/
+	handle @bitrixApp {
+		header {
+			-X-Frame-Options
+			Content-Security-Policy "frame-ancestors 'self' https://rtm-group.bitrix24.ru"
+		}
+		method GET
+		rewrite * /
+		reverse_proxy frontend:80
+	}
 
-    handle /api/* {
-        header X-Frame-Options "SAMEORIGIN"
-        reverse_proxy backend:8000
-    }
+	@bitrixInstall path /bitrix/install /bitrix/install/
+	handle @bitrixInstall {
+		header {
+			-X-Frame-Options
+			Content-Security-Policy "frame-ancestors 'self' https://rtm-group.bitrix24.ru"
+		}
+		reverse_proxy backend:8000
+	}
 
-    handle {
-        header {
-            -X-Frame-Options
-            Content-Security-Policy "frame-ancestors 'self' https://rtm-group.bitrix24.ru"
-        }
-        reverse_proxy frontend:80
-    }
+	handle /api/* {
+		header X-Frame-Options "SAMEORIGIN"
+		reverse_proxy backend:8000
+	}
 
-    header {
-        -Server
-        X-Content-Type-Options "nosniff"
-        Referrer-Policy "strict-origin-when-cross-origin"
-    }
+	handle {
+		header {
+			-X-Frame-Options
+			Content-Security-Policy "frame-ancestors 'self' https://rtm-group.bitrix24.ru"
+		}
+		reverse_proxy frontend:80
+	}
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
 }
