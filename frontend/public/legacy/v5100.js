@@ -15,7 +15,7 @@
 
   function installNames(){
     var users=document.querySelector('[data-admin-view="users"]');if(users){users.title='Роли пользователей';users.dataset.helpKey='roles';}
-    var title=document.querySelector('#adminUsers h1');if(title)title.textContent='Роли пользователей';
+    var title=document.querySelector('#adminUsers h1');if(title&&title.textContent!=='Роли пользователей')title.textContent='Роли пользователей';
     document.querySelectorAll('[data-admin-view="reviews"]').forEach(function(button){button.title='Центр проверок';button.dataset.helpKey='review-center';});
   }
 
