@@ -330,5 +330,5 @@
   window.renderAll=renderAll=function(){var result=baseRenderAll5038.apply(this,arguments);installDatabaseRoute();if(!state.v540Workspace&&state.aview==="database"&&["developer","admin","editor","moderator"].includes(String(state.currentRole||"")))renderAdminKnowledge().catch(function(error){toast(error.message||String(error));});return result;};
   load().then(function(){renderKb();}).catch(console.error);
   window.addEventListener("load",installDatabaseRoute);
-  window.RTMV5038={version:"current",renderAdmin:renderAdminKnowledge,getCurrentDocumentId:function(){return adminSelected;},getDocuments:function(){return docs.slice();},reload:function(){loaded=false;directory=null;return load(true);}};
+  window.RTMV5038={version:"current",renderAdmin:renderAdminKnowledge,getCurrentDocumentId:function(){return adminSelected;},getDocuments:function(){return docs.slice();},getDirectory:function(){return loadDirectory(false);},reload:function(){loaded=false;directory=null;return load(true);}};
 })();

@@ -12,3 +12,9 @@ test("v52 review permissions use helpers declared in the same script", () => {
   assert.doesNotMatch(source, /\bactualRole\(\)/);
   assert.doesNotMatch(source, /(?<!V52)\broleRank\(role\)/);
 });
+
+test("v52 review renderer preserves the v51 nested review-center host", () => {
+  assert.match(source, /function renderReviewsV52\(rootOverride\)/);
+  assert.match(source, /rootOverride \|\| document\.querySelector\('\[data-v5100-test-host\]'\)/);
+  assert.match(source, /renderReviewsV52\(root\)/);
+});

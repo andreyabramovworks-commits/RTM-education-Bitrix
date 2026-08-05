@@ -52,3 +52,11 @@ test("v51 DOM observer reaches a fixed point after renaming the roles heading", 
   assert.equal(headingText, "Роли пользователей");
   assert.equal(mutations, 1);
 });
+
+test("v51.1 keeps campaign assignments while the wizard changes mode", () => {
+  assert.match(source, /getDirectory\)directory=await window\.RTMV5038\.getDirectory/);
+  assert.match(source, /recipientRules:savedCampaign&&savedCampaign\.recipientRules/);
+  assert.match(source, /responsibleRules:savedCampaign&&savedCampaign\.responsibleRules/);
+  assert.match(source, /rememberRules\(\);model\.mode=button\.dataset\.mode;stepTwo\(\)/);
+  assert.match(source, /data-v5100-test-host/);
+});
