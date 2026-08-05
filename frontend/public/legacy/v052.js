@@ -183,6 +183,8 @@
   };
 
   function currentUserIdV52() { return String(typeof rtmCanonicalUserId === 'function' ? rtmCanonicalUserId(effectiveUserId()) : effectiveUserId()); }
+  function currentRoleV52() { return String(state.currentRole || getAppRole(state.user) || 'employee'); }
+  function roleRankV52(role) { return {employee: 0, student: 0, teacher: 1, moderator: 2, editor: 2, admin: 3, developer: 4}[String(role || '')] || 0; }
   function latestAttempts() {
     var groups = {};
     state.attempts.slice().sort(function (a, b) { return String(b.PROPERTY_VALUES.updatedAt || b.PROPERTY_VALUES.createdAt || '').localeCompare(String(a.PROPERTY_VALUES.updatedAt || a.PROPERTY_VALUES.createdAt || '')); }).forEach(function (attempt) {
@@ -191,8 +193,8 @@
     return Object.keys(groups).map(function (key) { return groups[key]; });
   }
   function canReviewV52(attempt) {
-    var role = actualRole(), props = attempt.PROPERTY_VALUES || {}, actor = String(state.user && state.user.ID || effectiveUserId());
-    return role === 'developer' || role === 'admin' || roleRank(role) >= 1 && String(props.reviewerId || '') === actor;
+    var role = currentRoleV52(), props = attempt.PROPERTY_VALUES || {}, actor = String(state.user && state.user.ID || effectiveUserId());
+    return role === 'developer' || role === 'admin' || roleRankV52(role) >= 1 && String(props.reviewerId || '') === actor;
   }
   function reviewLabel(status) { return {pending_review: 'Ожидает проверки', returned: 'Возвращено', approved: 'Принято', auto_failed_reviewed: 'Авточасть не пройдена'}[status] || status || '—'; }
   function parseJson(value, fallback) { try { return JSON.parse(value || ''); } catch (_) { return fallback; } }
