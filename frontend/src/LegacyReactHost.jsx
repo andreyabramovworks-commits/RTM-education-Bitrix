@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 const RELEASE_VERSION = "51.2.0";
-const RELEASE_ASSET_REVISION = "51.2.0-r1";
+const RELEASE_ASSET_REVISION = "51.2.0-r2";
 const releaseAsset = (path) => `${path}?v=${RELEASE_ASSET_REVISION}`;
 const LEGACY_STYLES = [
   "/legacy/style.css",
