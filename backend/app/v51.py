@@ -45,6 +45,14 @@ class CampaignWrite(BaseModel):
     notificationSettings: dict[str, Any] = Field(default_factory=lambda: {"inApp": True, "bitrix": True, "task": True, "escalation": True})
 
 
+class ActiveCampaignWrite(BaseModel):
+    recipientRules: list[dict[str, Any]] = Field(default_factory=list)
+    responsibleRules: list[dict[str, Any]] = Field(default_factory=list)
+    dueDays: int = Field(default=7, ge=0, le=3650)
+    dueDatePolicy: str = "new_only"
+    includeNewHires: bool = False
+
+
 class AnswerWrite(BaseModel):
     answer: Any = None
 
@@ -55,6 +63,14 @@ class ReviewWrite(BaseModel):
 
 
 class ManualCompleteWrite(BaseModel):
+    reason: str = Field(min_length=3, max_length=5000)
+
+
+class ExemptWrite(BaseModel):
+    reason: str = Field(min_length=3, max_length=5000)
+
+
+class CloseCampaignWrite(BaseModel):
     reason: str = Field(min_length=3, max_length=5000)
 
 
@@ -85,7 +101,17 @@ def _campaign(row: AcknowledgementCampaign) -> dict[str, Any]:
             "launchedAt": _iso(row.launched_at), "closedAt": _iso(row.closed_at), "createdAt": _iso(row.created_at)}
 
 
+def _due_at(started_at: datetime, due_days: int) -> datetime:
+    """Calendar-day deadline: assignment day + N days, through the end of that day."""
+    target = (started_at + timedelta(days=due_days)).date()
+    return datetime.combine(target, datetime.max.time(), tzinfo=started_at.tzinfo or timezone.utc)
+
+
 def _validate_campaign(payload: CampaignWrite, document: KnowledgeDocument) -> None:
+    if not payload.recipientRules:
+        raise HTTPException(422, "Выберите хотя бы одного получателя")
+    if not payload.responsibleRules:
+        raise HTTPException(422, "Выберите хотя бы одного ответственного")
     if payload.mode not in {"confirm", "question", "test"}:
         raise HTTPException(422, "Способ ознакомления должен быть: подтверждение, контрольный вопрос или тест")
     if payload.mode == "question":
@@ -97,8 +123,6 @@ def _validate_campaign(payload: CampaignWrite, document: KnowledgeDocument) -> N
             correct = payload.question.get("correct") or []
             if len(options) < 2 or not correct:
                 raise HTTPException(422, "Добавьте минимум два варианта и отметьте правильный ответ")
-        elif not payload.responsibleRules:
-            raise HTTPException(422, "Для свободного ответа выберите хотя бы одного ответственного")
     if payload.mode == "test":
         if payload.testKind not in {"light", "full"}:
             raise HTTPException(422, "Выберите связанный тест документа")
@@ -161,6 +185,85 @@ def _event(session: Session, campaign_id: int, event_type: str, *, assignment: A
                                      actor_id=actor_id, event_type=event_type, details=details or {}))
 
 
+def _maybe_close_campaign(session: Session, campaign_id: int) -> None:
+    campaign = session.get(AcknowledgementCampaign, campaign_id)
+    if not campaign or campaign.status != "active":
+        return
+    rows = session.exec(select(AcknowledgementAssignment).where(AcknowledgementAssignment.campaign_id == campaign_id)).all()
+    if rows and all(row.status in {"completed", "exempted"} for row in rows):
+        campaign.status = "closed"
+        campaign.closed_at = utcnow()
+        campaign.updated_at = campaign.closed_at
+        session.add(campaign)
+        _event(session, campaign.id, "campaign_closed", details={"automatic": True})
+
+
+def _assignment_link(assignment: AcknowledgementAssignment) -> str:
+    origin = get_settings().public_origin.rstrip("/")
+    return f"{origin}/bitrix/app?rtm_assignment={assignment.id}"
+
+
+def _deliver_assignment(
+    session: Session,
+    identity: BitrixIdentity,
+    campaign: AcknowledgementCampaign,
+    assignment: AcknowledgementAssignment,
+    user: AppUser,
+    document: KnowledgeDocument,
+    edition: KnowledgeEdition,
+) -> dict[str, Any] | None:
+    link = _assignment_link(assignment)
+    due = assignment.due_at
+    due_text = due.strftime("%d.%m.%Y") if due else "без срока"
+    message = f"Нужно ознакомиться: {document.title}. Срок: {due_text}. Открыть: {link}"
+    description = (
+        f"Нужно ознакомиться с обязательным документом «{document.title}».\n\n"
+        f"Редакция от {edition.edition_date.strftime('%d.%m.%Y')}.\n"
+        f"Срок: {due_text}.\n\n"
+        f"Что изменилось:\n{edition.change_log}\n\n"
+        f"Открыть нужную редакцию в RTM Education:\n{link}"
+    )
+    settings = campaign.notification_settings or {}
+    try:
+        if settings.get("bitrix", True):
+            bitrix_call(identity, "im.notify.personal.add", {"to": int(user.bitrix_user_id), "message": message})
+        if settings.get("task", True):
+            bitrix_call(identity, "tasks.task.add", {"fields": {
+                "TITLE": f"Ознакомиться: {document.title}",
+                "RESPONSIBLE_ID": int(user.bitrix_user_id),
+                "DESCRIPTION": description,
+                "DEADLINE": due.isoformat() if due else None,
+            }})
+        _event(session, campaign.id, "notification_sent", assignment=assignment, actor_id=identity.user.id,
+               details={"link": link})
+        return None
+    except Exception as exc:  # assignment must survive a Bitrix delivery issue
+        failure = {"userId": user.bitrix_user_id, "message": str(getattr(exc, "detail", exc))}
+        _event(session, campaign.id, "notification_failed", assignment=assignment, actor_id=identity.user.id, details=failure)
+        return failure
+
+
+def _add_assignment(
+    session: Session,
+    campaign: AcknowledgementCampaign,
+    user: AppUser,
+    *,
+    actor_id: int | None = None,
+    event_type: str = "assigned",
+) -> AcknowledgementAssignment:
+    now = utcnow()
+    assignment = AcknowledgementAssignment(
+        campaign_id=campaign.id,
+        user_id=user.id,
+        assigned_at=now,
+        due_at=_due_at(now, campaign.due_days),
+    )
+    session.add(assignment)
+    session.flush()
+    _event(session, campaign.id, event_type, assignment=assignment, actor_id=actor_id)
+    return assignment
+
+
 def _nearest_manager(session: Session, user: AppUser) -> AppUser | None:
     departments = _department_map(session)
     candidates = {row.bitrix_user_id: row for row in session.exec(select(AppUser).where(AppUser.active == True)).all()}  # noqa: E712
@@ -215,8 +318,8 @@ def _reconcile_new_hires(session: Session) -> None:
         for user in _recipient_users(session, campaign.recipient_rules):
             if user.id in existing:
                 continue
-            assignment = AcknowledgementAssignment(campaign_id=campaign.id, user_id=user.id, due_at=now + timedelta(days=campaign.due_days))
-            session.add(assignment); session.flush(); _event(session, campaign.id, "new_hire_assigned", assignment=assignment); changed = True
+            _add_assignment(session, campaign, user, event_type="new_hire_assigned")
+            changed = True
     if changed:
         session.commit()
 
@@ -296,23 +399,159 @@ def launch_campaign(campaign_id: int, session: Annotated[Session, Depends(get_se
     if campaign.status != "draft": raise HTTPException(409, "Кампания уже запущена")
     users = _recipient_users(session, campaign.recipient_rules)
     if not users: raise HTTPException(422, "По выбранным правилам не найдено ни одного активного сотрудника")
-    now = utcnow(); due = now + timedelta(days=campaign.due_days)
+    now = utcnow()
     campaign.status="active"; campaign.launched_at=now; campaign.updated_at=now; session.add(campaign)
     edition=session.get(KnowledgeEdition,campaign.edition_id); document=session.get(KnowledgeDocument,edition.document_id)
     notification_errors=[]
     for user in users:
-        assignment=AcknowledgementAssignment(campaign_id=campaign.id,user_id=user.id,due_at=due); session.add(assignment); session.flush()
-        _event(session,campaign.id,"assigned",assignment=assignment,actor_id=identity.user.id)
-        settings=campaign.notification_settings or {}; message=f"Нужно ознакомиться: {document.title}. Срок: {due.strftime('%d.%m.%Y')}."
-        try:
-            if settings.get("bitrix",True): bitrix_call(identity,"im.notify.personal.add",{"to":int(user.bitrix_user_id),"message":message})
-            if settings.get("task",True): bitrix_call(identity,"tasks.task.add",{"fields":{"TITLE":f"Ознакомиться: {document.title}","RESPONSIBLE_ID":int(user.bitrix_user_id),"DESCRIPTION":message,"DEADLINE":due.isoformat()}})
-            _event(session,campaign.id,"notification_sent",assignment=assignment,actor_id=identity.user.id)
-        except Exception as exc:  # assignment must survive a Bitrix delivery issue
-            notification_errors.append({"userId":user.bitrix_user_id,"message":str(getattr(exc,"detail",exc))})
-            _event(session,campaign.id,"notification_failed",assignment=assignment,actor_id=identity.user.id,details=notification_errors[-1])
+        assignment = _add_assignment(session, campaign, user, actor_id=identity.user.id)
+        failure = _deliver_assignment(session, identity, campaign, assignment, user, document, edition)
+        if failure:
+            notification_errors.append(failure)
     session.commit()
     return {"campaign":_campaign(campaign),"assigned":len(users),"notificationErrors":notification_errors}
+
+
+@router.get("/campaigns/{campaign_id}")
+def campaign_details(campaign_id: int, session: Annotated[Session, Depends(get_session)], identity: Annotated[BitrixIdentity, Depends(require_editor)]):
+    campaign = session.get(AcknowledgementCampaign, campaign_id)
+    if not campaign:
+        raise HTTPException(404, "Кампания не найдена")
+    rows = session.exec(select(AcknowledgementAssignment).where(
+        AcknowledgementAssignment.campaign_id == campaign_id).order_by(AcknowledgementAssignment.assigned_at)).all()
+    return {"campaign": _campaign(campaign), "assignments": [_assignment_payload(session, row) for row in rows]}
+
+
+@router.put("/campaigns/{campaign_id}")
+def update_active_campaign(
+    campaign_id: int,
+    payload: ActiveCampaignWrite,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_editor)],
+):
+    campaign = session.get(AcknowledgementCampaign, campaign_id)
+    if not campaign:
+        raise HTTPException(404, "Кампания не найдена")
+    if campaign.status != "active":
+        raise HTTPException(409, "Редактировать можно только активную кампанию")
+    if not payload.recipientRules:
+        raise HTTPException(422, "Выберите хотя бы одного получателя")
+    if not payload.responsibleRules:
+        raise HTTPException(422, "Выберите хотя бы одного ответственного")
+    if payload.dueDatePolicy not in {"new_only", "recalculate"}:
+        raise HTTPException(422, "Неизвестное правило пересчёта срока")
+
+    old_due_days = campaign.due_days
+    campaign.recipient_rules = payload.recipientRules
+    campaign.responsible_rules = payload.responsibleRules
+    campaign.due_days = payload.dueDays
+    campaign.include_new_hires = payload.includeNewHires
+    campaign.updated_at = utcnow()
+    session.add(campaign)
+
+    rows = session.exec(select(AcknowledgementAssignment).where(
+        AcknowledgementAssignment.campaign_id == campaign_id)).all()
+    existing = {row.user_id for row in rows}
+    edition = session.get(KnowledgeEdition, campaign.edition_id)
+    document = session.get(KnowledgeDocument, edition.document_id) if edition else None
+    notification_errors: list[dict[str, Any]] = []
+    added = 0
+    for user in _recipient_users(session, payload.recipientRules):
+        if user.id in existing:
+            continue
+        assignment = _add_assignment(session, campaign, user, actor_id=identity.user.id, event_type="recipient_added")
+        added += 1
+        if document and edition:
+            failure = _deliver_assignment(session, identity, campaign, assignment, user, document, edition)
+            if failure:
+                notification_errors.append(failure)
+
+    recalculated = 0
+    if payload.dueDatePolicy == "recalculate" and old_due_days != payload.dueDays:
+        for row in rows:
+            if row.status in {"completed", "exempted"}:
+                continue
+            row.due_at = _due_at(row.assigned_at, payload.dueDays)
+            row.updated_at = utcnow()
+            session.add(row)
+            _event(session, campaign.id, "deadline_recalculated", assignment=row, actor_id=identity.user.id,
+                   details={"oldDueDays": old_due_days, "newDueDays": payload.dueDays})
+            recalculated += 1
+
+    _event(session, campaign.id, "campaign_updated", actor_id=identity.user.id,
+           details={"added": added, "recalculated": recalculated, "dueDatePolicy": payload.dueDatePolicy})
+    session.commit()
+    session.refresh(campaign)
+    return {"campaign": _campaign(campaign), "added": added, "recalculated": recalculated,
+            "notificationErrors": notification_errors}
+
+
+@router.post("/assignments/{assignment_id}/exempt")
+def exempt_assignment(
+    assignment_id: int,
+    payload: ExemptWrite,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_editor)],
+):
+    row = session.get(AcknowledgementAssignment, assignment_id)
+    campaign = session.get(AcknowledgementCampaign, row.campaign_id) if row else None
+    if not row or not campaign:
+        raise HTTPException(404, "Назначение не найдено")
+    if campaign.status != "active":
+        raise HTTPException(409, "Назначения можно снимать только в активной кампании")
+    if row.status == "completed":
+        raise HTTPException(409, "Завершённое назначение снять нельзя")
+    if row.status == "exempted":
+        raise HTTPException(409, "Назначение уже снято")
+    row.status = "exempted"
+    row.manual_reason = payload.reason.strip()
+    row.reviewed_by = identity.user.id
+    row.reviewed_at = utcnow()
+    row.updated_at = row.reviewed_at
+    session.add(row)
+    _event(session, campaign.id, "assignment_exempted", assignment=row, actor_id=identity.user.id,
+           details={"reason": row.manual_reason})
+    _maybe_close_campaign(session, campaign.id)
+    session.commit()
+    return _assignment_payload(session, row)
+
+
+@router.post("/campaigns/{campaign_id}/close")
+def close_campaign(
+    campaign_id: int,
+    payload: CloseCampaignWrite,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_editor)],
+):
+    campaign = session.get(AcknowledgementCampaign, campaign_id)
+    if not campaign:
+        raise HTTPException(404, "Кампания не найдена")
+    if campaign.status != "active":
+        raise HTTPException(409, "Завершить досрочно можно только активную кампанию")
+    now = utcnow()
+    rows = session.exec(select(AcknowledgementAssignment).where(
+        AcknowledgementAssignment.campaign_id == campaign_id)).all()
+    exempted = 0
+    for row in rows:
+        if row.status in {"completed", "exempted"}:
+            continue
+        row.status = "exempted"
+        row.manual_reason = payload.reason.strip()
+        row.reviewed_by = identity.user.id
+        row.reviewed_at = now
+        row.updated_at = now
+        session.add(row)
+        _event(session, campaign.id, "assignment_exempted", assignment=row, actor_id=identity.user.id,
+               details={"reason": row.manual_reason, "campaignClose": True})
+        exempted += 1
+    campaign.status = "closed"
+    campaign.closed_at = now
+    campaign.updated_at = now
+    session.add(campaign)
+    _event(session, campaign.id, "campaign_closed", actor_id=identity.user.id,
+           details={"automatic": False, "reason": payload.reason.strip(), "exempted": exempted})
+    session.commit()
+    return {"campaign": _campaign(campaign), "exempted": exempted}
 
 
 @router.get("/assignments/mine")
@@ -326,6 +565,7 @@ def my_assignments(session: Annotated[Session, Depends(get_session)], identity: 
 def start_assignment(assignment_id:int,session:Annotated[Session,Depends(get_session)],identity:Annotated[BitrixIdentity,Depends(require_bitrix_identity)]):
     row=session.get(AcknowledgementAssignment,assignment_id)
     if not row or row.user_id!=identity.user.id: raise HTTPException(404,"Назначение не найдено")
+    if row.status == "exempted": raise HTTPException(409,"Это назначение снято")
     if row.status in {"not_started","overdue","returned"}: row.status="in_progress"; row.started_at=row.started_at or utcnow(); row.updated_at=utcnow(); session.add(row); _event(session,row.campaign_id,"started",assignment=row,actor_id=identity.user.id); session.commit()
     return _assignment_payload(session,row)
 
@@ -334,6 +574,7 @@ def start_assignment(assignment_id:int,session:Annotated[Session,Depends(get_ses
 def answer_assignment(assignment_id:int,payload:AnswerWrite,session:Annotated[Session,Depends(get_session)],identity:Annotated[BitrixIdentity,Depends(require_bitrix_identity)]):
     row=session.get(AcknowledgementAssignment,assignment_id)
     if not row or row.user_id!=identity.user.id: raise HTTPException(404,"Назначение не найдено")
+    if row.status == "exempted": raise HTTPException(409,"Это назначение снято")
     campaign=session.get(AcknowledgementCampaign,row.campaign_id); now=utcnow(); answer=payload.answer
     if campaign.mode=="confirm": passed=True
     elif campaign.mode=="question":
@@ -346,7 +587,9 @@ def answer_assignment(assignment_id:int,payload:AnswerWrite,session:Annotated[Se
         passed=bool((answer or {}).get("passed")) if isinstance(answer,dict) else False
     row.answer={"value":answer,"passed":passed}; row.started_at=row.started_at or now
     row.status="completed" if passed else "returned"; row.completed_at=now if passed else None; row.updated_at=now; session.add(row)
-    _event(session,row.campaign_id,"completed" if passed else "answer_rejected",assignment=row,actor_id=identity.user.id); session.commit()
+    _event(session,row.campaign_id,"completed" if passed else "answer_rejected",assignment=row,actor_id=identity.user.id)
+    if passed: _maybe_close_campaign(session, row.campaign_id)
+    session.commit()
     return _assignment_payload(session,row)
 
 
@@ -357,7 +600,9 @@ def review_assignment(assignment_id:int,payload:ReviewWrite,session:Annotated[Se
     if not _can_manage(identity,campaign,_department_map(session)): raise HTTPException(403,"Нет права проверять этот ответ")
     now=utcnow(); row.status="completed" if payload.accepted else "returned"; row.completed_at=now if payload.accepted else None
     row.reviewed_by=identity.user.id; row.reviewed_at=now; row.review_comment=payload.comment.strip(); row.updated_at=now; session.add(row)
-    _event(session,row.campaign_id,"review_accepted" if payload.accepted else "review_returned",assignment=row,actor_id=identity.user.id,details={"comment":row.review_comment}); session.commit()
+    _event(session,row.campaign_id,"review_accepted" if payload.accepted else "review_returned",assignment=row,actor_id=identity.user.id,details={"comment":row.review_comment})
+    if payload.accepted: _maybe_close_campaign(session, row.campaign_id)
+    session.commit()
     return _assignment_payload(session,row)
 
 
@@ -368,7 +613,9 @@ def manual_complete(assignment_id:int,payload:ManualCompleteWrite,session:Annota
     own=row.user_id==identity.user.id and identity.user.role=="editor"
     if not own and not _can_manage(identity,campaign,_department_map(session)): raise HTTPException(403,"Можно отметить только своё или назначенное вам ознакомление")
     now=utcnow(); row.status="completed"; row.completed_at=now; row.reviewed_by=identity.user.id; row.reviewed_at=now; row.manual_reason=payload.reason; row.updated_at=now; session.add(row)
-    _event(session,row.campaign_id,"manual_complete",assignment=row,actor_id=identity.user.id,details={"reason":payload.reason}); session.commit(); return _assignment_payload(session,row)
+    _event(session,row.campaign_id,"manual_complete",assignment=row,actor_id=identity.user.id,details={"reason":payload.reason})
+    _maybe_close_campaign(session, row.campaign_id)
+    session.commit(); return _assignment_payload(session,row)
 
 
 @router.get("/center")

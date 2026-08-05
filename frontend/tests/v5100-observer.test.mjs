@@ -53,10 +53,19 @@ test("v51 DOM observer reaches a fixed point after renaming the roles heading", 
   assert.equal(mutations, 1);
 });
 
-test("v51.1 keeps campaign assignments while the wizard changes mode", () => {
+test("v51.2 keeps campaign assignments while the wizard changes mode", () => {
   assert.match(source, /getDirectory\)directory=await window\.RTMV5038\.getDirectory/);
   assert.match(source, /recipientRules:savedCampaign&&savedCampaign\.recipientRules/);
   assert.match(source, /responsibleRules:savedCampaign&&savedCampaign\.responsibleRules/);
   assert.match(source, /rememberRules\(\);model\.mode=button\.dataset\.mode;stepTwo\(\)/);
   assert.match(source, /data-v5100-test-host/);
+});
+
+test("v51.2 exposes managed campaigns, departments and useful help", () => {
+  assert.match(source, /data-v5100-department/);
+  assert.match(source, /includeChildren/);
+  assert.match(source, /data-v5120-manage-campaign/);
+  assert.match(source, /dueDatePolicy/);
+  assert.match(source, /mandatory-documents/);
+  assert.doesNotMatch(source, /Выполняет действие «/);
 });

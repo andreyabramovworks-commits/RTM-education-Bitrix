@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from sqlalchemy import text
 
 from app.bitrix import bitrix_page
@@ -42,8 +42,11 @@ def readiness() -> dict[str, str]:
 
 
 @app.api_route("/bitrix/app", methods=["GET", "POST"], include_in_schema=False)
-def bitrix_application():
-    return bitrix_page()
+def bitrix_application(request: Request):
+    return bitrix_page(launch_params={
+        key: value for key in ("rtm_assignment", "rtm_view")
+        if (value := request.query_params.get(key))
+    })
 
 
 @app.api_route("/bitrix/install", methods=["GET", "POST"], include_in_schema=False)

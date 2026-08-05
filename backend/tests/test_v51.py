@@ -1,7 +1,9 @@
+from datetime import datetime, timezone
+
 from fastapi import HTTPException
 
 from app.models import AppUser, BitrixDepartment, KnowledgeDocument
-from app.v51 import CampaignWrite, _google_file_id, _is_in_department, _match_rules, _validate_campaign
+from app.v51 import CampaignWrite, _due_at, _google_file_id, _is_in_department, _match_rules, _validate_campaign
 
 
 def test_department_rule_includes_nested_department():
@@ -22,7 +24,7 @@ def test_google_document_id_supports_docs_and_query_links():
 
 def test_control_question_requires_correct_option():
     document = KnowledgeDocument(source_row=1, title="Документ", document_url="https://example.com")
-    payload = CampaignWrite(mode="question", question={"type": "single", "text": "Что изменилось?", "options": [{"id": "1"}, {"id": "2"}], "correct": []})
+    payload = CampaignWrite(mode="question", recipientRules=[{"type": "all_active"}], responsibleRules=[{"type": "user", "id": "1"}], question={"type": "single", "text": "Что изменилось?", "options": [{"id": "1"}, {"id": "2"}], "correct": []})
     try:
         _validate_campaign(payload, document)
     except HTTPException as error:
@@ -33,4 +35,11 @@ def test_control_question_requires_correct_option():
 
 def test_linked_test_must_exist_for_test_acknowledgement():
     document = KnowledgeDocument(source_row=1, title="Документ", document_url="https://example.com", light_test={"created": True})
-    _validate_campaign(CampaignWrite(mode="test", testKind="light"), document)
+    _validate_campaign(CampaignWrite(mode="test", testKind="light", recipientRules=[{"type": "all_active"}], responsibleRules=[{"type": "user", "id": "1"}]), document)
+
+
+def test_calendar_deadline_ends_on_last_selected_day():
+    assigned = datetime(2026, 8, 5, 12, 42, tzinfo=timezone.utc)
+    due = _due_at(assigned, 3)
+    assert due.date().isoformat() == "2026-08-08"
+    assert (due.hour, due.minute, due.second) == (23, 59, 59)

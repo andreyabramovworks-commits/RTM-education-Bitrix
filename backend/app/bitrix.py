@@ -1,13 +1,16 @@
 from html import escape
+from urllib.parse import urlencode
 
 from fastapi.responses import HTMLResponse
 
 
-def bitrix_page(*, install: bool = False) -> HTMLResponse:
+def bitrix_page(*, install: bool = False, launch_params: dict[str, str] | None = None) -> HTMLResponse:
     """Return the phase-0 Bitrix24 frame without persisting portal tokens."""
     mode = "install" if install else "app"
     title = "Установка RTM Education" if install else "RTM Education"
     safe_title = escape(title)
+    frame_query = {"bitrix_frame": "1", "rtm_release": "51.2.0", **(launch_params or {})}
+    frame_src = "/?" + escape(urlencode(frame_query), quote=True)
 
     html = f"""<!doctype html>
 <html lang="ru">
@@ -43,7 +46,7 @@ def bitrix_page(*, install: bool = False) -> HTMLResponse:
   </style>
 </head>
 <body data-mode="{mode}">
-  {('<section class="install"><h1>Подключаем RTM Education</h1><p>Проверяем связь с порталом и сервером. На этом этапе приложение только читает данные текущего пользователя и ничего не записывает в Битрикс24.</p><div class="checks" id="checks"></div><p id="details"></p></section>' if install else '<div hidden><div id="checks"></div><div id="details"></div></div><main class="workspace"><iframe src="/?bitrix_frame=1&amp;rtm_release=51.1.0" title="RTM Education v51.1.0"></iframe></main>')}
+  {('<section class="install"><h1>Подключаем RTM Education</h1><p>Проверяем связь с порталом и сервером. На этом этапе приложение только читает данные текущего пользователя и ничего не записывает в Битрикс24.</p><div class="checks" id="checks"></div><p id="details"></p></section>' if install else f'<div hidden><div id="checks"></div><div id="details"></div></div><main class="workspace"><iframe src="{frame_src}" title="RTM Education v51.2.0"></iframe></main>')}
   <script>
     (() => {{
       const mode = document.body.dataset.mode;
