@@ -68,4 +68,6 @@ test("v51.2 exposes managed campaigns, departments and useful help", () => {
   assert.match(source, /dueDatePolicy/);
   assert.match(source, /mandatory-documents/);
   assert.doesNotMatch(source, /Выполняет действие «/);
+  assert.doesNotMatch(source, /\.rail-btn \.v512-help-dot/);
+  assert.doesNotMatch(source, /\['\[data-admin-view="(?:reviews|database|users)"\]'/);
 });
