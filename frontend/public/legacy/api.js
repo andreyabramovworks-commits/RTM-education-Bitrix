@@ -405,7 +405,4 @@
     setTimeout(applyV47Labels, 0);
   });
   else setTimeout(applyV47Labels, 0);
-  if (window.__RTM_V48__ && typeof window.__RTM_V48_INIT__ === 'function') {
-    setTimeout(function () { window.__RTM_V48_INIT__().catch(function (error) { console.error('RTM initialization failed', error); }); }, 0);
-  }
 })();

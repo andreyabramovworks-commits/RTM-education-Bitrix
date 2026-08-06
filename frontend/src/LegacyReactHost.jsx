@@ -30,6 +30,10 @@ function loadRuntime() {
     window.__RTM_VERSION__ = RELEASE_VERSION;
     window.__RTM_STANDALONE__ =
       new URLSearchParams(window.location.search).get("rtm_fullscreen") === "1";
+    window.process ||= { env: { NODE_ENV: "production" } };
+    window.process.env ||= { NODE_ENV: "production" };
+    window.process.env.NODE_ENV ||= "production";
+    window.EXCALIDRAW_ASSET_PATH = new URL("/legacy/excalidraw-dist/", window.location.origin).href;
 
     LEGACY_STYLES.forEach((path) => {
       const link = document.createElement("link");
@@ -41,6 +45,11 @@ function loadRuntime() {
 
     if (window.RTM_BITRIX_READY) await window.RTM_BITRIX_READY;
     for (const [path, module] of LEGACY_SCRIPTS) await loadScript(path, module);
+    if (typeof window.__RTM_SHELL_INIT__ === "function") window.__RTM_SHELL_INIT__();
+    if (typeof window.__RTM_V48_INIT__ !== "function") {
+      throw new Error("Runtime не предоставил функцию запуска");
+    }
+    await window.__RTM_V48_INIT__();
   })().catch((error) => {
     runtimePromise = null;
     throw error;

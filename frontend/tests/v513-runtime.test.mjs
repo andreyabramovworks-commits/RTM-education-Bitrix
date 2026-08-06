@@ -14,13 +14,23 @@ test("v51.3 has one initial synchronization path", () => {
   assert.match(app, /if\(initPromise\)return initPromise/);
   assert.match(app, /if\(loadAllPromise\)return loadAllPromise/);
   assert.doesNotMatch(api, /Initial automatic synchronization/);
+  assert.doesNotMatch(api, /__RTM_V48_INIT__\(\)/);
+  assert.match(host, /await window\.__RTM_V48_INIT__\(\)/);
 });
 
 test("v51.3 runtime uses one canonical manifest", () => {
   assert.match(host, /from "\.\/legacyRuntime"/);
   assert.match(host, /if \(runtimePromise\) return runtimePromise/);
   assert.doesNotMatch(host, /const LEGACY_(?:STYLES|SCRIPTS)/);
-  assert.match(manifest, /RELEASE_VERSION = "51\.3\.0"/);
+  assert.match(manifest, /RELEASE_VERSION = "51\.3\.1"/);
+  assert.match(app, /window\.__RTM_SHELL_INIT__=init/);
+  assert.doesNotMatch(
+    app,
+    /if\(document\.readyState==='loading'\)document\.addEventListener\('DOMContentLoaded',init\);else init\(\);/,
+  );
+  assert.match(host, /window\.process \|\|=/);
+  assert.match(host, /window\.EXCALIDRAW_ASSET_PATH/);
+  assert.match(host, /__RTM_SHELL_INIT__/);
 });
 
 test("new editions choose a free date and assignments remain usable", () => {

@@ -47,3 +47,20 @@ Only the application initializer starts the first load. Concurrent callers share
 #### Change restriction
 
 Do not add delayed or observer-driven fallback calls to `loadAll()`.
+
+### ADR-003: The React host owns runtime startup
+
+- Date: 2026-08-06
+- Status: accepted
+
+#### Context
+
+Functional scripts share legacy global contracts, but some release-era modules previously started themselves while later modules were still loading. Once the scripts were consolidated, an early shell callback entered the temporal dead zone of the core `state` binding and stopped the application before API synchronization and theme loading.
+
+#### Decision
+
+`LegacyReactHost.jsx` prepares required browser globals, loads every functional runtime asset in manifest order, and only then invokes the shell initializer and the single application initializer. Functional modules expose behavior but never start the application as a side effect of loading.
+
+#### Change restriction
+
+Do not call `__RTM_V48_INIT__`, `loadAll()` or an equivalent startup fallback from a functional runtime module. Startup ordering belongs exclusively to the React host and must remain regression-tested.

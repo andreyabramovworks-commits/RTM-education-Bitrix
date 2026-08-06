@@ -35,7 +35,7 @@
 
 - Never add `vNNN.js` or `vNNN.css` release patch files.
 - Add behavior to the responsible functional module and edit its source style directly.
-- One initialization path and one in-flight synchronization are allowed.
+- One initialization path and one in-flight synchronization are allowed; `LegacyReactHost.jsx` is the sole startup owner and calls init only after every functional module is loaded.
 - Commit, push, deploy and release tags require verified changes.
 - Do not commit secrets, HAR files, local build verification folders or environment files.
 
@@ -54,4 +54,4 @@
 ## Last Verified
 
 - Date: 2026-08-06
-- Scope: v51.3.0 frontend tests 12/12, backend tests 22/22, production frontend build passed.
+- Scope: v51.3.1 startup-order fix; frontend tests 12/12, backend tests 22/22, production frontend build passed.

@@ -18,7 +18,7 @@ function repairLearningRoute(){if(typeof state==='undefined'||state.uview!=='lea
 function installNavigationGuard(){if(typeof window.showUserView!=='function'||window.__rtmV45NavGuard)return;window.__rtmV45NavGuard=true;var base=window.showUserView;window.showUserView=function(view){var result=base.apply(this,arguments);if(view==='learn')setTimeout(repairLearningRoute,0);return result}}
 function init(){button=document.getElementById('v41AppFullscreen');if(button)button.onclick=toggle;var standalone=isStandalone();if(standalone)cssFullscreen(true);installNavigationGuard();repairLearningRoute();document.addEventListener('fullscreenchange',function(){if(!document.fullscreenElement&&!standalone)cssFullscreen(false);else setPressed(true)});document.addEventListener('webkitfullscreenchange',function(){setPressed(Boolean(document.webkitFullscreenElement)||standalone)});window.addEventListener('popstate',repairLearningRoute)}
 installChildBridge();installParentBridge();
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+window.__RTM_SHELL_INIT__=init;
 })();
 
 
