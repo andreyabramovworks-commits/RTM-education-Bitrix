@@ -53,7 +53,7 @@ test("v51 DOM observer reaches a fixed point after renaming the roles heading", 
   assert.equal(mutations, 1);
 });
 
-test("v51.3 keeps campaign assignments while the wizard changes mode", () => {
+test("v51.4 keeps campaign assignments while the wizard changes mode", () => {
   assert.match(source, /getDirectory\?window\.RTMV5038\.getDirectory/);
   assert.match(source, /recipientRules:savedCampaign&&savedCampaign\.recipientRules/);
   assert.match(source, /responsibleRules:savedCampaign&&savedCampaign\.responsibleRules/);
@@ -61,7 +61,7 @@ test("v51.3 keeps campaign assignments while the wizard changes mode", () => {
   assert.match(source, /data-v5100-test-host/);
 });
 
-test("v51.3 exposes managed campaigns, departments and useful help", () => {
+test("v51.4 exposes managed campaigns, departments and useful help", () => {
   assert.match(source, /data-v5100-department/);
   assert.match(source, /includeChildren/);
   assert.match(source, /data-v5120-manage-campaign/);
@@ -70,4 +70,14 @@ test("v51.3 exposes managed campaigns, departments and useful help", () => {
   assert.doesNotMatch(source, /Выполняет действие «/);
   assert.doesNotMatch(source, /\.rail-btn \.v512-help-dot/);
   assert.doesNotMatch(source, /\['\[data-admin-view="(?:reviews|database|users)"\]'/);
+});
+
+test("v51.4 exposes delivery templates and a complete role matrix", () => {
+  assert.match(source, /v514TaskTitle/);
+  assert.match(source, /v514TaskDescription/);
+  assert.match(source, /\{edition_link\}/);
+  assert.match(source, /v514-role-overview/);
+  assert.match(source, /role-no-admin/);
+  assert.match(source, /role-mobile-admin/);
+  assert.match(source, /Ограничений внутри приложения нет/);
 });

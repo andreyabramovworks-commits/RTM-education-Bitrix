@@ -362,19 +362,29 @@
   var renderAllV47Base = renderAll;
   renderAll = function () { renderAllV47Base(); applyV47Labels(); };
   var renderProfileV47Base = renderProfile;
-  renderProfile = function () {
-    renderProfileV47Base();
-    Promise.all([
+  var profileHealthState = {value:null, checkedAt:0, promise:null};
+  function paintProfileHealth(checks) {
+    var server = document.querySelector('[data-profile-status="server"]');
+    var database = document.querySelector('[data-profile-status="database"]');
+    var bitrix = document.querySelector('[data-profile-status="bitrix"]');
+    if (server) { server.textContent = 'Сервер: ' + (checks[0] ? 'работает' : 'ошибка'); server.classList.toggle('ok', checks[0]); }
+    if (database) { database.textContent = 'PostgreSQL: ' + (checks[1] ? 'работает' : 'ошибка'); database.classList.toggle('ok', checks[1]); }
+    if (bitrix) { bitrix.textContent = 'Bitrix24: ' + (window.__RTMV47_USER__ ? 'подключён' : 'нет сессии'); bitrix.classList.toggle('ok', Boolean(window.__RTMV47_USER__)); }
+  }
+  function loadProfileHealth(force) {
+    if (!force && profileHealthState.value && Date.now() - profileHealthState.checkedAt < 60000) return Promise.resolve(profileHealthState.value);
+    if (profileHealthState.promise) return profileHealthState.promise;
+    profileHealthState.promise = Promise.all([
       fetch('/api/health', {credentials: 'same-origin'}).then(function (r) { return r.ok; }).catch(function () { return false; }),
       fetch('/api/ready', {credentials: 'same-origin'}).then(function (r) { return r.ok; }).catch(function () { return false; })
-    ]).then(function (checks) {
-      var server = document.querySelector('[data-profile-status="server"]');
-      var database = document.querySelector('[data-profile-status="database"]');
-      var bitrix = document.querySelector('[data-profile-status="bitrix"]');
-      if (server) { server.textContent = 'Сервер: ' + (checks[0] ? 'работает' : 'ошибка'); server.classList.toggle('ok', checks[0]); }
-      if (database) { database.textContent = 'PostgreSQL: ' + (checks[1] ? 'работает' : 'ошибка'); database.classList.toggle('ok', checks[1]); }
-      if (bitrix) { bitrix.textContent = 'Bitrix24: ' + (window.__RTMV47_USER__ ? 'подключён' : 'нет сессии'); bitrix.classList.toggle('ok', Boolean(window.__RTMV47_USER__)); }
-    });
+    ]).then(function (checks) { profileHealthState.value = checks; profileHealthState.checkedAt = Date.now(); return checks; }).finally(function () { profileHealthState.promise = null; });
+    return profileHealthState.promise;
+  }
+  renderProfile = function () {
+    renderProfileV47Base();
+    if (state.uview !== 'profile') return;
+    if (profileHealthState.value) paintProfileHealth(profileHealthState.value);
+    loadProfileHealth(false).then(paintProfileHealth);
   };
   function enhanceArticleReader() {
     var host = document.getElementById('v46ReaderSvg');

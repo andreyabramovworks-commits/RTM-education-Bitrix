@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+import logging
 import re
 import secrets
 from typing import Annotated, Any
@@ -25,6 +26,16 @@ from app.models import (
 router = APIRouter(prefix="/api/v51", tags=["v51"])
 GOOGLE_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly"
 MANAGER_ROLES = {"developer", "admin", "editor", "teacher"}
+logger = logging.getLogger(__name__)
+TASK_TITLE_TEMPLATE = "Ознакомиться: {document_title}"
+TASK_DESCRIPTION_TEMPLATE = (
+    "Нужно ознакомиться с обязательным документом «{document_title}».\n\n"
+    "Редакция от {edition_date}.\n"
+    "Срок: {deadline}.\n\n"
+    "Что изменилось:\n{changes}\n\n"
+    "Открыть нужную редакцию в RTM Education:\n{edition_link}"
+)
+TASK_TEMPLATE_FIELDS = {"document_title", "edition_date", "deadline", "changes", "edition_link"}
 
 
 class EditionWrite(BaseModel):
@@ -129,6 +140,23 @@ def _validate_campaign(payload: CampaignWrite, document: KnowledgeDocument) -> N
         test = document.light_test if payload.testKind == "light" else document.full_test
         if not (test or {}).get("created"):
             raise HTTPException(422, "Выбранный тест этого документа ещё не создан")
+    settings = payload.notificationSettings or {}
+    for key in ("bitrix", "task", "escalation"):
+        if key in settings and not isinstance(settings[key], bool):
+            raise HTTPException(422, f"Параметр {key} должен быть переключателем")
+    title = str(settings.get("taskTitle") or TASK_TITLE_TEMPLATE)
+    description = str(settings.get("taskDescription") or TASK_DESCRIPTION_TEMPLATE)
+    if len(title) > 250:
+        raise HTTPException(422, "Название задачи не должно превышать 250 символов")
+    if len(description) > 10000:
+        raise HTTPException(422, "Описание задачи не должно превышать 10000 символов")
+    unknown = (set(re.findall(r"\{([a-z_]+)\}", title + "\n" + description)) - TASK_TEMPLATE_FIELDS)
+    if unknown:
+        raise HTTPException(422, "Неизвестные переменные шаблона: " + ", ".join(sorted(unknown)))
+
+
+def _render_task_template(template: str, values: dict[str, str]) -> str:
+    return re.sub(r"\{([a-z_]+)\}", lambda match: values.get(match.group(1), match.group(0)), template)
 
 
 def _department_map(session: Session) -> dict[str, BitrixDepartment]:
@@ -216,30 +244,34 @@ def _deliver_assignment(
     due = assignment.due_at
     due_text = due.strftime("%d.%m.%Y") if due else "без срока"
     message = f"Нужно ознакомиться: {document.title}. Срок: {due_text}. Открыть: {link}"
-    description = (
-        f"Нужно ознакомиться с обязательным документом «{document.title}».\n\n"
-        f"Редакция от {edition.edition_date.strftime('%d.%m.%Y')}.\n"
-        f"Срок: {due_text}.\n\n"
-        f"Что изменилось:\n{edition.change_log}\n\n"
-        f"Открыть нужную редакцию в RTM Education:\n{link}"
-    )
     settings = campaign.notification_settings or {}
+    template_values = {
+        "document_title": document.title,
+        "edition_date": edition.edition_date.strftime("%d.%m.%Y"),
+        "deadline": due_text,
+        "changes": edition.change_log,
+        "edition_link": link,
+    }
+    task_title = _render_task_template(str(settings.get("taskTitle") or TASK_TITLE_TEMPLATE), template_values)
+    description = _render_task_template(str(settings.get("taskDescription") or TASK_DESCRIPTION_TEMPLATE), template_values)
     try:
         if settings.get("bitrix", True):
             bitrix_call(identity, "im.notify.personal.add", {"to": int(user.bitrix_user_id), "message": message})
         if settings.get("task", True):
             bitrix_call(identity, "tasks.task.add", {"fields": {
-                "TITLE": f"Ознакомиться: {document.title}",
+                "TITLE": task_title,
                 "RESPONSIBLE_ID": int(user.bitrix_user_id),
                 "DESCRIPTION": description,
                 "DEADLINE": due.isoformat() if due else None,
             }})
         _event(session, campaign.id, "notification_sent", assignment=assignment, actor_id=identity.user.id,
-               details={"link": link})
+               details={"channels": {"bitrix": bool(settings.get("bitrix", True)), "task": bool(settings.get("task", True))}})
+        logger.info("acknowledgement delivery completed", extra={"campaign_id": campaign.id, "assignment_id": assignment.id})
         return None
     except Exception as exc:  # assignment must survive a Bitrix delivery issue
         failure = {"userId": user.bitrix_user_id, "message": str(getattr(exc, "detail", exc))}
         _event(session, campaign.id, "notification_failed", assignment=assignment, actor_id=identity.user.id, details=failure)
+        logger.warning("acknowledgement delivery failed", extra={"campaign_id": campaign.id, "assignment_id": assignment.id, "error_type": type(exc).__name__})
         return failure
 
 

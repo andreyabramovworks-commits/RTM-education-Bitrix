@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 
 from app.models import AppUser, BitrixDepartment, KnowledgeDocument
-from app.v51 import CampaignWrite, _due_at, _google_file_id, _is_in_department, _match_rules, _validate_campaign
+from app.v51 import CampaignWrite, _due_at, _google_file_id, _is_in_department, _match_rules, _render_task_template, _validate_campaign
 
 
 def test_department_rule_includes_nested_department():
@@ -43,3 +43,19 @@ def test_calendar_deadline_ends_on_last_selected_day():
     due = _due_at(assigned, 3)
     assert due.date().isoformat() == "2026-08-08"
     assert (due.hour, due.minute, due.second) == (23, 59, 59)
+
+
+def test_task_template_renders_supported_fields():
+    rendered = _render_task_template("Изучить {document_title}: {edition_link}", {"document_title": "Кодекс", "edition_link": "https://example.com/edition"})
+    assert rendered == "Изучить Кодекс: https://example.com/edition"
+
+
+def test_campaign_rejects_unknown_task_template_field():
+    document = KnowledgeDocument(source_row=1, title="Документ", document_url="https://example.com")
+    payload = CampaignWrite(mode="confirm", recipientRules=[{"type": "all_active"}], responsibleRules=[{"type": "user", "id": "1"}], notificationSettings={"task": True, "taskTitle": "Изучить {unknown_field}"})
+    try:
+        _validate_campaign(payload, document)
+    except HTTPException as error:
+        assert error.status_code == 422
+    else:
+        raise AssertionError("Unknown task field must be rejected")

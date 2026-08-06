@@ -755,6 +755,11 @@ html .v51-test-clock{position:sticky;top:10px;z-index:24;width:max-content;margi
 .v52-sortable{cursor:pointer;user-select:none}.v52-sortable:after{content:attr(data-sort);margin-left:5px;color:#635bff}
 .analytics-filter-panel #v52AnalyticsFrom,.analytics-filter-panel #v52AnalyticsTo{width:100%;box-sizing:border-box}
 
+/* v51.4 review workspace: clearer hierarchy without changing its data flow. */
+.v52-review-page .admin-page-head{margin-bottom:16px}.v52-review-page .admin-page-head h1{margin-bottom:6px}.v52-review-tabs{gap:10px;padding-bottom:14px;border-bottom:1px solid #e2e8f0}.v52-review-tabs button{padding:9px 14px;border-radius:10px}.v52-review-tabs button.active{background:var(--accent,#df7a00);border-color:var(--accent,#df7a00);box-shadow:0 6px 16px rgba(148,85,15,.15)}
+.v52-review-workspace{min-height:600px;border-radius:18px;border-color:#dbe5f0;box-shadow:0 14px 38px rgba(28,46,72,.065)}.v52-review-list{padding:15px;background:#f6f8fb}.v52-review-list>input{min-height:46px;margin-bottom:14px;border-color:#d5dfeb;border-radius:11px;background:#fff}.v52-review-list>button{gap:6px;margin-bottom:10px;padding:14px;border:0;border-radius:13px;background:#fff;box-shadow:0 3px 11px rgba(34,52,77,.05);transition:.18s}.v52-review-list>button:hover{transform:translateY(-1px);box-shadow:0 7px 18px rgba(34,52,77,.09)}.v52-review-list>button.active{border:1px solid var(--accent,#df7a00);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,#df7a00) 12%,transparent)}.v52-review-list>button b{font-size:14px}.v52-review-list>button span{font-weight:650}.v52-review-list>button small{font-size:11px}
+.v52-review-detail{padding:24px;background:#fff}.v52-review-detail-head{padding-bottom:18px;border-bottom:1px solid #e8edf3}.v52-review-detail-head h2{font-size:22px}.v52-review-answer{gap:13px;padding:18px;border:0;border-radius:15px;background:#f8fafc}.v52-answer-text{max-height:none;padding:15px;background:#eef3f8;line-height:1.55}.v52-review-decision label{padding:8px 11px;border-radius:10px;background:#fff}.v52-review-answer textarea{min-height:94px;border-color:#d5dfeb;background:#fff}.v52-review-actions{padding:14px 24px}.v52-review-empty{min-height:420px;padding:30px;text-align:center}
+
 @media(max-width:800px){
   html .v492-reader{border-left:0;border-right:0;border-radius:0}
   html .v492-reader-arrow{width:32px;height:58px;top:50dvh}
