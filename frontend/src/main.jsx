@@ -5,9 +5,6 @@ import "./styles.css";
 
 function App() {
   const [apiStatus, setApiStatus] = useState("checking");
-  const params = new URLSearchParams(window.location.search);
-  const inBitrix = params.get("bitrix_frame") === "1";
-  const legacy47 = params.get("version") === "47";
 
   useEffect(() => {
     fetch("/api/health")
@@ -21,14 +18,8 @@ function App() {
 
   return (
     <main className="app-shell" data-api-status={apiStatus}>
-      {legacy47 ? (
-        <iframe
-          className="legacy-app"
-          src={`/legacy/index.html?rtm_fullscreen=1&v=049.2.8${inBitrix ? "&v47=1" : ""}`}
-          title="RTM Education v47"
-        />
-      ) : <LegacyReactHost />}
-      <span className={`api-indicator ${apiStatus}`} title={`API: ${apiStatus}`} />
+      <LegacyReactHost />
+      <span className={"api-indicator " + apiStatus} title={"API: " + apiStatus} />
     </main>
   );
 }

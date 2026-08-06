@@ -22,7 +22,10 @@
         return Boolean(bitrixSdk.isAdmin && bitrixSdk.isAdmin());
       },
       getAuth: function getAuth() {
-        return bitrixSdk.getAuth ? bitrixSdk.getAuth() : null;
+        try {
+          if (bitrixSdk.getAuth) return bitrixSdk.getAuth();
+        } catch (_) {}
+        return bitrixSdk.auth || null;
       },
       call: function call(method, params) {
         return new Promise(function execute(resolve, reject) {

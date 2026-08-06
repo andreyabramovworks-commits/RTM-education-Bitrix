@@ -370,6 +370,10 @@ def save_edition(document_id: int, payload: EditionWrite, session: Annotated[Ses
     if not session.get(KnowledgeDocument, document_id):
         raise HTTPException(404, "Документ не найден")
     row = session.exec(select(KnowledgeEdition).where(KnowledgeEdition.document_id == document_id, KnowledgeEdition.edition_date == payload.editionDate)).first()
+    if row is not None:
+        campaign = session.exec(select(AcknowledgementCampaign).where(AcknowledgementCampaign.edition_id == row.id)).first()
+        if campaign and campaign.status != "draft":
+            raise HTTPException(409, "На эту дату уже есть запущенная редакция. Выберите другую дату для новой редакции")
     if row is None:
         row = KnowledgeEdition(document_id=document_id, edition_date=payload.editionDate, created_by=identity.user.id)
     row.google_revision_id = payload.googleRevisionId.strip(); row.google_version_name = payload.googleVersionName.strip()

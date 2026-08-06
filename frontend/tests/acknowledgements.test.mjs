@@ -3,7 +3,7 @@ import test from "node:test";
 import vm from "node:vm";
 import { readFile } from "node:fs/promises";
 
-const source = await readFile(new URL("../public/legacy/v5100.js", import.meta.url), "utf8");
+const source = await readFile(new URL("../public/legacy/acknowledgements.js", import.meta.url), "utf8");
 
 test("v51 DOM observer reaches a fixed point after renaming the roles heading", () => {
   let observerCallback = null;
@@ -47,21 +47,21 @@ test("v51 DOM observer reaches a fixed point after renaming the roles heading", 
   };
   context.window = context;
 
-  vm.runInNewContext(source, context, { filename: "v5100.js" });
+  vm.runInNewContext(source, context, { filename: "acknowledgements.js" });
 
   assert.equal(headingText, "Роли пользователей");
   assert.equal(mutations, 1);
 });
 
-test("v51.2 keeps campaign assignments while the wizard changes mode", () => {
-  assert.match(source, /getDirectory\)directory=await window\.RTMV5038\.getDirectory/);
+test("v51.3 keeps campaign assignments while the wizard changes mode", () => {
+  assert.match(source, /getDirectory\?window\.RTMV5038\.getDirectory/);
   assert.match(source, /recipientRules:savedCampaign&&savedCampaign\.recipientRules/);
   assert.match(source, /responsibleRules:savedCampaign&&savedCampaign\.responsibleRules/);
   assert.match(source, /rememberRules\(\);model\.mode=button\.dataset\.mode;stepTwo\(\)/);
   assert.match(source, /data-v5100-test-host/);
 });
 
-test("v51.2 exposes managed campaigns, departments and useful help", () => {
+test("v51.3 exposes managed campaigns, departments and useful help", () => {
   assert.match(source, /data-v5100-department/);
   assert.match(source, /includeChildren/);
   assert.match(source, /data-v5120-manage-campaign/);

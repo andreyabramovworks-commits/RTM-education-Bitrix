@@ -1,3 +1,4 @@
+/* source: v5038-knowledge.js */
 /* RTM Education v50.3.8 — unified live Knowledge Base. */
 (function () {
   "use strict";
@@ -331,4 +332,256 @@
   load().then(function(){renderKb();}).catch(console.error);
   window.addEventListener("load",installDatabaseRoute);
   window.RTMV5038={version:"current",renderAdmin:renderAdminKnowledge,getCurrentDocumentId:function(){return adminSelected;},getDocuments:function(){return docs.slice();},getDirectory:function(){return loadDirectory(false);},reload:function(){loaded=false;directory=null;return load(true);}};
+})();
+
+
+/* source: v5040-workspaces.js */
+(function () {
+  "use strict";
+  var api = function (path, options) { return window.RTMV47.request(path, options); };
+  var esc = function (value) { return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); };
+  var host = function () { return document.getElementById("adminDatabase"); };
+  var title = { article: "Статья", light: "Тест лайт", full: "Тест полный" };
+
+  function back() {
+    state.v540Workspace = "";
+    var canvas = document.getElementById("v540Canvas");
+    if (canvas && window.RTMCanvas) window.RTMCanvas.unmount(canvas);
+    return window.RTMV5038.reload().then(function () { return window.RTMV5038.renderAdmin(); });
+  }
+  function shell(heading, subtitle, body, actions) {
+    host().innerHTML = '<section class="v539-page v540-page"><header class="v539-page-head"><div><button id="v540Back">← Назад к Базе знаний</button><h1>'+esc(heading)+'</h1><p class="muted">'+esc(subtitle || "")+'</p></div></header>'+(actions ? '<div class="v539-sticky">'+actions+'</div>' : "")+body+'</section>';
+    document.getElementById("v540Back").onclick = back;
+  }
+  function currentId(button) {
+    var detail = button && button.closest && button.closest("[data-v538-document-id]");
+    return detail && detail.dataset.v538DocumentId ||
+      window.RTMV5038 && window.RTMV5038.getCurrentDocumentId && window.RTMV5038.getCurrentDocumentId();
+  }
+  function question(q) { return Object.assign({ id: "q_"+Date.now()+"_"+Math.random().toString(36).slice(2), type: "single", text: "", answers: ["", ""], correct: [0], pairs: [{left:"",right:""}] }, q || {}); }
+  function departmentTree(items) {
+    var rows=[], byParent={};
+    (items || []).forEach(function(item){var parent=String(item.parentId || "");(byParent[parent]=byParent[parent]||[]).push(item);});
+    function walk(parent,depth,seen){(byParent[String(parent)]||[]).forEach(function(item){if(seen[String(item.id)])return;seen[String(item.id)]=true;rows.push({item:item,depth:depth,children:(byParent[String(item.id)]||[]).length});walk(item.id,depth+1,seen);});}
+    var seen={};walk("",0,seen);(items||[]).forEach(function(item){if(!seen[String(item.id)]){rows.push({item:item,depth:0,children:0});walk(item.id,1,seen);}});
+    return rows;
+  }
+
+  async function article(id) {
+    state.v540Workspace = "article";
+    var doc = await api("/api/v47/knowledge/documents/"+id), scene = doc.scene;
+    shell("Редактирование статьи", doc.title,
+      '<div class="v539-form"><label>Название<input id="v540Title" value="'+esc(doc.title)+'"></label><label>Описание<textarea id="v540Description">'+esc(doc.description || "")+'</textarea></label><label>Ссылка на документ<input id="v540Url" value="'+esc(doc.documentUrl || "")+'"></label></div><div id="v540Canvas"></div>',
+      '<button class="primary" id="v540Save">Сохранить изменения</button>');
+    window.RTMCanvas.mount(document.getElementById("v540Canvas"), { pageKey:"knowledge-admin:"+id, scene:scene, readOnly:false, completionRequired:true, title:doc.title, brandColor:"#12b886", onChange:function(next){scene=next;}, onRequestDisk:window.RTMV46 && window.RTMV46.pickDiskMedia });
+    document.getElementById("v540Save").onclick = async function () {
+      this.disabled = true;
+      await api("/api/v47/knowledge/documents/"+id, { method:"PUT", body:JSON.stringify({ title:document.getElementById("v540Title").value.trim(), description:document.getElementById("v540Description").value, documentUrl:document.getElementById("v540Url").value.trim(), scene:scene }) });
+      toast("Статья сохранена и обновлена во всех курсах"); back();
+    };
+  }
+  function collectQuestion(data, index) {
+    var q=data.questions[index], by=function(selector){return Array.prototype.slice.call(document.querySelectorAll(selector));};
+    q.text=(document.querySelector('[data-v540-text="'+index+'"]').value || "").trim();
+    q.type=document.querySelector('[data-v540-type="'+index+'"]').value;
+    if(q.type === "match") q.pairs=by('[data-v540-left^="'+index+'_"]').map(function(left){var n=left.dataset.v540Left.split("_")[1], right=document.querySelector('[data-v540-right="'+index+'_'+n+'"]').value;return {left:left.value,right:right};});
+    else { q.answers=by('[data-v540-answer^="'+index+'_"]').map(function(input){return input.value;}); q.correct=by('[data-v540-correct^="'+index+'_"]:checked').map(function(input){return Number(input.dataset.v540Correct.split("_")[1]);}); }
+  }
+  async function legacyTest(id, kind) {
+    var doc=await api("/api/v47/knowledge/documents/"+id), key=kind === "light" ? "lightTest" : "fullTest", data=JSON.parse(JSON.stringify(doc[key] || {}));
+    data.questions=(data.questions || []).map(question);
+    function draw() {
+      var cards=data.questions.map(function(q,i){return '<article class="question-card"><div class="panel-head"><h3>Вопрос '+(i+1)+'</h3><select data-v540-type="'+i+'"><option value="single" '+(q.type === "single" ? "selected" : "")+'>Один ответ</option><option value="multiple" '+(q.type === "multiple" ? "selected" : "")+'>Несколько ответов</option><option value="match" '+(q.type === "match" ? "selected" : "")+'>Соответствие</option></select></div><label>Текст вопроса<input data-v540-text="'+i+'" value="'+esc(q.text)+'"></label><div class="q-options">'+window.renderQOptions(q,i).replaceAll("data-qans", "data-v540-answer").replaceAll("data-qcor", "data-v540-correct").replaceAll("data-addans", "data-v540-add-answer").replaceAll("data-delans", "data-v540-del-answer").replaceAll("data-qpair-left", "data-v540-left").replaceAll("data-qpair-right", "data-v540-right").replaceAll("data-addpair", "data-v540-add-pair").replaceAll("data-delpair", "data-v540-del-pair")+'</div><button class="danger" data-v540-delete="'+i+'">Удалить вопрос</button></article>';}).join("") || '<div class="panel">Вопросов пока нет. Добавьте первый вопрос.</div>';
+      shell("Редактирование "+title[kind].toLowerCase(), doc.title, '<div class="settings-card test-settings"><label>Название теста<input id="v540TestTitle" value="'+esc(data.title || "")+'"></label></div><div class="v539-questions">'+cards+'</div>', '<button id="v540Add">Добавить вопрос</button><button class="primary" id="v540Save">Сохранить тест</button>');
+      document.getElementById("v540Add").onclick=function(){collect();data.questions.push(question());draw();};
+      document.querySelectorAll("[data-v540-delete]").forEach(function(button){button.onclick=function(){collect();data.questions.splice(Number(button.dataset.v540Delete),1);draw();};});
+      document.querySelectorAll("[data-v540-type]").forEach(function(select){select.onchange=function(){collect();data.questions[Number(select.dataset.v540Type)].type=select.value;draw();};});
+      [["[data-v540-add-answer]",function(q){q.answers=(q.answers||["",""]);q.answers.push("");}],["[data-v540-del-answer]",function(q,n){q.answers.splice(n,1);q.correct=(q.correct||[]).filter(function(v){return v!==n;});}],["[data-v540-add-pair]",function(q){q.pairs=(q.pairs||[]);q.pairs.push({left:"",right:""});}],["[data-v540-del-pair]",function(q,n){q.pairs.splice(n,1);}]].forEach(function(rule){document.querySelectorAll(rule[0]).forEach(function(button){button.onclick=function(){collect();var p=(button.dataset.v540DelAnswer || button.dataset.v540DelPair || "").split("_"), index=Number(button.closest("article").querySelector("select").dataset.v540Type);rule[1](data.questions[index], Number(p[1]));draw();};});});
+      document.getElementById("v540Save").onclick=save;
+    }
+    function collect(){data.title=document.getElementById("v540TestTitle").value.trim();data.questions.forEach(function(_,i){collectQuestion(data,i);});}
+    async function save(){collect();var payload={};payload[key]=data;await api("/api/v47/knowledge/documents/"+id,{method:"PUT",body:JSON.stringify(payload)});toast("Тест сохранён и обновлён во всех курсах");back();}
+    draw();
+  }
+  async function test(id, kind) {
+    state.v540Workspace = "test";
+    var doc = await api("/api/v47/knowledge/documents/" + id);
+    if (!window.RTMV51 || !window.RTMV51.openKnowledgeTest) throw new Error("Визуальный редактор тестов ещё не загрузился. Обновите страницу.");
+    return window.RTMV51.openKnowledgeTest(doc, kind);
+  }
+  async function assignments(id, kind) {
+    state.v540Workspace = "assignments";
+    var doc=await api("/api/v47/knowledge/documents/"+id), directory=await api("/api/v47/knowledge/directory"), prefix=kind === "article" ? "article" : kind === "light" ? "lightTest" : "fullTest", active="students", sets={students:new Set((doc[prefix+"Assignments"]||[]).map(function(r){return r.type+":"+r.id;})),reviewers:new Set((doc[prefix+"Reviewers"]||doc.reviewers||[]).map(function(r){return r.type+":"+r.id;})),editors:new Set((doc[prefix+"Editors"]||doc.editors||[]).map(function(r){return r.type+":"+r.id;}))};
+    function row(type,item,allowed,depth,children){var id=String(item.id),key=type+":"+id,style=type==="department"?' style="--tree-depth:'+(depth||0)+'"':"";return '<label class="v539-choice '+(type==="department"?"v540-department":"")+'"'+style+'><input type="checkbox" data-v540-rule="'+key+'" '+(sets[active].has(key)?"checked":"")+'><span>'+(type==="department"?'<i class="v540-tree-mark">'+(children?"▾":"└")+'</i>':"")+esc(item.name)+'</span><small>'+esc(allowed || "")+'</small></label>';}
+    function draw(){var body="",people=(directory.users||[]).filter(function(user){return active === "students" ? true : active === "editors" ? user.editorAllowed : user.reviewerAllowed;});if(active === "students"){body+='<label class="v539-choice"><input type="checkbox" data-v540-rule="all_active:" '+(sets.students.has("all_active:")?"checked":"")+'><span>Все активные сотрудники</span><small>автоматически</small></label><h3>Подразделения, включая подотделы</h3><p class="v540-tree-help">Отступ показывает вложенность. Выбор отдела автоматически включает все его подотделы.</p>'+departmentTree(directory.departments).map(function(node){return row("department",node.item,node.children?"отдел и "+node.children+" подотд.":"подразделение",node.depth,node.children);}).join("")+"<h3>Сотрудники</h3>";}body+=people.map(function(user){return row("user",user,user.role);}).join("");shell("Назначения",doc.title+" · "+title[kind],'<input class="v539-search" id="v540Search" placeholder="Поиск сотрудника или подразделения"><div class="v539-tabs">'+[["students","Ученики"],["reviewers","Проверяющие"],["editors","Редакторы"]].map(function(tab){return '<button data-v540-tab="'+tab[0]+'" class="'+(active===tab[0]?"active":"")+'">'+tab[1]+' <b>'+sets[tab[0]].size+'</b></button>';}).join("")+'</div><div class="v539-choices">'+body+'</div>'+(kind === "article" ? '<label class="v539-inherit"><input id="v540Inherit" type="checkbox" '+(doc.inheritTestAssignments?"checked":"")+'> После сохранения применить назначения статьи к обоим тестам</label>' : ""),'<button class="primary" id="v540Save">Сохранить назначения</button>');
+      document.querySelectorAll("[data-v540-tab]").forEach(function(button){button.onclick=function(){active=button.dataset.v540Tab;draw();};});document.querySelectorAll("[data-v540-rule]").forEach(function(input){input.onchange=function(){input.checked?sets[active].add(input.dataset.v540Rule):sets[active].delete(input.dataset.v540Rule);};});document.getElementById("v540Search").oninput=function(){var query=this.value.toLowerCase();document.querySelectorAll(".v539-choice").forEach(function(choice){choice.hidden=query && !choice.textContent.toLowerCase().includes(query);});};document.getElementById("v540Save").onclick=save;
+    }
+    async function save(){var payload={}, rules=function(name){return Array.from(sets[name]).map(function(value){var part=value.split(":");return {type:part.shift(),id:part.join(":")};});};payload[prefix+"Assignments"]=rules("students");payload[prefix+"Reviewers"]=rules("reviewers");payload[prefix+"Editors"]=rules("editors");if(kind === "article")payload.inheritTestAssignments=document.getElementById("v540Inherit").checked;await api("/api/v47/knowledge/documents/"+id,{method:"PUT",body:JSON.stringify(payload)});toast("Назначения сохранены");back();}
+    draw();
+  }
+  document.addEventListener("click", function (event) {
+    var target=event.target,button=target&&target.closest&&target.closest("[data-v538-edit-article],[data-v538-edit-test],[data-v538-assign],[data-v538-create-test]");if(!button)return;
+    var id=currentId(button);if(!id)return;
+    event.preventDefault();event.stopImmediatePropagation();
+    var kind=button.dataset.v538EditTest || button.dataset.v538Assign || button.dataset.v538CreateTest;
+    if(button.dataset.v538CreateTest){api("/api/v47/knowledge/documents/"+id+"/tests/"+kind,{method:"POST",body:"{}"}).then(function(){return test(id,kind);}).catch(function(error){toast(error.message||String(error));});}
+    else if(button.dataset.v538EditArticle !== undefined)article(id).catch(function(error){
+      state.v540Workspace="";
+      toast(error.message||String(error));
+    });
+    else if(button.dataset.v538EditTest)test(id,kind).catch(function(error){
+      state.v540Workspace="";
+      toast(error.message||String(error));
+    });
+    else assignments(id,kind).catch(function(error){state.v540Workspace="";toast(error.message||String(error));});
+  }, true);
+
+  var baseRenderAllV540=window.renderAll;
+  window.renderAll=renderAll=function(){
+    if(state.v540Workspace)return;
+    return baseRenderAllV540.apply(this,arguments);
+  };
+
+  (function installColorTheme(){
+    var key="rtm_color_theme";
+    function systemTheme(){return window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}
+    function apply(value){
+      var theme=value==="dark"?"dark":"light";
+      document.documentElement.dataset.rtmTheme=theme;
+      document.documentElement.style.colorScheme=theme;
+      try{localStorage.setItem(key,theme);}catch(_){}
+      var meta=document.querySelector('meta[name="color-scheme"]');if(meta)meta.setAttribute("content",theme);
+      document.querySelectorAll(".theme-btn").forEach(function(button){button.textContent=theme==="dark"?"☀":"☾";button.title=theme==="dark"?"Включить светлую тему":"Включить тёмную тему";button.setAttribute("aria-label",button.title);button.setAttribute("aria-pressed",String(theme==="dark"));});
+      window.dispatchEvent(new CustomEvent("rtm-theme-change",{detail:{theme:theme}}));
+    }
+    function bind(){document.querySelectorAll(".theme-btn").forEach(function(button){if(button.dataset.rtmThemeBound)return;button.dataset.rtmThemeBound="1";button.onclick=function(){apply(document.documentElement.dataset.rtmTheme==="dark"?"light":"dark");};});}
+    var saved="";try{saved=localStorage.getItem(key)||"";}catch(_){}
+    apply(saved||systemTheme());bind();
+    new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true});
+    var academy=document.querySelector('[data-admin-view="materials"]');if(academy)academy.title="Академия";
+    window.RTMTheme={apply:apply,current:function(){return document.documentElement.dataset.rtmTheme;}};
+  })();
+})();
+
+
+/* source: v5041.js */
+/* RTM v50.4.1: analytics controls, navigation and theme finalizer. */
+(function () {
+  "use strict";
+  var VERSION = String(window.__RTM_VERSION__ || "50.4.3");
+  var filters = {query:"", department:"all", from:""};
+
+  function text(value){return String(value == null ? "" : value);}
+  function activeRows(){return Array.from(document.querySelectorAll("#analyticsContent table tbody tr"));}
+  function descendants(id){
+    var found=new Set([String(id)]), changed=true;
+    while(changed){changed=false;(state.departments||[]).forEach(function(row){
+      var parent=String(row.UF_PARENT_SECTION || row.PARENT_ID || row.parentId || "");
+      if(found.has(parent)&&!found.has(String(row.ID))){found.add(String(row.ID));changed=true;}
+    });}
+    return found;
+  }
+  function allowedUsers(){
+    if(filters.department==="all")return null;
+    var ids=descendants(filters.department), names=new Set();
+    (state.users||[]).forEach(function(user){
+      var depts=user.UF_DEPARTMENT||[];if(!Array.isArray(depts))depts=[depts];
+      if(depts.some(function(id){return ids.has(String(id));}))names.add(text(fullName(user)).toLowerCase());
+    });
+    return names;
+  }
+  function rowDate(row,tab){
+    if(tab==="events"){
+      var value=text(row.cells[0]&&row.cells[0].textContent), match=value.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+      return match?match[3]+"-"+match[2]+"-"+match[1]:"";
+    }
+    var value=text(row.textContent).toLowerCase(), dates=(state.events||[]).filter(function(event){
+      var props=event.PROPERTY_VALUES||{};
+      return value.includes(text(eventUserName(event)).toLowerCase())||value.includes(text(props.targetName).toLowerCase());
+    }).map(function(event){return text((event.PROPERTY_VALUES||{}).createdAt).slice(0,10);}).filter(Boolean).sort();
+    return dates[dates.length-1]||"";
+  }
+  function apply(){
+    var query=filters.query.toLowerCase(), tab=state.analyticsTab||"overview", users=allowedUsers();
+    activeRows().forEach(function(row){
+      var content=text(row.textContent).toLowerCase(), date=rowDate(row,tab), visible=!query||content.includes(query);
+      if(visible&&users&&(tab==="users"||tab==="top"||tab==="events")){
+        visible=Array.from(users).some(function(name){return name&&content.includes(name);});
+      }
+      if(visible&&users&&(tab==="materials"||tab==="kb")){
+        visible=(state.events||[]).some(function(event){
+          var props=event.PROPERTY_VALUES||{}, target=text(props.targetName).toLowerCase();
+          return target&&content.includes(target)&&users.has(text(eventUserName(event)).toLowerCase());
+        });
+      }
+      if(visible&&filters.from)visible=Boolean(date&&date>=filters.from);
+      row.hidden=!visible;
+    });
+  }
+  function csv(){
+    var table=document.querySelector("#analyticsContent table");if(!table)return;
+    var rows=[Array.from(table.querySelectorAll("thead th")).map(function(cell){return text(cell.textContent).trim();})]
+      .concat(activeRows().filter(function(row){return !row.hidden;}).map(function(row){return Array.from(row.cells).map(function(cell){return text(cell.textContent).trim();});}));
+    var value="\ufeff"+rows.map(function(row){return row.map(function(cell){return '"'+cell.replace(/"/g,'""')+'"';}).join(";");}).join("\n");
+    var link=document.createElement("a");link.href=URL.createObjectURL(new Blob([value],{type:"text/csv;charset=utf-8"}));
+    link.download="rtm_"+(state.analyticsTab||"analytics")+"_"+new Date().toISOString().slice(0,10)+".csv";link.click();
+    setTimeout(function(){URL.revokeObjectURL(link.href);},500);
+  }
+  function enhance(){
+    var root=document.getElementById("analyticsContent"), search=document.getElementById("analyticsSearch");
+    if(!root||!search)return;
+    var dept=document.getElementById("analyticsDept"), from=document.getElementById("analyticsPeriod"), report=document.getElementById("analyticsExportBtn");
+    search.value=filters.query;if(dept)dept.value=filters.department;if(from)from.value=filters.from;
+    search.oninput=function(){filters.query=search.value;apply();};
+    if(dept)dept.onchange=function(){filters.department=dept.value;apply();};
+    if(from)from.onchange=function(){filters.from=from.value;apply();};
+    if(report)report.onclick=csv;
+    apply();
+  }
+  var baseRender=window.renderAnalytics;
+  if(typeof baseRender==="function")window.renderAnalytics=renderAnalytics=function(){
+    var result=baseRender.apply(this,arguments);setTimeout(enhance,0);return result;
+  };
+  var baseBind=window.bindAnalyticsTools;
+  if(typeof baseBind==="function")window.bindAnalyticsTools=bindAnalyticsTools=function(){setTimeout(enhance,0);};
+
+  document.addEventListener("click",function(event){
+    var back=event.target.closest&&event.target.closest("#uBackToCourse[data-v5041-back='knowledge']");
+    if(back){
+      event.preventDefault();event.stopImmediatePropagation();
+      state.materialBackView=null;
+      var material=document.getElementById("userMaterialView");if(material)material.classList.add("hidden");
+      showUserView("kb");renderKb();
+    }
+  },true);
+
+  function finishTheme(){
+    VERSION=String(window.__RTM_VERSION__ || VERSION);
+    document.documentElement.style.minHeight="100%";
+    document.body.style.minHeight="100%";
+    document.querySelectorAll(".v39-version-label").forEach(function(node){
+      var expected=node.classList.contains("v39-admin-version")?"v"+VERSION:"Версия v"+VERSION;
+      if(node.textContent!==expected)node.textContent=expected;
+    });
+  }
+  finishTheme();
+  window.RTMV5041={version:VERSION,enhanceAnalytics:enhance};
+})();
+
+
+/* source: v5042.js */
+/* RTM current release marker and theme authority. */
+(function(){
+  "use strict";
+  var VERSION=String(window.__RTM_VERSION__ || "50.4.3");
+  function finalize(){
+    document.documentElement.style.colorScheme=document.documentElement.dataset.rtmTheme==="dark"?"dark":"light";
+    document.querySelectorAll(".v39-version-label").forEach(function(node){
+      var expected=node.classList.contains("v39-admin-version")?"v"+VERSION:"Версия v"+VERSION;
+      if(node.textContent!==expected)node.textContent=expected;
+    });
+  }
+  finalize();
+  window.addEventListener("rtm-theme-change",finalize);
+  window.RTMV5042={version:VERSION};
 })();

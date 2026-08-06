@@ -1,89 +1,29 @@
 import React, { useEffect, useState } from "react";
+import {
+  LEGACY_SCRIPTS,
+  LEGACY_STYLES,
+  RELEASE_VERSION,
+  releaseAsset,
+} from "./legacyRuntime";
 
-const RELEASE_VERSION = "51.2.0";
-const RELEASE_ASSET_REVISION = "51.2.0-r3";
-const releaseAsset = (path) => `${path}?v=${RELEASE_ASSET_REVISION}`;
-const LEGACY_STYLES = [
-  "/legacy/style.css",
-  "/legacy/excalidraw-dist/rtm-canvas.css",
-  "/legacy/v040-layout.css",
-  "/legacy/v040-inline.css",
-  "/legacy/v046-layout.css",
-  "/legacy/v0492.css",
-  "/legacy/v050.css",
-  "/legacy/v051.css",
-  "/legacy/v052.css",
-  "/legacy/v053.css",
-  "/legacy/v053-extra.css",
-  "/legacy/v053-modal.css",
-  "/legacy/v053-review.css",
-  "/legacy/v054.css",
-  "/legacy/v5038.css",
-  "/legacy/v5039-pages.css",
-  "/legacy/v5041.css",
-  "/legacy/v5042.css",
-  "/legacy/v5100.css",
-].map(releaseAsset);
+let runtimePromise = null;
 
-const LEGACY_SCRIPTS = [
-  [releaseAsset("/legacy/v046-shell.js"), false],
-  [releaseAsset("/legacy/kb-data.js"), false],
-  [releaseAsset("/legacy/app.js"), false],
-  [releaseAsset("/legacy/v037-overrides.js"), false],
-  [releaseAsset("/legacy/v039-patch.js"), false],
-  [releaseAsset("/legacy/v040-assets.js"), false],
-  [releaseAsset("/legacy/excalidraw-dist/rtm-canvas.js"), true],
-  [releaseAsset("/legacy/v046-canvas.js"), false],
-  [releaseAsset("/legacy/v047-api.js"), false],
-  [releaseAsset("/legacy/v049.js"), false],
-  [releaseAsset("/legacy/v0492.js"), false],
-  [releaseAsset("/legacy/v050.js"), false],
-  [releaseAsset("/legacy/v051.js"), false],
-  [releaseAsset("/legacy/v052.js"), false],
-  [releaseAsset("/legacy/v053.js"), false],
-  [releaseAsset("/legacy/v054.js"), false],
-  [releaseAsset("/legacy/v5038-knowledge.js"), false],
-  [releaseAsset("/legacy/v5040-workspaces.js"), false],
-  [releaseAsset("/legacy/v5041.js"), false],
-  [releaseAsset("/legacy/v5042.js"), false],
-  [releaseAsset("/legacy/v5100.js"), false],
-];
-function loadScript(src, module) {
+function loadScript(path, module) {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = src;
-    script.dataset.rtmV48 = "true";
+    script.src = releaseAsset(path);
+    script.dataset.rtmRuntime = RELEASE_VERSION;
     if (module) script.type = "module";
     script.onload = resolve;
-    script.onerror = () => reject(new Error(`Не удалось загрузить ${src}`));
+    script.onerror = () => reject(new Error("Не удалось загрузить " + path));
     document.body.appendChild(script);
   });
 }
 
-export function LegacyReactHost() {
-  const [markup, setMarkup] = useState("");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    fetch(releaseAsset("/legacy/index.html"), { cache: "no-store" })
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.text();
-      })
-      .then((html) => {
-        const legacyDocument = new DOMParser().parseFromString(html, "text/html");
-        const app = legacyDocument.querySelector("#app");
-        if (!app) throw new Error("В разметке v47 отсутствует #app");
-        if (active) setMarkup(app.outerHTML);
-      })
-      .catch((cause) => active && setError(String(cause.message || cause)));
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => {
-    if (!markup) return;
-    document.querySelectorAll('[data-rtm-v48="true"]').forEach((node) => node.remove());
+function loadRuntime() {
+  if (runtimePromise) return runtimePromise;
+  runtimePromise = (async () => {
+    document.querySelectorAll("[data-rtm-runtime]").forEach((node) => node.remove());
     try { localStorage.setItem("rtm_v492_test_ui", "modern"); } catch (_) {}
     window.__RTM_V48__ = true;
     window.__RTM_V49__ = true;
@@ -91,22 +31,52 @@ export function LegacyReactHost() {
     window.__RTM_STANDALONE__ =
       new URLSearchParams(window.location.search).get("rtm_fullscreen") === "1";
 
-    LEGACY_STYLES.forEach((href) => {
+    LEGACY_STYLES.forEach((path) => {
       const link = document.createElement("link");
       link.rel = "stylesheet";
-      link.href = href;
-      link.dataset.rtmV48 = "true";
+      link.href = releaseAsset(path);
+      link.dataset.rtmRuntime = RELEASE_VERSION;
       document.head.appendChild(link);
     });
 
-    (async () => {
-      try {
-        if (window.RTM_BITRIX_READY) await window.RTM_BITRIX_READY;
-        for (const [src, module] of LEGACY_SCRIPTS) await loadScript(src, module);
-      } catch (cause) {
-        setError(String(cause.message || cause));
-      }
-    })();
+    if (window.RTM_BITRIX_READY) await window.RTM_BITRIX_READY;
+    for (const [path, module] of LEGACY_SCRIPTS) await loadScript(path, module);
+  })().catch((error) => {
+    runtimePromise = null;
+    throw error;
+  });
+  return runtimePromise;
+}
+
+export function LegacyReactHost() {
+  const [markup, setMarkup] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(releaseAsset("/legacy/index.html"), {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        return response.text();
+      })
+      .then((html) => {
+        const legacyDocument = new DOMParser().parseFromString(html, "text/html");
+        const app = legacyDocument.querySelector("#app");
+        if (!app) throw new Error("В разметке приложения отсутствует #app");
+        setMarkup(app.outerHTML);
+      })
+      .catch((cause) => {
+        if (cause.name !== "AbortError") setError(String(cause.message || cause));
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (!markup) return;
+    loadRuntime().catch((cause) => setError(String(cause.message || cause)));
   }, [markup]);
 
   if (error) return <div className="v48-load-error">Ошибка запуска v{RELEASE_VERSION}: {error}</div>;
