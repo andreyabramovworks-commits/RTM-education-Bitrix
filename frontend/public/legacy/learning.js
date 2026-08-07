@@ -1137,7 +1137,13 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   window.RTMUI = window.RTMUI || {afterRender: [], adminView: []};
   window.RTMUI.adminView.push(function (view) { if (view === 'analytics' && (state.analyticsTab || 'overview') !== 'overview') enhanceAnalytics(); });
 
-  document.addEventListener('click', function (event) { var review = event.target.closest && event.target.closest('[data-admin-view="reviews"]'); if (review) setTimeout(renderReviewsV52, 0); }, true);
+  /* The acknowledgements module owns the Reviews route.  Keep this legacy
+     entry point only as a fallback for a standalone v52 host; otherwise its
+     deferred render replaces the selected Centre tab after the route opens. */
+  document.addEventListener('click', function (event) {
+    var review = event.target.closest && event.target.closest('[data-admin-view="reviews"]');
+    if (review && !(window.RTMV5100 && window.RTMV5100.renderCenter)) setTimeout(renderReviewsV52, 0);
+  }, true);
   function migrateExisting() {
     loadTemplate().then(async function () {
       var tests = (state.items || []).filter(function (item) { return item.PROPERTY_VALUES && item.PROPERTY_VALUES.type === 'test'; });
@@ -1193,7 +1199,8 @@ async function decide(i,status,comment){var a=ap(i);Object.assign(a,{status:stat
 async function submit(i){var a=ap(i),m=j(i.PROPERTY_VALUES.meta);a={status:'pending',revision:String(Date.now()),submittedAt:now(),submittedBy:uid(),snapshot:JSON.stringify({id:i.ID,name:i.NAME,type:materialKind(i),content:i.PROPERTY_VALUES.content||'',meta:Object.assign({},m,{approval:undefined})}),history:(a.history||[]).concat({status:'pending',at:now(),by:uid(),comment:'Отправлено на проверку'})};await saveAp(i,a);toast('Материал отправлен на проверку')}
 function exportCsv(){var csv='Пользователь;Тест;Статус;Обновлено\n'+answers().map(function(a){var p=a.PROPERTY_VALUES||{};return[fullName(userById(p.userId)||{}),(findItem(p.testId)||{}).NAME,p.reviewStatus,p.updatedAt].map(function(x){return'"'+String(x||'').replace(/"/g,'""')+'"'}).join(';')}).join('\n'),url=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv'})),a=document.createElement('a');a.href=url;a.download='reviews.csv';a.click();URL.revokeObjectURL(url)}
 var bpt=window.publishTest;window.publishTest=publishTest=async function(){var i=findItem(state.testId);if(rank(role())<3){await saveTestFromEditor();await submit(i);openTestEditor(i.ID);return}return bpt.apply(this,arguments)};var bpc=window.publishCourse;window.publishCourse=publishCourse=async function(){var i=findItem(state.courseId);if(rank(role())<3){await saveCourseSettings();await submit(i);openCourseEditor(i.ID);return}return bpc.apply(this,arguments)};
-var bs=window.switchAdmin;window.switchAdmin=switchAdmin=function(v){var x=bs.apply(this,arguments);if(v==='reviews')setTimeout(render,0);return x};var ba=window.renderAll;window.renderAll=renderAll=function(){var x=ba.apply(this,arguments);if(state.aview==='reviews')setTimeout(render,0);return x};document.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('[data-admin-view="reviews"]'))setTimeout(render,0)},true);
+/* Центром проверок владеет acknowledgements.js. Этот legacy-режим остаётся
+   доступен через RTMV53, но больше не перехватывает routing и renderAll. */
 function mobile(){document.querySelectorAll('.mobile-admin-nav,.mobile-drawer,.admin-mobile-menu').forEach(function(n){if(n.querySelector('[data-v53-mobile]'))return;var b=document.createElement('button');b.dataset.v53Mobile='1';b.textContent='Центр проверок';b.onclick=function(){switchAdmin('reviews')};n.appendChild(b)})}new MutationObserver(mobile).observe(document.documentElement,{childList:true,subtree:true});setTimeout(mobile,0);
 window.RTMV53={version:V,renderCenter:render,renderTeachers:teachers,assignedTo:assigned,submitMaterial:submit,selfTest:function(){var e=[];if(!Array.isArray(state.assigns))e.push('assigns');if(!Array.isArray(state.attempts))e.push('attempts');if(!Array.isArray(state.items))e.push('items');return{ok:!e.length,errors:e,counts:counts()}}};
 })();

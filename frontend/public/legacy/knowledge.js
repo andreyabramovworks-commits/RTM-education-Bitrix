@@ -114,10 +114,8 @@
         back.dataset.v5041Back=item?"course":"knowledge";
       }
       var viewerRole=typeof actualRole==="function"?String(actualRole()):String(state.currentRole||"");
-      if(item&&linkedMeta(item)&&!["user","student"].includes(viewerRole)){
-        var body=document.getElementById("uMaterialBody");
-        if(body&&!body.querySelector(".v538-readonly-note"))body.insertAdjacentHTML("afterbegin",'<div class="v538-readonly-note">Материал связан с Базой знаний и доступен в курсе только для просмотра. Изменения вносит администратор через Управление Базой знаний.</div>');
-      }
+      /* The reader already exposes the material context.  A second service
+         banner was covering the article header on desktop and mobile. */
     } catch(error) { toast(error.message||String(error)); }
   }
   var baseBackFromUserMaterial=window.backFromUserMaterial;
@@ -188,7 +186,7 @@
     view.innerHTML='<div class="admin-page-head"><div><h1>Управление Базой знаний</h1><p class="muted">Источник истины: PostgreSQL · '+docs.length+' статей</p></div>'+
       '<button id="v538RefreshDirectory">Обновить из Bitrix24</button></div>'+
       '<div class="v538-directory-status">Сотрудников: <b>'+directory.users.length+'</b> · подразделений: <b>'+directory.departments.length+'</b></div>'+
-      '<div class="hero pink v538-admin-search"><input id="v538AdminSearch" placeholder="Введите название документа"></div>'+
+      '<div class="v538-admin-search"><input id="v538AdminSearch" placeholder="Введите название документа"></div>'+
       '<div id="v538AdminCrumbs" class="kb-breadcrumbs">'+crumbs(adminPath,true)+'</div><div id="v538AdminBody" class="kb-tree-grid"></div>';
     var body=document.getElementById("v538AdminBody"),query="";
     function draw() {
