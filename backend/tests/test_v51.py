@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 
 from app.models import AppUser, BitrixDepartment, KnowledgeDocument
-from app.v51 import CampaignWrite, _due_at, _google_file_id, _is_in_department, _match_rules, _render_task_template, _validate_campaign
+from app.v51 import CampaignWrite, EditionDeleteWrite, _due_at, _google_file_id, _is_in_department, _match_rules, _render_task_template, _validate_campaign
 
 
 def test_department_rule_includes_nested_department():
@@ -59,3 +59,7 @@ def test_campaign_rejects_unknown_task_template_field():
         assert error.status_code == 422
     else:
         raise AssertionError("Unknown task field must be rejected")
+
+
+def test_edition_deletion_requires_an_iso_confirmation_date():
+    assert EditionDeleteWrite(confirmationDate="2026-08-10").confirmationDate.isoformat() == "2026-08-10"

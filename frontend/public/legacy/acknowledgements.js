@@ -153,10 +153,32 @@
   function helpMarker(anchor,key){if(!anchor||!HELP[key]||anchor.querySelector(':scope > .v512-help-dot[data-help-key="'+key+'"]'))return;anchor.classList.add('v512-help-anchor');var dot=document.createElement('span');dot.className='v512-help-dot';dot.dataset.helpKey=key;dot.textContent='?';dot.setAttribute('role','button');dot.setAttribute('tabindex','0');dot.setAttribute('aria-label','Справка: '+HELP[key].title);anchor.appendChild(dot);}
   function installHelpMarkers(){var selectors=[['#userLearn #userCourseListView h1','assigned-learning'],['[data-user-course-tab="active"]','assigned-learning'],['[data-user-course-tab="completed"]','completed-learning'],['[data-user-course-tab="documents"]','mandatory-documents'],['[data-mandatory-tab="active"]','mandatory-active'],['[data-mandatory-tab="history"]','mandatory-history'],['#globalSyncBtn','sync'],['#usersSyncBtn','sync'],['[data-v5100-new-edition]','new-edition'],['[data-v5120-manage-campaign]','active-campaign']];selectors.forEach(function(pair){document.querySelectorAll(pair[0]).forEach(function(node){helpMarker(node,pair[1]);});});document.querySelectorAll('button,a[href],input,select,textarea').forEach(function(node){if(node.title||node.matches('.v5100-help-dot,.v512-help-dot')||node.closest('.v51-help-card'))return;var label=(node.getAttribute('aria-label')||node.placeholder||node.textContent||'').trim().replace(/\s+/g,' ');if(label)node.title=label;});}
   var openAssignmentBase=openAssignment;openAssignment=function(row){if(!row||row.status!=='exempted')return openAssignmentBase(row);var edition=row.edition||{};modal('<div class="v5100-wizard"><button class="modal-close" onclick="closeModal()">×</button><h2>'+h(row.document&&row.document.title||'Документ')+'</h2><span class="v5100-badge">'+h(statusLabel(row.status))+'</span><div class="v5100-card v5100-edition"><h3>'+h(editionTitle(edition))+'</h3>'+changes(edition.changeLog)+'</div><div class="v5100-row"><a class="primary" href="'+h(row.document&&row.document.documentUrl||'#')+'" target="_blank" rel="noopener noreferrer">Открыть документ</a></div><div class="v5100-empty">Ознакомление больше не требуется.'+(row.manualReason?'<br><b>Причина:</b> '+h(row.manualReason):'')+'</div></div>');};
-  var baseSwitch=window.switchAdmin;window.switchAdmin=switchAdmin=function(view){var result=baseSwitch.apply(this,arguments);setTimeout(function(){installNames();if(view==='reviews')renderCenter();},0);return result;};
+  function installDeveloperEditionDeletion(){
+    if(!state||state.currentRole!=='developer')return;
+    var host=document.querySelector('.v538-admin-detail'),documentId=Number(host&&host.dataset.v538DocumentId||currentDocumentId()),rows=cache.editions[documentId];
+    if(!documentId||!Array.isArray(rows))return;
+    document.querySelectorAll('.v5100-edition').forEach(function(card){
+      if(card.querySelector('[data-v515-delete-edition]'))return;
+      var title=card.querySelector('h3'),row=rows.find(function(item){return title&&title.textContent.trim()===editionTitle(item);});
+      if(!row)return;
+      var button=document.createElement('button');button.type='button';button.className='danger';button.dataset.v515DeleteEdition=String(row.id);button.textContent='Удалить тестовую редакцию';
+      button.onclick=async function(){
+        var label=fmtDate(row.editionDate);
+        if(!confirm('Удалить редакцию '+label+' вместе с её кампанией, назначениями и историей? Это действие нельзя отменить.'))return;
+        if(prompt('Для подтверждения введите дату редакции: '+label)!==label)return alert('Дата не совпала. Удаление отменено.');
+        button.disabled=true;
+        try{await api('/api/v51/editions/'+row.id,{method:'DELETE',body:JSON.stringify({confirmationDate:String(row.editionDate).slice(0,10)})});cache.editions[documentId]=null;toast('Тестовая редакция удалена');renderEditionAdmin(documentId,card.closest('.v5100-doc-tab-body'));}
+        catch(error){alert(error.message||error);button.disabled=false;}
+      };
+      var actions=card.querySelector('.v5100-row');if(actions)actions.appendChild(button);
+    });
+  }
+  function runAcknowledgementEnhancements(){installNames();installMandatoryTab();installHelpMarkers();enhanceAdminDocument();enhanceUserDocument();enhanceRoleModal();enhanceRoleOverview();installDeveloperEditionDeletion();}
+  window.RTMUI=window.RTMUI||{afterRender:[],adminView:[]};
+  window.RTMUI.adminView.push(function(view){runAcknowledgementEnhancements();if(view==='reviews')renderCenter();});
   var baseAnalytics=window.RTMV49&&window.RTMV49.openUserAnalytics;if(baseAnalytics)window.RTMV49.openUserAnalytics=function(userId){var result=baseAnalytics.apply(this,arguments);appendAnalyticsHistory(userId);return result;};
-  var observer=new MutationObserver(function(){installNames();installMandatoryTab();installHelpMarkers();enhanceAdminDocument();enhanceUserDocument();enhanceRoleModal();enhanceRoleOverview();});observer.observe(document.documentElement,{childList:true,subtree:true});
-  setTimeout(function(){installNames();installMandatoryTab();installHelpMarkers();enhanceAdminDocument();enhanceUserDocument();if(state&&state.aview==='reviews')renderCenter();var requested=typeof URLSearchParams!=='undefined'&&typeof location!=='undefined'?new URLSearchParams(location.search).get('rtm_assignment'):'';if(requested){state.userTab='documents';showUserView('learn');renderUserCourses();}},100);
+  var observer=new MutationObserver(function(){runAcknowledgementEnhancements();});observer.observe(document.documentElement,{childList:true,subtree:true});
+  setTimeout(function(){runAcknowledgementEnhancements();if(state&&state.aview==='reviews')renderCenter();var requested=typeof URLSearchParams!=='undefined'&&typeof location!=='undefined'?new URLSearchParams(location.search).get('rtm_assignment'):'';if(requested){state.userTab='documents';showUserView('learn');renderUserCourses();}},100);
   window.RTMV5100={version:'51.3.0',renderCenter:renderCenter,openEditionWizard:openEditionWizard,openCampaignManager:openCampaignManager,help:HELP,documents:[]};
 /* v51.4 role matrix is initialized before the module closes. */
 Object.assign(HELP,{
@@ -204,6 +226,6 @@ openAssignment=function(row){
   else action.innerHTML='<div class="v514-confirm"><div><b>Документ изучен?</b><span>Подтверждение сохранится в истории ознакомления.</span></div><button class="primary" id="v5100AckSubmit">Подтверждаю ознакомление</button></div>';
   var submit=document.getElementById('v5100AckSubmit');if(submit)submit.onclick=async function(){var answer=null;if(campaign.mode==='question')answer=question.type==='free'?document.getElementById('v5100AckFree').value:Array.from(document.querySelectorAll('[name=ackChoice]:checked')).map(function(x){return x.value;});submit.disabled=true;var oldText=submit.textContent;submit.textContent='Сохраняем…';try{var saved=await api('/api/v51/assignments/'+row.id+'/answer',{method:'POST',body:JSON.stringify({answer:answer})});cache.mine=null;closeModal();toast(saved.status==='completed'?'Ознакомление подтверждено':'Ответ отправлен');renderKb();}catch(error){alert(error.message||error);submit.disabled=false;submit.textContent=oldText;}};
 };
-window.RTMV5100.version='51.4.0';
+window.RTMV5100.version='51.5.0';
 document.addEventListener('click',function(event){var mechanic=event.target.closest&&event.target.closest('.v514-role-mechanic[data-help-key]');if(!mechanic)return;event.preventDefault();event.stopPropagation();openHelp(mechanic,mechanic.dataset.helpKey,0);},true);
 })();

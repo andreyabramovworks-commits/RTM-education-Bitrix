@@ -52,7 +52,9 @@ async function findCreated(entity,name,props){let rows=await get(entity), stamp=
 async function upd(entity,id,name,props){return await call('entity.item.update',{ENTITY:entity,ID:id,NAME:name,PROPERTY_VALUES:props})}
 function isAlreadyDeletedError(error){let text=String(error&&((error.error||'')+' '+(error.error_description||'')+' '+(error.message||''))||error||'').toUpperCase(); return text.includes('ERROR_ITEM_NOT_FOUND')||text.includes('ERROR_ENTITY_ITEM_NOT_FOUND')||text.includes('ERROR_NOT_FOUND')||text.includes('ITEM NOT FOUND')||text.includes('COULD NOT FIND ENTITY WITH ID')}
 async function del(entity,id){try{return await call('entity.item.delete',{ENTITY:entity,ID:id})}catch(error){if(isAlreadyDeletedError(error))return {alreadyDeleted:true};throw error}}
-function switchAdmin(v){state.aview=v; $$('.rail-btn').forEach(x=>x.classList.toggle('active',x.dataset.adminView===v)); $$('.admin-view').forEach(x=>x.classList.remove('active')); $('#admin'+cap(v)).classList.add('active'); shellLayout(); renderAll();}
+window.RTMUI=window.RTMUI||{afterRender:[],adminView:[]};
+function runUiHooks(kind,value){(window.RTMUI[kind]||[]).slice().forEach(function(hook){try{hook(value)}catch(error){console.error('RTM UI hook failed',error)}})}
+function switchAdmin(v){state.aview=v; $$('.rail-btn').forEach(x=>x.classList.toggle('active',x.dataset.adminView===v)); $$('.admin-view').forEach(x=>x.classList.remove('active')); $('#admin'+cap(v)).classList.add('active'); shellLayout(); renderAll();runUiHooks('adminView',v);}
 function renderEvents(){let q=($('#eventSearch')?.value||'').toLowerCase(); let evs=state.events.filter(e=>(eventUserName(e)+' '+(e.PROPERTY_VALUES?.event||'')+' '+(e.PROPERTY_VALUES?.targetName||'')).toLowerCase().includes(q)); $('#eventsTotal').textContent='Всего: '+evs.length; $('#eventsTable').innerHTML=evs.map(e=>'<tr><td>'+fmt(e.PROPERTY_VALUES.createdAt)+'</td><td><a>'+esc(eventUserName(e))+'</a></td><td>'+esc(e.PROPERTY_VALUES.event||'—')+'</td><td><a>'+esc(typeLabel(findItem(e.PROPERTY_VALUES.targetId)?.PROPERTY_VALUES?.type)||'Материал')+': '+esc(e.PROPERTY_VALUES.targetName||'—')+'</a></td><td>'+esc(e.PROPERTY_VALUES.duration||'—')+'</td></tr>').join('')||'<tr><td colspan="5">Событий нет</td></tr>'}
 function targetPoints(id){let it=findItem(id); if(!it)return 0; let meta=j(it.PROPERTY_VALUES?.meta); return Math.max(0,Number(meta.points||0))}
 function userIdAliases(uid){let aliases=new Set([String(uid||'')]); try{let cur=currentUserId(), eff=effectiveUserId(); if(String(uid)===cur||String(uid)===eff||String(uid)==='0'){aliases.add(cur); aliases.add(eff)}}catch{} return aliases}
@@ -184,7 +186,7 @@ function bindAnalyticsTools(render){$('#analyticsSearch')&&($('#analyticsSearch'
 function sum(rows,key){return rows.reduce((a,r)=>a+(Number(r[key])||0),0)}
 function avg(nums){nums=nums.filter(n=>!isNaN(n)); return nums.length?Math.round(nums.reduce((a,b)=>a+b,0)/nums.length):0}
 
-function renderAll(){shellLayout();renderProjects();renderDashboard();renderEvents();renderMaterials();renderUserCourses();renderKb();renderProfile();renderUsers();renderDatabase();renderAnalytics();}
+function renderAll(){shellLayout();renderProjects();renderDashboard();renderEvents();renderMaterials();renderUserCourses();renderKb();renderProfile();renderUsers();renderDatabase();renderAnalytics();runUiHooks('afterRender');}
 function deptName(id){let d=state.departments.find(x=>String(x.ID)===String(id)); return d?.NAME||d?.NAME_SHORT||('\u041e\u0442\u0434\u0435\u043b '+id)}
 function userDepartments(u){let ids=u?.UF_DEPARTMENT||u?.UF_DEPARTMENT_ID||[]; if(!Array.isArray(ids))ids=ids?[ids]:[]; return ids.map(deptName).join(', ')||'\u2014'}
 function userById(id){return state.users.find(u=>String(u.ID)===String(id))}

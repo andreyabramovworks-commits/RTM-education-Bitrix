@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
-from app.bitrix_auth import BitrixIdentity, bitrix_call, require_bitrix_identity, require_editor
+from app.bitrix_auth import BitrixIdentity, bitrix_call, require_bitrix_identity, require_developer, require_editor
 from app.config import get_settings
 from app.database import get_session
 from app.models import (
@@ -43,6 +43,11 @@ class EditionWrite(BaseModel):
     googleRevisionId: str = ""
     googleVersionName: str = ""
     changeLog: str = Field(min_length=1, max_length=30000)
+
+
+class EditionDeleteWrite(BaseModel):
+    """Server-side confirmation prevents accidental deletion of a launched test edition."""
+    confirmationDate: date
 
 
 class CampaignWrite(BaseModel):
@@ -411,6 +416,48 @@ def save_edition(document_id: int, payload: EditionWrite, session: Annotated[Ses
     row.google_revision_id = payload.googleRevisionId.strip(); row.google_version_name = payload.googleVersionName.strip()
     row.change_log = payload.changeLog.strip(); row.updated_at = utcnow(); session.add(row); session.commit(); session.refresh(row)
     return _edition(row)
+
+
+@router.delete("/editions/{edition_id}", status_code=204)
+def delete_edition(
+    edition_id: int,
+    payload: EditionDeleteWrite,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_developer)],
+):
+    """Delete a diagnostic edition and its acknowledgement data as one transaction."""
+    edition = session.get(KnowledgeEdition, edition_id)
+    if not edition:
+        raise HTTPException(404, "Редакция не найдена")
+    if payload.confirmationDate != edition.edition_date:
+        raise HTTPException(422, "Дата подтверждения не совпадает с датой редакции")
+
+    campaign = session.exec(
+        select(AcknowledgementCampaign).where(AcknowledgementCampaign.edition_id == edition.id)
+    ).first()
+    try:
+        if campaign:
+            assignments = session.exec(
+                select(AcknowledgementAssignment).where(AcknowledgementAssignment.campaign_id == campaign.id)
+            ).all()
+            assignment_ids = [row.id for row in assignments]
+            events = session.exec(
+                select(AcknowledgementEvent).where(
+                    (AcknowledgementEvent.campaign_id == campaign.id)
+                    | (AcknowledgementEvent.assignment_id.in_(assignment_ids or [-1]))
+                )
+            ).all()
+            for row in events:
+                session.delete(row)
+            for row in assignments:
+                session.delete(row)
+            session.delete(campaign)
+        session.delete(edition)
+        session.commit()
+    except Exception:
+        session.rollback()
+        logger.exception("Failed to delete acknowledgement edition", extra={"edition_id": edition_id})
+        raise HTTPException(500, "Не удалось удалить редакцию. Данные не изменены")
 
 
 @router.post("/editions/{edition_id}/campaign")

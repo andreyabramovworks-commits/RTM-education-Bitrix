@@ -198,7 +198,13 @@
     },
     isAdmin: function () { return Boolean(context && context.isAdmin()); },
     getDomain: function () { return auth && auth.domain || ''; },
-    getAuth: function () { return auth || false; }
+    getAuth: function () { return auth || false; },
+    // Keep the public Bitrix facade compatible with callers that refresh an
+    // expired token. The adapter remains the single owner of cached auth.
+    refreshAuth: function () {
+      context = findContext();
+      return context ? refreshAuth() : false;
+    }
   };
 
   get = async function (entity) {

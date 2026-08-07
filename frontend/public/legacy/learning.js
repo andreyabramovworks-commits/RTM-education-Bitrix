@@ -289,10 +289,9 @@
       return result;
     } catch (error) { workspaceRestoring = false; throw error; }
   }
-  var baseSwitchAdmin = window.switchAdmin;
-  window.switchAdmin = function (view) { if (view === 'info' && !isDeveloper()) return; var result = baseSwitchAdmin.apply(this, arguments); if (view === 'info') scheduleWorkspaceMount(); return result; };
-  var baseRenderAll = window.renderAll;
-  window.renderAll = function () { var result = baseRenderAll.apply(this, arguments); applyAccess(); document.querySelectorAll('[data-v492-test-ui]').forEach(function () {}); if (state.aview === 'info') scheduleWorkspaceMount(); if (currentRole() === 'teacher') document.querySelectorAll('[data-add-project],#addProjectBtn,[data-edit-child],[data-child-menu],#addQuestionBtn,.rtm-canvas-save').forEach(function (node) { node.hidden = true; }); return result; };
+  window.RTMUI = window.RTMUI || {afterRender: [], adminView: []};
+  window.RTMUI.adminView.push(function (view) { if (view === 'info' && isDeveloper()) scheduleWorkspaceMount(); });
+  window.RTMUI.afterRender.push(function () { applyAccess(); document.querySelectorAll('[data-v492-test-ui]').forEach(function () {}); if (state.aview === 'info') scheduleWorkspaceMount(); if (currentRole() === 'teacher') document.querySelectorAll('[data-add-project],#addProjectBtn,[data-edit-child],[data-child-menu],#addQuestionBtn,.rtm-canvas-save').forEach(function (node) { node.hidden = true; }); });
   var baseMobileMenu = window.v38RenderMobileMenu;
   if (typeof baseMobileMenu === 'function') window.v38RenderMobileMenu = function () { var result = baseMobileMenu.apply(this, arguments); renderDeveloperMobilePreview(); return result; };
 
@@ -795,10 +794,9 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   function fitMobileReaderHeight() {
     var reader = document.querySelector('.v492-reader'); if (!reader || window.innerWidth > 800) return; var rect = reader.getBoundingClientRect(), available = Math.max(420, window.innerHeight - rect.top - 8); reader.style.height = available + 'px'; reader.style.minHeight = '0';
   }
-  var baseSwitchAdmin = window.switchAdmin;
-  window.switchAdmin = switchAdmin = function (view) { ensureReviewView(); var result = baseSwitchAdmin.apply(this, arguments); if (view === 'reviews') renderReviews(); return result; };
-  var baseRenderAll = window.renderAll;
-  window.renderAll = renderAll = function () { ensureReviewView(); var result = baseRenderAll.apply(this, arguments); if (state.aview === 'reviews') renderReviews(); return result; };
+  window.RTMUI = window.RTMUI || {afterRender: [], adminView: []};
+  window.RTMUI.adminView.push(function () { ensureReviewView(); });
+  window.RTMUI.afterRender.push(function () { ensureReviewView(); });
 
   document.addEventListener('click', function (event) {
     var start = event.target.closest && event.target.closest('[data-start-user-test]'); if (start) { event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation(); var test = findItem(start.dataset.startUserTest), body = document.getElementById('uMaterialBody'); if (test && body) { body.innerHTML = renderTakeTest(test); document.querySelectorAll('[data-take-test]').forEach(function (form) { form.onsubmit = takeTestSubmit; }); } return; }
@@ -1136,10 +1134,8 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   var baseRenderAnalytics = window.renderAnalytics;
   window.renderAnalytics = renderAnalytics = function () { var result = baseRenderAnalytics.apply(this, arguments); if ((state.analyticsTab || 'overview') !== 'overview') setTimeout(enhanceAnalytics, 0); return result; };
 
-  var baseSwitchAdmin = window.switchAdmin;
-  window.switchAdmin = switchAdmin = function (view) { var result = baseSwitchAdmin.apply(this, arguments); if (view === 'reviews') setTimeout(renderReviewsV52, 0); if (view === 'analytics') setTimeout(function () { if ((state.analyticsTab || 'overview') !== 'overview') enhanceAnalytics(); }, 0); return result; };
-  var baseRenderAll = window.renderAll;
-  window.renderAll = renderAll = function () { var result = baseRenderAll.apply(this, arguments); if (state.aview === 'reviews') setTimeout(renderReviewsV52, 0); return result; };
+  window.RTMUI = window.RTMUI || {afterRender: [], adminView: []};
+  window.RTMUI.adminView.push(function (view) { if (view === 'analytics' && (state.analyticsTab || 'overview') !== 'overview') enhanceAnalytics(); });
 
   document.addEventListener('click', function (event) { var review = event.target.closest && event.target.closest('[data-admin-view="reviews"]'); if (review) setTimeout(renderReviewsV52, 0); }, true);
   function migrateExisting() {

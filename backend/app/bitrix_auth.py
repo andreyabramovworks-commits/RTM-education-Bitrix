@@ -194,3 +194,10 @@ def require_editor(identity: Annotated[BitrixIdentity, Depends(require_bitrix_id
     if identity.user.role not in {"developer", "admin", "editor"}:
         raise HTTPException(status_code=403, detail="Editor role is required")
     return identity
+
+
+def require_developer(identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)]) -> BitrixIdentity:
+    """Restrict irreversible diagnostic actions to the development role."""
+    if identity.user.role != "developer":
+        raise HTTPException(status_code=403, detail="Developer role is required")
+    return identity
