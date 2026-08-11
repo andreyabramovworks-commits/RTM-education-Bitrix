@@ -380,8 +380,8 @@ async function hydrateLearnerItem(id){
 function applyShellMode(mode){
   document.body.classList.toggle('rtm-learner-active',mode==='user');
   document.body.classList.toggle('rtm-admin-active',mode==='admin');
-  if(mode==='admin')setTimeout(function(){document.querySelectorAll('.rail-btn[data-admin-view]').forEach(function(button){button.onclick=function(event){event.preventDefault();window.switchAdmin(button.dataset.adminView);};});},0);
 }
+document.addEventListener('click',function(event){let button=event.target.closest('.rail-btn[data-admin-view]');if(!button)return;event.preventDefault();switchAdmin(button.dataset.adminView)});
 let baseSetMode=setMode;
 window.setMode=setMode=function(mode){closeModal();applyShellMode(mode);baseSetMode(mode);emitLearnerSnapshot();};
 window.__RTM_LEARNER__={
