@@ -125,7 +125,7 @@ export function LearnerApp({ bridge }) {
   useEffect(() => { const update = () => setSnapshot(bridge.getSnapshot()); window.addEventListener("rtm:help-change", update); return () => window.removeEventListener("rtm:help-change", update); }, [bridge]);
   useEffect(() => { const learner = snapshot.mode === "user"; document.body.classList.toggle("rtm-learner-active", learner); document.body.classList.toggle("rtm-admin-active", !learner); return () => { document.body.classList.remove("rtm-learner-active"); document.body.classList.remove("rtm-admin-active"); }; }, [snapshot.mode]);
   const go = (next) => { setView(next); setSelectedCourse(null); setMaterialContext(null); setMenu(false); };
-  const openMaterial = (material, course) => { bridge.openMaterial(material.ID); setMaterialContext({ material, course }); };
+  const openMaterial = async (material, course) => { const hydrated = await bridge.openMaterial(material.ID); if (hydrated) setMaterialContext({ material: hydrated, course }); };
   const openKnowledgeMaterial = async (doc, kind) => { const projection = await bridge.openKnowledge(doc.id, kind); if (projection) setMaterialContext({ material: projection, course: null }); };
   const setHints = () => bridge.setHintsEnabled(!snapshot.hintsEnabled);
   if (snapshot.mode !== "user") return null;

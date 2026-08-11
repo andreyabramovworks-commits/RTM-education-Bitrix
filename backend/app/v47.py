@@ -590,11 +590,41 @@ def list_legacy(
     entity: str,
     session: Annotated[Session, Depends(get_session)],
     _: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+    summary: bool = False,
 ) -> list[dict[str, Any]]:
     if entity not in SUPPORTED_ENTITIES:
         raise HTTPException(status_code=404, detail="Unknown entity")
     records = session.exec(select(LegacyRecord).where(LegacyRecord.entity == entity)).all()
-    return [_legacy_dict(record) for record in sorted(records, key=lambda row: row.id or 0, reverse=True)]
+    result = [_legacy_dict(record) for record in sorted(records, key=lambda row: row.id or 0, reverse=True)]
+    if not summary or entity != "rtm_items":
+        return result
+    for item in result:
+        properties = dict(item.get("PROPERTY_VALUES") or {})
+        kind = str(properties.get("type") or "")
+        if kind not in {"course", "project", "folder"}:
+            properties["content"] = ""
+            try:
+                meta = json.loads(str(properties.get("meta") or "{}"))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                meta = {}
+            properties["meta"] = json.dumps({key: meta[key] for key in ("sectionId", "required", "order") if key in meta}, ensure_ascii=False)
+        item["PROPERTY_VALUES"] = properties
+    return result
+
+
+@router.get("/legacy/{entity}/{legacy_id}")
+def get_legacy(
+    entity: str,
+    legacy_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    if entity not in SUPPORTED_ENTITIES:
+        raise HTTPException(status_code=404, detail="Unknown entity")
+    record = session.exec(select(LegacyRecord).where(LegacyRecord.entity == entity, LegacyRecord.legacy_id == legacy_id)).first()
+    if record is None:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return _legacy_dict(record)
 
 
 @router.post("/legacy/{entity}", status_code=status.HTTP_201_CREATED)

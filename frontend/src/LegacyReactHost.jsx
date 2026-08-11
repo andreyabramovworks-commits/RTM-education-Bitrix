@@ -2,12 +2,15 @@ import React, { useEffect, useState } from "react";
 import {
   LEGACY_SCRIPTS,
   LEGACY_STYLES,
+  CANVAS_SCRIPTS,
+  CANVAS_STYLES,
   RELEASE_VERSION,
   releaseAsset,
 } from "./legacyRuntime";
 import { LearnerApp } from "./LearnerApp";
 
 let runtimePromise = null;
+let canvasRuntimePromise = null;
 
 function createLearnerPreviewBridge() {
   const course = { ID: "course-1", NAME: "Адаптация нового сотрудника", PROPERTY_VALUES: { type: "course", status: "published", content: "Короткий маршрут по правилам, инструментам и рабочим процессам компании.", meta: JSON.stringify({ sections: [{ id: "start", title: "Начало работы" }] }) } };
@@ -47,6 +50,10 @@ function loadStyle(path) {
   });
 }
 
+function promoteAppStyles() {
+  document.querySelectorAll('link[rel="stylesheet"][href*="/assets/index-"]').forEach((link) => document.head.appendChild(link));
+}
+
 function loadRuntime() {
   if (runtimePromise) return runtimePromise;
   runtimePromise = (async () => {
@@ -63,6 +70,7 @@ function loadRuntime() {
     window.EXCALIDRAW_ASSET_PATH = new URL("/legacy/excalidraw-dist/", window.location.origin).href;
 
     await Promise.all(LEGACY_STYLES.map(loadStyle));
+    promoteAppStyles();
 
     if (window.RTM_BITRIX_READY) await window.RTM_BITRIX_READY;
     for (const [path, module] of LEGACY_SCRIPTS) await loadScript(path, module);
@@ -70,6 +78,7 @@ function loadRuntime() {
     if (typeof window.__RTM_V48_INIT__ !== "function") {
       throw new Error("Runtime не предоставил функцию запуска");
     }
+    window.__RTM_LOAD_CANVAS__ = loadCanvasRuntime;
     await window.__RTM_V48_INIT__();
     const overlay = document.getElementById("modalBackdrop");
     if (overlay && overlay.parentNode !== document.body) document.body.appendChild(overlay);
@@ -78,6 +87,21 @@ function loadRuntime() {
     throw error;
   });
   return runtimePromise;
+}
+
+function loadCanvasRuntime() {
+  if (window.RTMCanvas) return Promise.resolve(window.RTMCanvas);
+  if (canvasRuntimePromise) return canvasRuntimePromise;
+  canvasRuntimePromise = (async () => {
+    await Promise.all(CANVAS_STYLES.map(loadStyle));
+    promoteAppStyles();
+    for (const [path, module] of CANVAS_SCRIPTS) await loadScript(path, module);
+    return window.RTMCanvas;
+  })().catch((error) => {
+    canvasRuntimePromise = null;
+    throw error;
+  });
+  return canvasRuntimePromise;
 }
 
 export function LegacyReactHost() {

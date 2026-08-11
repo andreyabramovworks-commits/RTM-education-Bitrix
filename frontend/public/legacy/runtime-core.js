@@ -323,7 +323,18 @@ async function saveSnapshot(){try{let raw=JSON.stringify(snapshotData()), size=4
 async function readSnapshot(){try{let opts=await call('app.option.get',{})||{}; let count=Number(opts[RTM_SNAPSHOT_COUNT]||0); if(!count)return {}; let raw=''; for(let i=0;i<count;i++)raw+=opts[RTM_SNAPSHOT_PREFIX+i]||''; return raw?JSON.parse(raw):{};}catch(e){console.warn('app.option snapshot read failed',e); return {}}}
 function writeCache(){try{localStorage.setItem(RTM_CACHE_KEY,JSON.stringify(snapshotData()))}catch(e){console.warn('cache write failed',e)} saveSnapshot();}
 async function persistNow(){writeCache(); await saveSnapshot();}
-function init(){if(initPromise)return initPromise;bind();initPromise=new Promise((resolve,reject)=>{BX24.init(async()=>{try{state.bitrixAdmin=typeof BX24.isAdmin==='function'&&BX24.isAdmin();state.user={ID:'0',NAME:'',LAST_NAME:'',EMAIL:''};await refreshCurrentUser();$('#profileName')&&($('#profileName').textContent=fullName(state.user)||'Пользователь');$('#profileMeta')&&($('#profileMeta').textContent=currentUserId()==='0'?'Пользователь не определён':'ID пользователя: '+currentUserId());await loadAll(false);resolve()}catch(error){initPromise=null;reject(error)}})});return initPromise}
+async function loadLearnerBootstrap(){
+  await ensureOnce();
+  let result=await Promise.all([
+    window.RTMV47.request('/api/v47/legacy/rtm_items?summary=true'),
+    get(E.assigns),get(E.progress),get(E.attempts),get(E.roles)
+  ]);
+  state.items=result[0]||[];state.assigns=result[1]||[];state.progress=result[2]||[];
+  state.attempts=result[3]||[];state.roles=result[4]||[];
+  if(!state.users.length&&currentUserId()!=='0')state.users=[safeUser()];
+  applyAccess();renderAll();emitLearnerSnapshot();
+}
+function init(){if(initPromise)return initPromise;bind();state.syncing=true;initPromise=new Promise((resolve,reject)=>{BX24.init(async()=>{try{state.bitrixAdmin=typeof BX24.isAdmin==='function'&&BX24.isAdmin();state.user={ID:'0',NAME:'',LAST_NAME:'',EMAIL:''};await refreshCurrentUser();$('#profileName')&&($('#profileName').textContent=fullName(state.user)||'Пользователь');$('#profileMeta')&&($('#profileMeta').textContent=currentUserId()==='0'?'Пользователь не определён':'ID пользователя: '+currentUserId());await loadLearnerBootstrap();state.syncing=false;emitLearnerSnapshot();resolve();performLoadAll(false).catch(function(error){console.warn('Background synchronization failed',error)})}catch(error){state.syncing=false;state.syncError='Не удалось загрузить данные обучения. Повторите синхронизацию.';emitLearnerSnapshot();initPromise=null;reject(error)}})});return initPromise}
 async function performLoadAll(force=false){ let quiet=!force; state.syncing=true; state.syncError=''; updateSyncButton(); if(!quiet)busy('Синхронизация...'); try{await ensureOnce(); let local=readCache(); let remote=await readSnapshot(); [state.projects,state.items,state.assigns,state.progress,state.events,state.attempts,state.roles,state.canvas,state.users,state.departments]=await Promise.all([get(E.projects),get(E.items),get(E.assigns),get(E.progress),get(E.events),get(E.attempts),get(E.roles),get(E.canvas),getUsersAll(),getDepartmentsAll()]); state.projects=mergeById(mergeById(state.projects,remote.projects),local.projects); state.items=mergeById(mergeById(state.items,remote.items),local.items); state.assigns=mergeById(mergeById(state.assigns,remote.assigns),local.assigns); state.progress=mergeById(mergeById(state.progress,remote.progress),local.progress); state.events=mergeById(mergeById(state.events,remote.events),local.events); state.attempts=mergeById(mergeById(state.attempts,remote.attempts),local.attempts); state.roles=mergeById(mergeById(state.roles,remote.roles),local.roles); state.canvas=mergeById(mergeById(state.canvas,remote.canvas),local.canvas); if(!state.users.length&&currentUserId()!=='0')state.users=[safeUser()]; if(!state.projects.length){await seed(); [state.projects,state.items,state.assigns,state.progress,state.events,state.attempts]=await Promise.all([get(E.projects),get(E.items),get(E.assigns),get(E.progress),get(E.events),get(E.attempts)]); state.projects=mergeById(mergeById(state.projects,remote.projects),local.projects); state.items=mergeById(mergeById(state.items,remote.items),local.items)} if(!state.projectId||!activeRows(state.projects).some(p=>String(p.ID)===String(state.projectId)))state.projectId=(activeRows(state.projects)[0]||{}).ID||'trash'; applyAccess(); writeCache(); renderAll(); routeDeepLink();}catch(e){console.error(e); state.syncError=currentUserId()==='0'?'Не удалось подключиться к Bitrix24. Откройте приложение из портала и повторите синхронизацию.':'Не удалось обновить данные. Проверьте соединение и повторите попытку.'; applyAccess(); try{renderAll()}catch(renderError){console.warn(renderError)} if(!quiet)toast(state.syncError)}finally{state.lastSyncAt=now(); state.syncing=false; applyAccess(); updateSyncButton(); try{renderAll()}catch(renderError){console.warn(renderError)} if(!quiet)idle();}}
 function loadAll(force=false){if(loadAllPromise)return loadAllPromise;loadAllPromise=(async()=>{await refreshCurrentUser();return performLoadAll(force)})();return loadAllPromise.finally(()=>{loadAllPromise=null})}
 async function createMaterial(type,name,extra={}){try{busy('\u0421\u043E\u0437\u0434\u0430\u044E \u043C\u0430\u0442\u0435\u0440\u0438\u0430\u043B...'); let meta={}; if(type==='course')meta={points:5,certificate:false,sequential:false,passScore:100,sections:[{id:'nosection',title:'\u0411\u0435\u0437 \u0441\u0435\u043A\u0446\u0438\u0438',order:0}]}; if(type==='article')meta={points:1,pages:[{title:'\u041D\u043E\u0432\u0430\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430',html:'<h1>\u041D\u043E\u0432\u0430\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430</h1><p><br></p>'}]}; if(type==='test')meta={questions:[]}; let user=safeUser(); let props={type,status:'draft',projectId:String(state.projectId||''),parentId:String(state.folderId||'root'),space:projectCode(state.projectId),content:type==='article'?'<h1>\u041D\u043E\u0432\u0430\u044F \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0430</h1><p><br></p>':'',meta:json({...meta,...extra}),author:fullName(user)||'\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C',authorId:currentUserId(),updatedAt:now()}; let id=await add(E.items,name,props); upsertLocalItem(id,name,props); await persistNow(); addEvent('\u0421\u043E\u0437\u0434\u0430\u043D\u0438\u0435',{ID:id,NAME:name,PROPERTY_VALUES:props}).catch(e=>console.warn(e)); await loadAll(true); renderDashboard(); renderMaterials(); renderUserCourses(); renderKb(); openItem(id);}catch(e){alert('\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u043C\u0430\u0442\u0435\u0440\u0438\u0430\u043B: '+e.message)}finally{idle();}}
@@ -360,21 +371,31 @@ function learnerSnapshot(){
   };
 }
 function emitLearnerSnapshot(){window.dispatchEvent(new CustomEvent('rtm:learner-change'));}
+async function hydrateLearnerItem(id){
+  let item=await window.RTMV47.request('/api/v47/legacy/'+encodeURIComponent(E.items)+'/'+encodeURIComponent(id));
+  let index=state.items.findIndex(function(row){return String(row.ID)===String(id)});
+  if(index>=0)state.items[index]=item;else state.items.push(item);
+  return item;
+}
+function applyShellMode(mode){
+  document.body.classList.toggle('rtm-learner-active',mode==='user');
+  document.body.classList.toggle('rtm-admin-active',mode==='admin');
+}
 window.__RTM_LEARNER__={
   getSnapshot:learnerSnapshot,
   subscribe:function(handler){window.addEventListener('rtm:learner-change',handler);let hook=function(){handler()};window.RTMUI.afterRender.push(hook);return function(){window.removeEventListener('rtm:learner-change',handler);let i=window.RTMUI.afterRender.indexOf(hook);if(i>=0)window.RTMUI.afterRender.splice(i,1)}},
   refresh:async function(){await loadAll(true);emitLearnerSnapshot()},
-  setMode:function(mode){setMode(mode);emitLearnerSnapshot()},
-  openMaterial:function(id){let item=findItem(id);if(!item)return;window.openUserMaterial(item);emitLearnerSnapshot()},
+  setMode:function(mode){applyShellMode(mode);setMode(mode);emitLearnerSnapshot();if(mode==='admin'&&window.__RTM_LOAD_CANVAS__)window.__RTM_LOAD_CANVAS__().catch(function(error){console.warn(error)})},
+  openMaterial:async function(id){let item=await hydrateLearnerItem(id);if(window.__RTM_LOAD_CANVAS__)await window.__RTM_LOAD_CANVAS__();window.openUserMaterial(item);emitLearnerSnapshot();return item},
   completeMaterial:async function(id){let item=findItem(id);if(!item)return;await complete(id,materialKind(item));renderAll();emitLearnerSnapshot()},
   completeCourse:async function(id){let course=findItem(id);if(!course)return;await complete(id,'course');renderAll();emitLearnerSnapshot()},
   courseMaterials:function(id){return courseMaterials(id).slice()},
   canOpen:function(id){let item=findItem(id);return !!item&&canOpenCourseMaterial(item)}
   ,loadKnowledge:async function(force){if(!window.RTMV5038||!window.RTMV5038.load)throw new Error('База знаний ещё загружается');return window.RTMV5038.load(Boolean(force))}
-  ,openKnowledge:function(documentId,kind){if(!window.RTMV5038||!window.RTMV5038.openForUser)throw new Error('База знаний ещё загружается');return window.RTMV5038.openForUser(documentId,kind)}
+  ,openKnowledge:async function(documentId,kind){if(!window.RTMV5038||!window.RTMV5038.openForUser)throw new Error('База знаний ещё загружается');if(window.__RTM_LOAD_CANVAS__)await window.__RTM_LOAD_CANVAS__();return window.RTMV5038.openForUser(documentId,kind)}
   ,loadAcknowledgements:async function(force){if(!window.RTMV5100||!window.RTMV5100.getMine)throw new Error('Редакции ещё загружаются');return window.RTMV5100.getMine(Boolean(force))}
   ,loadEditions:async function(documentId,force){if(!window.RTMV5100||!window.RTMV5100.getEditions)throw new Error('История редакций ещё загружается');return window.RTMV5100.getEditions(documentId,Boolean(force))}
-  ,openAcknowledgement:function(id){if(!window.RTMV5100||!window.RTMV5100.openAssignmentById)throw new Error('Редакции ещё загружаются');return window.RTMV5100.openAssignmentById(id)}
+  ,openAcknowledgement:async function(id){if(!window.RTMV5100||!window.RTMV5100.openAssignmentById)throw new Error('Редакции ещё загружаются');if(window.__RTM_LOAD_CANVAS__)await window.__RTM_LOAD_CANVAS__();return window.RTMV5100.openAssignmentById(id)}
   ,setHintsEnabled:function(value){if(window.RTMHelp)window.RTMHelp.setEnabled(Boolean(value));emitLearnerSnapshot()}
   ,openHint:function(anchor,key){if(window.RTMHelp)window.RTMHelp.open(anchor,key)}
 };

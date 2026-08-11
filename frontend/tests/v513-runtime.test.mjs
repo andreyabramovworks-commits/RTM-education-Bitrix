@@ -23,8 +23,8 @@ test("v51.5 runtime uses one canonical manifest", () => {
   assert.match(host, /from "\.\/legacyRuntime"/);
   assert.match(host, /if \(runtimePromise\) return runtimePromise/);
   assert.doesNotMatch(host, /const LEGACY_(?:STYLES|SCRIPTS)/);
-  assert.match(manifest, /RELEASE_VERSION = "52\.0\.4"/);
-  assert.match(index, /bitrix-bootstrap\.js\?v=52\.0\.4-r1/);
+  assert.match(manifest, /RELEASE_VERSION = "52\.0\.5"/);
+  assert.match(index, /bitrix-bootstrap\.js\?v=52\.0\.5-r1/);
   assert.match(host, /await Promise\.all\(LEGACY_STYLES\.map\(loadStyle\)\)/);
   assert.match(host, /rtm-pending/);
   assert.match(app, /window\.__RTM_SHELL_INIT__=init/);
@@ -34,6 +34,9 @@ test("v51.5 runtime uses one canonical manifest", () => {
   );
   assert.match(host, /window\.process \|\|=/);
   assert.match(host, /window\.EXCALIDRAW_ASSET_PATH/);
+  assert.match(host, /function loadCanvasRuntime/);
+  assert.match(manifest, /CANVAS_SCRIPTS/);
+  assert.doesNotMatch(manifest.match(/export const LEGACY_SCRIPTS[\s\S]*?\];/)[0], /rtm-canvas/);
   assert.match(host, /__RTM_SHELL_INIT__/);
 });
 

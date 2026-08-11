@@ -36,6 +36,19 @@ app.dependency_overrides[require_admin] = admin_override
 client = TestClient(app)
 
 
+def test_learner_summary_strips_heavy_material_payload_and_detail_restores_it() -> None:
+    created = client.post("/api/v47/legacy/rtm_items", json={"name": "Heavy article", "properties": {"type": "article", "content": "large body", "meta": '{"sectionId":"start","required":true,"order":10,"pages":[{"canvasBackup":"very large scene"}]}'}})
+    assert created.status_code == 201
+    legacy_id = created.json()["id"]
+    summary = client.get("/api/v47/legacy/rtm_items?summary=true")
+    row = next(item for item in summary.json() if item["ID"] == legacy_id)
+    assert row["PROPERTY_VALUES"]["content"] == ""
+    assert "pages" not in row["PROPERTY_VALUES"]["meta"]
+    detail = client.get(f"/api/v47/legacy/rtm_items/{legacy_id}")
+    assert detail.status_code == 200
+    assert detail.json()["PROPERTY_VALUES"]["content"] == "large body"
+
+
 def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app")
     assert response.status_code == 200
