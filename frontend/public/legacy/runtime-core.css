@@ -122,7 +122,7 @@ select[multiple]{min-height:168px;padding:8px}select[multiple] optgroup{font-wei
 .project-row[data-system-project="trash"] .tile-svg{width:18px;height:18px;color:#64748b}
 .add-material-grid.course-add-grid .add-tile{grid-template-columns:40px 1fr;min-height:84px}.add-material-grid.course-add-grid .add-tile h3{margin:0 0 4px}.add-material-grid.course-add-grid .add-tile p{margin:0;line-height:1.35}
 .inline-full-editor{background:#fff;border-top:1px solid var(--rtm-line-soft);padding:0 18px 18px 52px}.inline-full-editor .rich-editor-card{box-shadow:none;border-radius:8px}.inline-full-editor .rich-editor{min-height:360px;padding:26px 34px}.inline-full-editor .inline-title{font-weight:800;margin:14px 0 10px}.page-row .tile-svg{width:16px;height:16px;vertical-align:-3px;margin-right:6px}.page-row{display:flex;align-items:center;gap:6px}.page-row span{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.users-warning{background:#fff8e1;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;color:#7c4a03;margin:10px 0}.admin-shell{overflow:hidden}.icon-rail{z-index:1000!important}.projects-panel{z-index:2}
+.users-warning{background:#fff8e1;border:1px solid #fde68a;border-radius:8px;padding:12px 14px;color:#7c4a03;margin:10px 0}.admin-shell{overflow:hidden}.icon-rail{z-index:2147483600!important}.projects-panel{z-index:2}
 
 /* v0.4.0 assignments and inline course editor */
 .assignment-card{background:#fff;border:1px solid var(--rtm-line-soft);border-radius:12px;padding:16px;box-shadow:var(--rtm-shadow);display:grid;gap:14px;max-width:1250px;margin:0 auto 18px}
