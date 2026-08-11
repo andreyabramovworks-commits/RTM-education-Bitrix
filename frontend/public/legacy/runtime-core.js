@@ -381,7 +381,7 @@ function applyShellMode(mode){
   document.body.classList.toggle('rtm-learner-active',mode==='user');
   document.body.classList.toggle('rtm-admin-active',mode==='admin');
 }
-document.addEventListener('click',function(event){let button=event.target.closest&&event.target.closest('.rail-btn[data-admin-view]');if(!button)return;event.preventDefault();event.stopPropagation();switchAdmin(button.dataset.adminView)},true);
+document.addEventListener('click',function(event){let button=event.target.closest&&event.target.closest('.rail-btn[data-admin-view]');if(!button)return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();switchAdmin(button.dataset.adminView)},true);
 let baseSetMode=setMode;
 window.setMode=setMode=function(mode){closeModal();applyShellMode(mode);baseSetMode(mode);emitLearnerSnapshot();};
 window.__RTM_LEARNER__={
