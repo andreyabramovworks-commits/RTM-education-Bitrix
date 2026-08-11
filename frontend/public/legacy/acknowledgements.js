@@ -206,7 +206,7 @@
   var observer=new MutationObserver(function(){
     if(enhancementQueued)return;
     enhancementQueued=true;
-    requestAnimationFrame(function(){enhancementQueued=false;runAcknowledgementEnhancements();});
+    (typeof requestAnimationFrame==='function'?requestAnimationFrame:setTimeout)(function(){enhancementQueued=false;runAcknowledgementEnhancements();});
   });observer.observe(document.documentElement,{childList:true,subtree:true});
   setTimeout(function(){runAcknowledgementEnhancements();if(state&&state.aview==='reviews')renderCenter();var requested=typeof URLSearchParams!=='undefined'&&typeof location!=='undefined'?new URLSearchParams(location.search).get('rtm_assignment'):'';if(requested){state.userTab='documents';showUserView('learn');renderUserCourses();}},100);
   window.RTMV5100={version:'51.6.0',renderCenter:renderCenter,openEditionWizard:openEditionWizard,openCampaignManager:openCampaignManager,help:HELP,documents:[]};

@@ -17,6 +17,7 @@
 ## Architecture
 
 - Entry points: `frontend/src/main.jsx`, `frontend/src/LegacyReactHost.jsx`.
+- Learner UI owner: `frontend/src/LearnerApp.jsx`; its isolated light-theme design system is `frontend/src/learner.css`.
 - Runtime manifest: `frontend/src/legacyRuntime.js` is the only ordered asset manifest.
 - Main modules: `runtime-core`, `api`, `learning`, `knowledge`, `acknowledgements`, `canvas`.
 - Data flow: browser UI → backend API → PostgreSQL / protected external integration.
@@ -36,6 +37,7 @@
 - Never add `vNNN.js` or `vNNN.css` release patch files.
 - Add behavior to the responsible functional module and edit its source style directly.
 - One initialization path and one in-flight synchronization are allowed; `LegacyReactHost.jsx` is the sole startup owner and calls init only after every functional module is loaded.
+- Learner React code uses `window.__RTM_LEARNER__`; storage, progress and rich material renderers stay behind that bridge.
 - Commit, push, deploy and release tags require verified changes.
 - Do not commit secrets, HAR files, local build verification folders or environment files.
 
@@ -53,5 +55,5 @@
 
 ## Last Verified
 
-- Date: 2026-08-06
-- Scope: v51.3.1 startup-order fix; frontend tests 12/12, backend tests 22/22, production frontend build passed.
+- Date: 2026-08-11
+- Scope: v52 learner-shell redesign; desktop 1440×900 and mobile 390×844 visual QA passed, production frontend build passed.

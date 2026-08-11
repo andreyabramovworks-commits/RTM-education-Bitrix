@@ -5,8 +5,20 @@ import {
   RELEASE_VERSION,
   releaseAsset,
 } from "./legacyRuntime";
+import { LearnerApp } from "./LearnerApp";
 
 let runtimePromise = null;
+
+function createLearnerPreviewBridge() {
+  const course = { ID: "course-1", NAME: "Адаптация нового сотрудника", PROPERTY_VALUES: { type: "course", status: "published", content: "Короткий маршрут по правилам, инструментам и рабочим процессам компании.", meta: JSON.stringify({ sections: [{ id: "start", title: "Начало работы" }] }) } };
+  const items = [
+    { ID: "article-1", NAME: "Добро пожаловать в команду", PROPERTY_VALUES: { type: "article", status: "published", parentId: course.ID, projectId: "project-1", meta: JSON.stringify({ sectionId: "start", required: true, order: 100 }) } },
+    { ID: "article-2", NAME: "Рабочие инструменты и доступы", PROPERTY_VALUES: { type: "article", status: "published", parentId: course.ID, projectId: "project-1", meta: JSON.stringify({ sectionId: "start", required: true, order: 200 }) } },
+    { ID: "test-1", NAME: "Проверка знаний", PROPERTY_VALUES: { type: "test", status: "published", parentId: course.ID, projectId: "project-1", meta: JSON.stringify({ sectionId: "start", required: true, order: 300 }) } },
+  ];
+  const snapshot = { mode: "user", role: "admin", syncing: false, syncError: "", lastSyncAt: new Date().toISOString(), user: { ID: "36", NAME: "Андрей", LAST_NAME: "Абрамов", EMAIL: "andrey@example.ru" }, userId: "36", progressUserId: "36", courses: [course], items, projects: [{ ID: "project-1", NAME: "Корпоративные материалы" }], assigns: [], attempts: [{ PROPERTY_VALUES: { userId: "36", score: "86" } }], progress: [], done: { "course-1": false, "article-1": true, "article-2": false, "test-1": false }, activeCourseId: "", activeMaterialId: "" };
+  return { getSnapshot: () => snapshot, subscribe: () => () => {}, refresh: async () => {}, setMode: () => {}, openMaterial: () => {}, completeMaterial: async () => {}, completeCourse: async () => {}, courseMaterials: () => items, canOpen: (id) => id !== "test-1" };
+}
 
 function loadScript(path, module) {
   return new Promise((resolve, reject) => {
@@ -60,6 +72,7 @@ function loadRuntime() {
 export function LegacyReactHost() {
   const [markup, setMarkup] = useState("");
   const [error, setError] = useState("");
+  const [learnerBridge, setLearnerBridge] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -85,10 +98,23 @@ export function LegacyReactHost() {
 
   useEffect(() => {
     if (!markup) return;
-    loadRuntime().catch((cause) => setError(String(cause.message || cause)));
+    const preview = ["localhost", "127.0.0.1"].includes(window.location.hostname) && new URLSearchParams(window.location.search).get("learner_preview") === "1";
+    if (preview) {
+      setLearnerBridge(createLearnerPreviewBridge());
+      return;
+    }
+    loadRuntime()
+      .then(() => {
+        if (!window.__RTM_LEARNER__) throw new Error("Runtime не предоставил интерфейс ученика");
+        setLearnerBridge(window.__RTM_LEARNER__);
+      })
+      .catch((cause) => setError(String(cause.message || cause)));
   }, [markup]);
 
   if (error) return <div className="v48-load-error">Ошибка запуска v{RELEASE_VERSION}: {error}</div>;
   if (!markup) return <div className="v48-loading">Запускаем RTM обучение…</div>;
-  return <div className="v48-react-host" dangerouslySetInnerHTML={{ __html: markup }} />;
+  return <>
+    <div className="v48-react-host" dangerouslySetInnerHTML={{ __html: markup }} />
+    {learnerBridge && <LearnerApp bridge={learnerBridge} />}
+  </>;
 }

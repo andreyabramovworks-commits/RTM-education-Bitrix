@@ -64,3 +64,27 @@ Functional scripts share legacy global contracts, but some release-era modules p
 #### Change restriction
 
 Do not call `__RTM_V48_INIT__`, `loadAll()` or an equivalent startup fallback from a functional runtime module. Startup ordering belongs exclusively to the React host and must remain regression-tested.
+
+### ADR-004: React owns the learner shell
+
+- Date: 2026-08-11
+- Status: accepted
+
+#### Context
+
+Learner screens inherited historical CSS cascades and repeated DOM render wrappers. This made navigation, responsive behavior, empty/error states and accessibility dependent on legacy load order.
+
+#### Decision
+
+`LearnerApp.jsx` is the canonical owner of learner navigation, course discovery, course structure, knowledge discovery and profile presentation. It consumes a narrow `window.__RTM_LEARNER__` bridge. The functional runtime remains the owner of Bitrix storage, progress persistence and specialized article/test rendering. Administration remains in the legacy shell.
+
+#### Consequences
+
+- Learner UI has one light-theme design system in `learner.css` and two supported responsive ranges.
+- Ordinary learners have exactly three routes: learning, knowledge and profile.
+- Rich legacy material renderers are mounted as an isolated compatibility surface until they are migrated individually.
+- Dark theme is explicitly outside this decision and must be redesigned separately.
+
+#### Change restriction
+
+Do not add learner UI to historical runtime CSS or expose raw mutable runtime state to React. Extend the learner bridge with a narrow action or snapshot field instead.
