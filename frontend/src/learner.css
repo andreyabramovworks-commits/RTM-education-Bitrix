@@ -1268,6 +1268,15 @@ body.rtm-learner-active #adminApp:not(.active) {
 }
 
 .learner-app .lr-primary {
-  color: #fff;
+  border-color: var(--lr-primary) !important;
+  color: #fff !important;
+  background: var(--lr-primary) !important;
   font-weight: 800;
+}
+
+.learner-app .lr-primary:hover,
+.learner-app .lr-primary:focus-visible {
+  border-color: var(--lr-primary-hover) !important;
+  color: #fff !important;
+  background: var(--lr-primary-hover) !important;
 }
