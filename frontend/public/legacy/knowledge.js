@@ -116,6 +116,7 @@
       var viewerRole=typeof actualRole==="function"?String(actualRole()):String(state.currentRole||"");
       /* The reader already exposes the material context.  A second service
          banner was covering the article header on desktop and mobile. */
+      return projection;
     } catch(error) { toast(error.message||String(error)); }
   }
   var baseBackFromUserMaterial=window.backFromUserMaterial;
@@ -329,7 +330,17 @@
   window.renderAll=renderAll=function(){var result=baseRenderAll5038.apply(this,arguments);installDatabaseRoute();if(!state.v540Workspace&&state.aview==="database"&&["developer","admin","editor","moderator"].includes(String(state.currentRole||"")))renderAdminKnowledge().catch(function(error){toast(error.message||String(error));});return result;};
   load().then(function(){renderKb();}).catch(console.error);
   window.addEventListener("load",installDatabaseRoute);
-  window.RTMV5038={version:"current",renderAdmin:renderAdminKnowledge,getCurrentDocumentId:function(){return adminSelected;},getDocuments:function(){return docs.slice();},getDirectory:function(){return loadDirectory(false);},reload:function(){loaded=false;directory=null;return load(true);}};
+  window.RTMV5038={
+    version:"current",
+    renderAdmin:renderAdminKnowledge,
+    getCurrentDocumentId:function(){return adminSelected;},
+    getDocuments:function(){return docs.slice();},
+    getTree:function(){return usableNode(root());},
+    getDirectory:function(){return loadDirectory(false);},
+    load:function(force){return load(Boolean(force)).then(function(){return {tree:usableNode(root()),documents:docs.slice()};});},
+    openForUser:function(documentId,kind){var doc=docs.find(function(row){return String(row.id)===String(documentId);});return openCentralForUser(doc,kind||"article");},
+    reload:function(){loaded=false;directory=null;return load(true);}
+  };
 })();
 
 

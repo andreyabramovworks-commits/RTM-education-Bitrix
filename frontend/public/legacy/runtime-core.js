@@ -341,12 +341,20 @@ function routeDeepLink(){let p=new URLSearchParams(location.search), kind=p.get(
 function learnerSnapshot(){
   let rows=activeRows(state.items), courses=assignedCourses(), uid=effectiveUserId();
   let done={}; rows.forEach(function(item){done[String(item.ID)]=isDone(item.ID,materialKind(item))});
+  let role=String(state.currentRole||'employee'), canOpenAdmin=['developer','admin','moderator','teacher'].includes(role);
+  let appearance=typeof v37Settings!=='undefined'?v37Settings:{};
+  let primary=getComputedStyle(document.documentElement).getPropertyValue('--rtm-primary').trim()||appearance.customColor||'#3157d5';
   return {
-    mode:state.mode, role:state.currentRole, syncing:state.syncing,
+    mode:state.mode, role:role, canOpenAdmin:canOpenAdmin, syncing:state.syncing,
     syncError:state.syncError||'', lastSyncAt:state.lastSyncAt,
     user:Object.assign({},safeUser()), userId:String(currentUserId()||'0'), progressUserId:String(uid||'0'),
     courses:courses.slice(), items:rows.slice(), projects:activeRows(state.projects).slice(),
     assigns:state.assigns.slice(), attempts:state.attempts.slice(), progress:state.progress.slice(),
+    leaderboard:typeof leaderboardRows==='function'?leaderboardRows().slice(0,10):[],
+    points:typeof userPoints==='function'?userPoints(uid):0,
+    appearance:{brandName:appearance.brandName||'RTM обучение',logo:appearance.logo||'',primaryColor:primary},
+    releaseVersion:String(window.__RTM_VERSION__||''),
+    hintsEnabled:window.RTMHelp?window.RTMHelp.enabled():true,
     done:done, activeCourseId:String(state.courseId||''),
     activeMaterialId:String($('#userMaterialView')?.dataset.id||'')
   };
@@ -362,6 +370,13 @@ window.__RTM_LEARNER__={
   completeCourse:async function(id){let course=findItem(id);if(!course)return;await complete(id,'course');renderAll();emitLearnerSnapshot()},
   courseMaterials:function(id){return courseMaterials(id).slice()},
   canOpen:function(id){let item=findItem(id);return !!item&&canOpenCourseMaterial(item)}
+  ,loadKnowledge:async function(force){if(!window.RTMV5038||!window.RTMV5038.load)throw new Error('База знаний ещё загружается');return window.RTMV5038.load(Boolean(force))}
+  ,openKnowledge:function(documentId,kind){if(!window.RTMV5038||!window.RTMV5038.openForUser)throw new Error('База знаний ещё загружается');return window.RTMV5038.openForUser(documentId,kind)}
+  ,loadAcknowledgements:async function(force){if(!window.RTMV5100||!window.RTMV5100.getMine)throw new Error('Редакции ещё загружаются');return window.RTMV5100.getMine(Boolean(force))}
+  ,loadEditions:async function(documentId,force){if(!window.RTMV5100||!window.RTMV5100.getEditions)throw new Error('История редакций ещё загружается');return window.RTMV5100.getEditions(documentId,Boolean(force))}
+  ,openAcknowledgement:function(id){if(!window.RTMV5100||!window.RTMV5100.openAssignmentById)throw new Error('Редакции ещё загружаются');return window.RTMV5100.openAssignmentById(id)}
+  ,setHintsEnabled:function(value){if(window.RTMHelp)window.RTMHelp.setEnabled(Boolean(value));emitLearnerSnapshot()}
+  ,openHint:function(anchor,key){if(window.RTMHelp)window.RTMHelp.open(anchor,key)}
 };
 if(window.__RTM_V48__)window.__RTM_V48_INIT__=init;
 else if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);

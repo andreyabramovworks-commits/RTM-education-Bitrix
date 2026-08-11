@@ -16,8 +16,11 @@ function createLearnerPreviewBridge() {
     { ID: "article-2", NAME: "Рабочие инструменты и доступы", PROPERTY_VALUES: { type: "article", status: "published", parentId: course.ID, projectId: "project-1", meta: JSON.stringify({ sectionId: "start", required: true, order: 200 }) } },
     { ID: "test-1", NAME: "Проверка знаний", PROPERTY_VALUES: { type: "test", status: "published", parentId: course.ID, projectId: "project-1", meta: JSON.stringify({ sectionId: "start", required: true, order: 300 }) } },
   ];
-  const snapshot = { mode: "user", role: "admin", syncing: false, syncError: "", lastSyncAt: new Date().toISOString(), user: { ID: "36", NAME: "Андрей", LAST_NAME: "Абрамов", EMAIL: "andrey@example.ru" }, userId: "36", progressUserId: "36", courses: [course], items, projects: [{ ID: "project-1", NAME: "Корпоративные материалы" }], assigns: [], attempts: [{ PROPERTY_VALUES: { userId: "36", score: "86" } }], progress: [], done: { "course-1": false, "article-1": true, "article-2": false, "test-1": false }, activeCourseId: "", activeMaterialId: "" };
-  return { getSnapshot: () => snapshot, subscribe: () => () => {}, refresh: async () => {}, setMode: () => {}, openMaterial: () => {}, completeMaterial: async () => {}, completeCourse: async () => {}, courseMaterials: () => items, canOpen: (id) => id !== "test-1" };
+  let snapshot = { mode: "user", role: "developer", canOpenAdmin: true, syncing: false, syncError: "", lastSyncAt: new Date().toISOString(), user: { ID: "36", NAME: "Андрей", LAST_NAME: "Абрамов", EMAIL: "andrey@example.ru" }, userId: "36", progressUserId: "36", courses: [course], items, projects: [{ ID: "project-1", NAME: "Корпоративные материалы" }], assigns: [], attempts: [{ PROPERTY_VALUES: { userId: "36", score: "86" } }], progress: [], leaderboard: [{ uid: "36", name: "Андрей Абрамов", points: 18, done: 5 }, { uid: "12", name: "Мария Петрова", points: 12, done: 4 }], points: 18, appearance: { brandName: "RTM обучение", logo: "", primaryColor: "#16845b" }, releaseVersion: RELEASE_VERSION, hintsEnabled: true, done: { "course-1": false, "article-1": true, "article-2": false, "test-1": false }, activeCourseId: "", activeMaterialId: "" };
+  const listeners = new Set();
+  const emit = (patch) => { snapshot = { ...snapshot, ...patch }; listeners.forEach((listener) => listener()); };
+  const knowledge = { tree: { id: "root", type: "folder", title: "База знаний", children: [{ id: "folder-1", type: "folder", title: "Общие документы", children: [{ id: "doc-1", type: "material", title: "Этический кодекс", row: 5 }] }] }, documents: [{ id: 1, sourceRow: 5, title: "Этический кодекс", description: "Правила и ценности команды", documentUrl: "https://example.com", lightTest: { created: true }, fullTest: { created: false } }] };
+  return { getSnapshot: () => snapshot, subscribe: (listener) => { listeners.add(listener); return () => listeners.delete(listener); }, refresh: async () => {}, setMode: () => {}, openMaterial: () => {}, completeMaterial: async () => {}, completeCourse: async () => {}, courseMaterials: () => items, canOpen: (id) => id !== "test-1", loadKnowledge: async () => knowledge, openKnowledge: async () => items[0], loadAcknowledgements: async () => [], loadEditions: async () => [], openAcknowledgement: () => {}, setHintsEnabled: (value) => emit({ hintsEnabled: Boolean(value) }), openHint: () => {} };
 }
 
 function loadScript(path, module) {
@@ -29,6 +32,18 @@ function loadScript(path, module) {
     script.onload = resolve;
     script.onerror = () => reject(new Error("Не удалось загрузить " + path));
     document.body.appendChild(script);
+  });
+}
+
+function loadStyle(path) {
+  return new Promise((resolve, reject) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = releaseAsset(path);
+    link.dataset.rtmRuntime = RELEASE_VERSION;
+    link.onload = resolve;
+    link.onerror = () => reject(new Error("Не удалось загрузить " + path));
+    document.head.appendChild(link);
   });
 }
 
@@ -47,13 +62,7 @@ function loadRuntime() {
     window.process.env.NODE_ENV ||= "production";
     window.EXCALIDRAW_ASSET_PATH = new URL("/legacy/excalidraw-dist/", window.location.origin).href;
 
-    LEGACY_STYLES.forEach((path) => {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = releaseAsset(path);
-      link.dataset.rtmRuntime = RELEASE_VERSION;
-      document.head.appendChild(link);
-    });
+    await Promise.all(LEGACY_STYLES.map(loadStyle));
 
     if (window.RTM_BITRIX_READY) await window.RTM_BITRIX_READY;
     for (const [path, module] of LEGACY_SCRIPTS) await loadScript(path, module);
@@ -62,6 +71,8 @@ function loadRuntime() {
       throw new Error("Runtime не предоставил функцию запуска");
     }
     await window.__RTM_V48_INIT__();
+    const overlay = document.getElementById("modalBackdrop");
+    if (overlay && overlay.parentNode !== document.body) document.body.appendChild(overlay);
   })().catch((error) => {
     runtimePromise = null;
     throw error;
@@ -106,15 +117,18 @@ export function LegacyReactHost() {
     loadRuntime()
       .then(() => {
         if (!window.__RTM_LEARNER__) throw new Error("Runtime не предоставил интерфейс ученика");
+        const mode = window.__RTM_LEARNER__.getSnapshot().mode;
+        document.body.classList.toggle("rtm-learner-active", mode === "user");
+        document.body.classList.toggle("rtm-admin-active", mode === "admin");
         setLearnerBridge(window.__RTM_LEARNER__);
       })
       .catch((cause) => setError(String(cause.message || cause)));
   }, [markup]);
 
-  if (error) return <div className="v48-load-error">Ошибка запуска v{RELEASE_VERSION}: {error}</div>;
-  if (!markup) return <div className="v48-loading">Запускаем RTM обучение…</div>;
+  if (error) return <div className="v48-load-error"><strong>Не удалось запустить RTM Обучение</strong><span>{error}</span><button onClick={() => window.location.reload()}>Повторить</button></div>;
   return <>
-    <div className="v48-react-host" dangerouslySetInnerHTML={{ __html: markup }} />
+    {!learnerBridge && <div className="v48-loading" role="status" aria-live="polite"><span className="v48-loading-mark">RTM <b>обучение</b></span><span className="v48-loading-line" aria-hidden="true" /><small>{markup ? "Загружаем ваши материалы…" : "Подготавливаем приложение…"}</small></div>}
+    {markup && <div className={`v48-react-host ${learnerBridge ? "rtm-ready" : "rtm-pending"}`} aria-hidden={!learnerBridge} inert={!learnerBridge} dangerouslySetInnerHTML={{ __html: markup }} />}
     {learnerBridge && <LearnerApp bridge={learnerBridge} />}
   </>;
 }
