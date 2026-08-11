@@ -383,6 +383,8 @@ function applyShellMode(mode){
 }
 document.addEventListener('click',function(event){let button=event.target.closest&&event.target.closest('.rail-btn[data-admin-view]');if(!button)return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();switchAdmin(button.dataset.adminView)},true);
 document.addEventListener('pointerdown',function(event){let button=event.target.closest&&event.target.closest('.rail-btn[data-admin-view]');if(!button)return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();switchAdmin(button.dataset.adminView)},true);
+function bindPersistentShellControls(){let mode=$('#modeSwitch');if(mode)mode.onclick=function(){setMode(state.mode==='user'?'admin':'user')};$$('.rail-btn[data-admin-view]').forEach(function(button){button.onclick=function(){switchAdmin(button.dataset.adminView)}})}
+new MutationObserver(bindPersistentShellControls).observe(document.documentElement,{childList:true,subtree:true});queueMicrotask(bindPersistentShellControls);
 let baseSetMode=setMode;
 window.setMode=setMode=function(mode){closeModal();applyShellMode(mode);baseSetMode(mode);emitLearnerSnapshot();};
 window.__RTM_LEARNER__={
