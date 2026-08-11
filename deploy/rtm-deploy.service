@@ -9,6 +9,5 @@ Type=oneshot
 User=rtmdeploy
 Group=rtmdeploy
 Environment=COMPOSE_PROJECT_NAME=rtm-education
-ExecStart=/usr/local/bin/rtm-deploy
+ExecStart=/usr/bin/bash /opt/rtm-app/deploy/rtm-deploy.sh
 TimeoutStartSec=1800
-
