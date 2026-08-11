@@ -472,15 +472,17 @@ body.rtm-learner-active #adminApp:not(.active) {
 }
 
 .lr-primary {
-  border-color: var(--lr-primary);
+  border-color: color-mix(in srgb, var(--lr-primary) 84%, #14233b);
   color: #fff;
-  background: var(--lr-primary);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--lr-primary) 94%, #fff), color-mix(in srgb, var(--lr-primary) 80%, #14233b));
   box-shadow: 0 8px 20px color-mix(in srgb, var(--lr-primary) 20%, transparent);
 }
 
 .lr-primary:hover {
-  border-color: var(--lr-primary-hover);
-  background: var(--lr-primary-hover);
+  border-color: color-mix(in srgb, var(--lr-primary) 76%, #14233b);
+  color: #fff;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--lr-primary) 88%, #fff), color-mix(in srgb, var(--lr-primary) 70%, #14233b));
+  box-shadow: 0 11px 26px color-mix(in srgb, var(--lr-primary) 25%, transparent);
 }
 
 .lr-course-content {
@@ -641,57 +643,62 @@ body.rtm-learner-active #adminApp:not(.active) {
 .lr-kb-card {
   position: relative;
   display: grid;
-  grid-template-columns: 42px 1fr auto;
+  grid-template-columns: 46px minmax(0, 1fr) 28px;
   align-items: center;
   gap: 12px;
-  min-height: 88px;
-  padding: 15px 16px;
+  min-height: 104px;
+  padding: 17px 18px;
   border: 1px solid var(--lr-border);
-  border-radius: 15px;
-  background: linear-gradient(145deg, var(--lr-surface), color-mix(in srgb, var(--lr-primary) 3%, var(--lr-surface)));
-  box-shadow: 0 3px 12px rgb(31 42 68 / 4%);
+  border-radius: 18px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--lr-primary) 4%, var(--lr-surface)), var(--lr-surface) 46%, color-mix(in srgb, var(--lr-primary) 2%, var(--lr-surface)));
+  box-shadow: 0 7px 22px rgb(31 42 68 / 6%);
   text-align: left;
   cursor: pointer;
-  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease;
 }
 
 .lr-kb-card:hover {
   border-color: color-mix(in srgb, var(--lr-primary) 34%, var(--lr-border));
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--lr-primary) 10%, transparent);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--lr-primary) 8%, var(--lr-surface)), var(--lr-surface) 58%);
+  box-shadow: 0 15px 34px color-mix(in srgb, var(--lr-primary) 13%, transparent);
   transform: translateY(-2px);
 }
 
-.lr-kb-card > span,
+.lr-kb-card > .lr-kb-icon,
 .lr-doc-list button > span:first-child {
   display: grid;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
   color: var(--lr-primary);
   background: var(--lr-primary-soft);
   place-items: center;
 }
 
-.lr-kb-card strong,
-.lr-kb-card small {
-  grid-column: 2;
+.lr-kb-copy {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
 }
 
-.lr-kb-card strong {
-  align-self: end;
+.lr-kb-copy strong {
   font-size: 15px;
   line-height: 1.3;
 }
 
-.lr-kb-card small {
-  align-self: start;
+.lr-kb-copy small {
   color: var(--lr-muted);
   font-size: 12px;
 }
 
-.lr-kb-card > .lr-icon {
-  grid-column: 3;
-  grid-row: 1 / 3;
+.lr-kb-arrow {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  color: var(--lr-primary);
+  background: color-mix(in srgb, var(--lr-primary) 7%, transparent);
+  place-items: center;
 }
 
 .lr-doc-list button {
@@ -919,7 +926,7 @@ body.rtm-learner-active #adminApp:not(.active) {
   border: 1px solid var(--lr-border);
   border-radius: 12px;
   color: var(--lr-text);
-  background: var(--lr-surface);
+  background: linear-gradient(145deg, var(--lr-surface), color-mix(in srgb, var(--lr-primary) 3%, var(--lr-surface)));
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
@@ -928,7 +935,9 @@ body.rtm-learner-active #adminApp:not(.active) {
 .lr-secondary:hover {
   border-color: color-mix(in srgb, var(--lr-primary) 32%, var(--lr-border));
   color: var(--lr-primary);
-  background: var(--lr-primary-soft);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--lr-primary) 7%, #fff), color-mix(in srgb, var(--lr-primary) 12%, #fff));
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--lr-primary) 11%, transparent);
+  transform: translateY(-1px);
 }
 
 .lr-context-help {
@@ -1265,18 +1274,4 @@ body.rtm-learner-active #adminApp:not(.active) {
     animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;
   }
-}
-
-.learner-app .lr-primary {
-  border-color: var(--lr-primary) !important;
-  color: #fff !important;
-  background: var(--lr-primary) !important;
-  font-weight: 800;
-}
-
-.learner-app .lr-primary:hover,
-.learner-app .lr-primary:focus-visible {
-  border-color: var(--lr-primary-hover) !important;
-  color: #fff !important;
-  background: var(--lr-primary-hover) !important;
 }

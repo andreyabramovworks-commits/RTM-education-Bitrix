@@ -8,6 +8,7 @@ const wizard = await readFile(new URL("../public/legacy/acknowledgements.js", im
 const host = await readFile(new URL("../src/LegacyReactHost.jsx", import.meta.url), "utf8");
 const manifest = await readFile(new URL("../src/legacyRuntime.js", import.meta.url), "utf8");
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
+const learnerCss = await readFile(new URL("../src/learner.css", import.meta.url), "utf8");
 
 test("v51.5 has one initial synchronization path", () => {
   assert.match(app, /let initPromise=null/);
@@ -23,8 +24,8 @@ test("v51.5 runtime uses one canonical manifest", () => {
   assert.match(host, /from "\.\/legacyRuntime"/);
   assert.match(host, /if \(runtimePromise\) return runtimePromise/);
   assert.doesNotMatch(host, /const LEGACY_(?:STYLES|SCRIPTS)/);
-  assert.match(manifest, /RELEASE_VERSION = "52\.0\.6"/);
-  assert.match(index, /bitrix-bootstrap\.js\?v=52\.0\.6-r1/);
+  assert.match(manifest, /RELEASE_VERSION = "52\.1\.0"/);
+  assert.match(index, /bitrix-bootstrap\.js\?v=52\.1\.0-r1/);
   assert.match(host, /await Promise\.all\(LEGACY_STYLES\.map\(loadStyle\)\)/);
   assert.match(host, /rtm-pending/);
   assert.match(app, /window\.__RTM_SHELL_INIT__=init/);
@@ -67,4 +68,23 @@ test("v51.5 keeps one UI ownership path for review activation", () => {
   assert.match(api, /refreshAuth: function \(\)/);
   assert.match(wizard, /RTMUI\.adminView\.push/);
   assert.match(wizard, /installDeveloperEditionDeletion/);
+});
+
+test("v52.1 owns one modal root and keeps mode changes synchronized", () => {
+  assert.match(host, /app\.querySelector\("#modalBackdrop"\)\?\.remove\(\)/);
+  assert.match(host, /id="modalBackdrop"/);
+  assert.match(host, /id="modalBox"/);
+  assert.match(app, /window\.setMode=setMode=function\(mode\)\{closeModal\(\);applyShellMode\(mode\);baseSetMode\(mode\);emitLearnerSnapshot\(\);\}/);
+  assert.match(app, /document\.addEventListener\('keydown',e=>\{if\(e\.key==='Escape'/);
+});
+
+test("v52.1 loads the heavy article renderer only for articles", () => {
+  assert.match(app, /if\(materialKind\(item\)==='article'&&window\.__RTM_LOAD_CANVAS__\)await window\.__RTM_LOAD_CANVAS__\(\)/);
+  assert.match(app, /if\(kind==='article'&&window\.__RTM_LOAD_CANVAS__\)await window\.__RTM_LOAD_CANVAS__\(\)/);
+  assert.doesNotMatch(manifest.match(/export const LEGACY_SCRIPTS[\s\S]*?\];/)[0], /rtm-canvas/);
+});
+
+test("v52.1 keeps learner actions theme-aware without legacy important overrides", () => {
+  assert.match(learnerCss, /linear-gradient\(135deg, color-mix\(in srgb, var\(--lr-primary\)/);
+  assert.doesNotMatch(learnerCss, /\.learner-app \.lr-primary\s*\{/);
 });

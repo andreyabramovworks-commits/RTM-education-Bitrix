@@ -54,7 +54,7 @@ function isAlreadyDeletedError(error){let text=String(error&&((error.error||'')+
 async function del(entity,id){try{return await call('entity.item.delete',{ENTITY:entity,ID:id})}catch(error){if(isAlreadyDeletedError(error))return {alreadyDeleted:true};throw error}}
 window.RTMUI=window.RTMUI||{afterRender:[],adminView:[]};
 function runUiHooks(kind,value){(window.RTMUI[kind]||[]).slice().forEach(function(hook){try{hook(value)}catch(error){console.error('RTM UI hook failed',error)}})}
-function switchAdmin(v){state.aview=v; $$('.rail-btn').forEach(x=>x.classList.toggle('active',x.dataset.adminView===v)); $$('.admin-view').forEach(x=>x.classList.remove('active')); $('#admin'+cap(v)).classList.add('active'); shellLayout(); renderAll();runUiHooks('adminView',v);}
+function switchAdmin(v){let target=$('#admin'+cap(v));if(!target)return;state.aview=v; $$('.rail-btn').forEach(x=>x.classList.toggle('active',x.dataset.adminView===v)); $$('.admin-view').forEach(x=>x.classList.remove('active')); target.classList.add('active'); shellLayout(); renderAll();runUiHooks('adminView',v);}
 function renderEvents(){let q=($('#eventSearch')?.value||'').toLowerCase(); let evs=state.events.filter(e=>(eventUserName(e)+' '+(e.PROPERTY_VALUES?.event||'')+' '+(e.PROPERTY_VALUES?.targetName||'')).toLowerCase().includes(q)); $('#eventsTotal').textContent='Всего: '+evs.length; $('#eventsTable').innerHTML=evs.map(e=>'<tr><td>'+fmt(e.PROPERTY_VALUES.createdAt)+'</td><td><a>'+esc(eventUserName(e))+'</a></td><td>'+esc(e.PROPERTY_VALUES.event||'—')+'</td><td><a>'+esc(typeLabel(findItem(e.PROPERTY_VALUES.targetId)?.PROPERTY_VALUES?.type)||'Материал')+': '+esc(e.PROPERTY_VALUES.targetName||'—')+'</a></td><td>'+esc(e.PROPERTY_VALUES.duration||'—')+'</td></tr>').join('')||'<tr><td colspan="5">Событий нет</td></tr>'}
 function targetPoints(id){let it=findItem(id); if(!it)return 0; let meta=j(it.PROPERTY_VALUES?.meta); return Math.max(0,Number(meta.points||0))}
 function userIdAliases(uid){let aliases=new Set([String(uid||'')]); try{let cur=currentUserId(), eff=effectiveUserId(); if(String(uid)===cur||String(uid)===eff||String(uid)==='0'){aliases.add(cur); aliases.add(eff)}}catch{} return aliases}
@@ -131,7 +131,7 @@ async function publishArticle(){await saveCurrentArticlePage();let a=findItem(st
 async function addQuestion(){let t=findItem(state.testId); if(!t)return alert('Тест не выбран. Откройте тест заново.'); await saveTestSettings().catch(()=>{}); let meta=j(findItem(state.testId).PROPERTY_VALUES.meta); meta.questions=meta.questions||[]; meta.questions.push({id:uid(),type:'single',text:'Новый вопрос',answers:['Ответ 1','Ответ 2'],correct:[0]}); await saveItemMeta(t.ID,meta); renderTestEditor(); let addBtn=$('#addQuestionBtn'); if(addBtn)addBtn.onclick=addQuestion; toast('Вопрос добавлен')}
 async function publishTest(){await saveTestFromEditor(); let t=findItem(state.testId); await upd(E.items,t.ID,t.NAME,{...t.PROPERTY_VALUES,status:'published',updatedAt:now()}); await addEvent('\u041f\u0443\u0431\u043b\u0438\u043a\u0430\u0446\u0438\u044f',t); await loadAll(true); openTestEditor(state.testId); toast('Тест опубликован');}
 async function saveItemMeta(id,meta){let it=findItem(id); if(!it)return; let props={...it.PROPERTY_VALUES,meta:json(meta),updatedAt:now()}; updateLocalItem(id,it.NAME,props); await upd(E.items,id,it.NAME,props);}
-function modal(html){$('#modalBox').innerHTML=html; $('#modalBackdrop').classList.remove('hidden')} function closeModal(){$('#modalBackdrop').classList.add('hidden')} window.closeModal=closeModal; $('#modalBackdrop').addEventListener('click',e=>{if(e.target.id==='modalBackdrop')closeModal()});
+let modalReturnFocus=null;function modal(html){let box=$('#modalBox'),backdrop=$('#modalBackdrop');if(!box||!backdrop)return;modalReturnFocus=document.activeElement;box.innerHTML=html;backdrop.classList.remove('hidden');document.body.classList.add('modal-open');requestAnimationFrame(()=>{let focusable=box.querySelector('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');if(focusable)focusable.focus()})} function closeModal(){let backdrop=$('#modalBackdrop');if(!backdrop)return;backdrop.classList.add('hidden');document.body.classList.remove('modal-open');let box=$('#modalBox');if(box)box.innerHTML='';if(modalReturnFocus&&document.contains(modalReturnFocus))modalReturnFocus.focus();modalReturnFocus=null} window.closeModal=closeModal; $('#modalBackdrop').addEventListener('click',e=>{if(e.target.id==='modalBackdrop')closeModal()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#modalBackdrop')?.classList.contains('hidden'))closeModal()});
 function isDeletedRow(x){return x?.PROPERTY_VALUES?.deleted==='Y'}
 function activeRows(rows){return (rows||[]).filter(x=>!isDeletedRow(x))}
 function deletedRows(rows){return (rows||[]).filter(isDeletedRow)}
@@ -382,18 +382,20 @@ function applyShellMode(mode){
   document.body.classList.toggle('rtm-admin-active',mode==='admin');
   if(mode==='admin')setTimeout(function(){document.querySelectorAll('.rail-btn[data-admin-view]').forEach(function(button){button.onclick=function(event){event.preventDefault();window.switchAdmin(button.dataset.adminView);};});},0);
 }
+let baseSetMode=setMode;
+window.setMode=setMode=function(mode){closeModal();applyShellMode(mode);baseSetMode(mode);emitLearnerSnapshot();};
 window.__RTM_LEARNER__={
   getSnapshot:learnerSnapshot,
   subscribe:function(handler){window.addEventListener('rtm:learner-change',handler);let hook=function(){handler()};window.RTMUI.afterRender.push(hook);return function(){window.removeEventListener('rtm:learner-change',handler);let i=window.RTMUI.afterRender.indexOf(hook);if(i>=0)window.RTMUI.afterRender.splice(i,1)}},
   refresh:async function(){await loadAll(true);emitLearnerSnapshot()},
-  setMode:function(mode){applyShellMode(mode);setMode(mode);emitLearnerSnapshot();if(mode==='admin'&&window.__RTM_LOAD_CANVAS__)window.__RTM_LOAD_CANVAS__().catch(function(error){console.warn(error)})},
-  openMaterial:async function(id){let item=await hydrateLearnerItem(id);window.openUserMaterial(item);emitLearnerSnapshot();return item},
+  setMode:function(mode){setMode(mode);if(mode==='admin'&&window.__RTM_LOAD_CANVAS__)window.__RTM_LOAD_CANVAS__().catch(function(error){console.warn(error)})},
+  openMaterial:async function(id){let item=await hydrateLearnerItem(id);if(materialKind(item)==='article'&&window.__RTM_LOAD_CANVAS__)await window.__RTM_LOAD_CANVAS__();window.openUserMaterial(item);emitLearnerSnapshot();return item},
   completeMaterial:async function(id){let item=findItem(id);if(!item)return;await complete(id,materialKind(item));renderAll();emitLearnerSnapshot()},
   completeCourse:async function(id){let course=findItem(id);if(!course)return;await complete(id,'course');renderAll();emitLearnerSnapshot()},
   courseMaterials:function(id){return courseMaterials(id).slice()},
   canOpen:function(id){let item=findItem(id);return !!item&&canOpenCourseMaterial(item)}
   ,loadKnowledge:async function(force){if(!window.RTMV5038||!window.RTMV5038.load)throw new Error('База знаний ещё загружается');return window.RTMV5038.load(Boolean(force))}
-  ,openKnowledge:async function(documentId,kind){if(!window.RTMV5038||!window.RTMV5038.openForUser)throw new Error('База знаний ещё загружается');return window.RTMV5038.openForUser(documentId,kind)}
+  ,openKnowledge:async function(documentId,kind){if(!window.RTMV5038||!window.RTMV5038.openForUser)throw new Error('База знаний ещё загружается');if(kind==='article'&&window.__RTM_LOAD_CANVAS__)await window.__RTM_LOAD_CANVAS__();return window.RTMV5038.openForUser(documentId,kind)}
   ,loadAcknowledgements:async function(force){if(!window.RTMV5100||!window.RTMV5100.getMine)throw new Error('Редакции ещё загружаются');return window.RTMV5100.getMine(Boolean(force))}
   ,loadEditions:async function(documentId,force){if(!window.RTMV5100||!window.RTMV5100.getEditions)throw new Error('История редакций ещё загружается');return window.RTMV5100.getEditions(documentId,Boolean(force))}
   ,openAcknowledgement:async function(id){if(!window.RTMV5100||!window.RTMV5100.openAssignmentById)throw new Error('Редакции ещё загружаются');return window.RTMV5100.openAssignmentById(id)}
@@ -1085,6 +1087,7 @@ function v37Mix(hex,amount){
 function v37ApplyAppearance(){
   var color=v37Palette()[v37Settings.theme]||v37Settings.customColor||'#315cf6',root=document.documentElement;
   root.style.setProperty('--rtm-primary',color);root.style.setProperty('--rtm-primary-dark',v37Mix(color,-28));root.style.setProperty('--rtm-primary-soft',color+'18');
+  if(typeof emitLearnerSnapshot==='function')queueMicrotask(emitLearnerSnapshot);
   var brand=document.querySelector('.brand');if(brand){
     var logo=v37Settings.logo?'<img class="v37-brand-logo" src="'+esc(v37Settings.logo)+'" alt="Логотип">':'';
     brand.innerHTML=logo+'<span class="v37-brand-name">'+esc(v37Settings.brandName||'RTM обучение')+'</span>';

@@ -80,8 +80,6 @@ function loadRuntime() {
     }
     window.__RTM_LOAD_CANVAS__ = loadCanvasRuntime;
     await window.__RTM_V48_INIT__();
-    const overlay = document.getElementById("modalBackdrop");
-    if (overlay && overlay.parentNode !== document.body) document.body.appendChild(overlay);
   })().catch((error) => {
     runtimePromise = null;
     throw error;
@@ -123,6 +121,7 @@ export function LegacyReactHost() {
         const legacyDocument = new DOMParser().parseFromString(html, "text/html");
         const app = legacyDocument.querySelector("#app");
         if (!app) throw new Error("В разметке приложения отсутствует #app");
+        app.querySelector("#modalBackdrop")?.remove();
         setMarkup(app.outerHTML);
       })
       .catch((cause) => {
@@ -153,6 +152,7 @@ export function LegacyReactHost() {
   return <>
     {!learnerBridge && <div className="v48-loading" role="status" aria-live="polite"><span className="v48-loading-mark">RTM <b>обучение</b></span><span className="v48-loading-line" aria-hidden="true" /><small>{markup ? "Загружаем ваши материалы…" : "Подготавливаем приложение…"}</small></div>}
     {markup && <div className={`v48-react-host ${learnerBridge ? "rtm-ready" : "rtm-pending"}`} aria-hidden={!learnerBridge} inert={!learnerBridge} dangerouslySetInnerHTML={{ __html: markup }} />}
+    {markup && <div id="modalBackdrop" className="modal-backdrop hidden" role="presentation"><div id="modalBox" className="modal-box" role="dialog" aria-modal="true" /></div>}
     {learnerBridge && <LearnerApp bridge={learnerBridge} />}
   </>;
 }
