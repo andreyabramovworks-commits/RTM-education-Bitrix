@@ -22,8 +22,8 @@ export APP_VERSION="${TARGET:0:12}"
 docker compose build
 docker compose up -d --remove-orphans
 docker compose cp deploy/Caddyfile caddy:/tmp/rtm-Caddyfile
-docker compose exec -T caddy caddy validate --config /tmp/rtm-Caddyfile
-docker compose exec -T caddy caddy reload --config /tmp/rtm-Caddyfile
+docker compose exec -T caddy caddy validate --config /tmp/rtm-Caddyfile --adapter caddyfile
+docker compose exec -T caddy caddy reload --config /tmp/rtm-Caddyfile --adapter caddyfile
 
 for attempt in {1..30}; do
     if curl --fail --silent --show-error https://rtmgroupdocs.fvds.ru/api/ready >/dev/null; then
