@@ -1030,7 +1030,9 @@ body.rtm-learner-active #adminApp:not(.active) {
   .lr-sync {
     width: 44px;
     padding: 0;
-    font-size: 0;
+    overflow: hidden;
+    font-size: 0 !important;
+    white-space: nowrap;
   }
   .lr-hints span { display: none; }
   .lr-hints { width: 44px; padding: 0; }
