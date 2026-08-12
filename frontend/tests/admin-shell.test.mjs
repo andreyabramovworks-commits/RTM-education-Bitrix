@@ -41,3 +41,17 @@ test("admin design limits theme color to accent tokens", () => {
   assert.match(styles, /--adm-ink:#172033/);
   assert.doesNotMatch(styles, /!important/);
 });
+
+test("admin shell stays above the legacy header and owns the full background", () => {
+  assert.match(styles, /\.rtm-admin-v53\{[^}]*z-index:20000/);
+  assert.match(styles, /radial-gradient\(circle at 82% 4%/);
+  assert.match(styles, /#modalBackdrop\{z-index:40000/);
+});
+
+test("route activation is restored after legacy rendering hooks", () => {
+  const switchStart = runtime.indexOf("function switchAdmin(v)");
+  const switchEnd = runtime.indexOf("window.dispatchEvent", switchStart);
+  const body = runtime.slice(switchStart, switchEnd);
+  assert.ok(body.indexOf("renderAll()") < body.indexOf("activateAdminView(v)"));
+  assert.ok(body.indexOf("runUiHooks('adminView',v)") < body.indexOf("activateAdminView(v)"));
+});
