@@ -27,8 +27,8 @@ test("v51.5 runtime uses one canonical manifest", () => {
   assert.match(host, /from "\.\/legacyRuntime"/);
   assert.match(host, /if \(runtimePromise\) return runtimePromise/);
   assert.doesNotMatch(host, /const LEGACY_(?:STYLES|SCRIPTS)/);
-  assert.match(manifest, /RELEASE_VERSION = "52\.2\.0"/);
-  assert.match(index, /bitrix-bootstrap\.js\?v=52\.2\.0-r1/);
+  assert.match(manifest, /RELEASE_VERSION = "52\.2\.1"/);
+  assert.match(index, /bitrix-bootstrap\.js\?v=52\.2\.1-r1/);
   assert.match(host, /await Promise\.all\(LEGACY_STYLES\.map\(loadStyle\)\)/);
   assert.match(host, /rtm-pending/);
   assert.match(app, /window\.__RTM_SHELL_INIT__=init/);
@@ -107,6 +107,8 @@ test("v52.2 restores mobile admin navigation and owns the revision modal", () =>
   assert.match(wizard, /class="v514-ack"/);
   assert.doesNotMatch(wizard, /class="v5100-wizard v514-ack"/);
   assert.match(acknowledgementCss, /\.modal-box:has\(\.v514-ack\)/);
+  assert.match(app, /if\(button&&layer&&\$\('#v38MobileNav'\)\)\{v38RenderMobileMenu\(\);return\}/);
+  assert.doesNotMatch(wizard, /v514-step-number/);
 });
 
 test("v52.2 keeps mobile learner headings compact", () => {

@@ -1161,7 +1161,7 @@ body.rtm-learner-active #adminApp:not(.active) {
     gap: 6px;
   }
   .lr-kb-head .lr-search > span {
-    font-size: 12px;
+    display: none;
   }
   .lr-kb-head .lr-search input {
     min-height: 46px;
