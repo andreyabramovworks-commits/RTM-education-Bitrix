@@ -28,6 +28,14 @@ test("new and classic admin shells are isolated", () => {
   assert.match(runtime, /searchParams\.set\('rtm_admin_ui','classic'\)/);
 });
 
+test("new admin shell suspends the complete classic shell and mounts only page content", () => {
+  assert.match(runtime, /root\.hidden=true;root\.inert=true;root\.setAttribute\('aria-hidden','true'\)/);
+  assert.match(runtime, /host\.appendChild\(main\)/);
+  assert.doesNotMatch(runtime, /host\.appendChild\(projects\)/);
+  assert.doesNotMatch(styles, /\.adm-workspace #projectsPanel/);
+  assert.match(host, /mount\?\.querySelectorAll\("\.admin-view"\)/);
+});
+
 test("admin guidance and accessibility contracts are present", () => {
   assert.match(admin, /rtm_admin_hints/);
   assert.match(admin, /aria-pressed=\{hints\}/);
