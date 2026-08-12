@@ -54,7 +54,7 @@ function isAlreadyDeletedError(error){let text=String(error&&((error.error||'')+
 async function del(entity,id){try{return await call('entity.item.delete',{ENTITY:entity,ID:id})}catch(error){if(isAlreadyDeletedError(error))return {alreadyDeleted:true};throw error}}
 window.RTMUI=window.RTMUI||{afterRender:[],adminView:[]};
 function runUiHooks(kind,value){(window.RTMUI[kind]||[]).slice().forEach(function(hook){try{hook(value)}catch(error){console.error('RTM UI hook failed',error)}})}
-function switchAdmin(v){let target=$('#admin'+cap(v));if(!target)return;state.aview=v; $$('.rail-btn').forEach(x=>x.classList.toggle('active',x.dataset.adminView===v)); $$('.admin-view').forEach(x=>x.classList.remove('active')); target.classList.add('active'); shellLayout(); renderAll();runUiHooks('adminView',v);}
+function switchAdmin(v){let target=$('#admin'+cap(v));if(!target)return;state.aview=v; $$('.rail-btn').forEach(x=>x.classList.toggle('active',x.dataset.adminView===v)); $$('.admin-view').forEach(x=>x.classList.remove('active')); target.classList.add('active'); shellLayout(); renderAll();runUiHooks('adminView',v);window.dispatchEvent(new CustomEvent('rtm:admin-change'));}
 function renderEvents(){let q=($('#eventSearch')?.value||'').toLowerCase(); let evs=state.events.filter(e=>(eventUserName(e)+' '+(e.PROPERTY_VALUES?.event||'')+' '+(e.PROPERTY_VALUES?.targetName||'')).toLowerCase().includes(q)); $('#eventsTotal').textContent='Всего: '+evs.length; $('#eventsTable').innerHTML=evs.map(e=>'<tr><td>'+fmt(e.PROPERTY_VALUES.createdAt)+'</td><td><a>'+esc(eventUserName(e))+'</a></td><td>'+esc(e.PROPERTY_VALUES.event||'—')+'</td><td><a>'+esc(typeLabel(findItem(e.PROPERTY_VALUES.targetId)?.PROPERTY_VALUES?.type)||'Материал')+': '+esc(e.PROPERTY_VALUES.targetName||'—')+'</a></td><td>'+esc(e.PROPERTY_VALUES.duration||'—')+'</td></tr>').join('')||'<tr><td colspan="5">Событий нет</td></tr>'}
 function targetPoints(id){let it=findItem(id); if(!it)return 0; let meta=j(it.PROPERTY_VALUES?.meta); return Math.max(0,Number(meta.points||0))}
 function userIdAliases(uid){let aliases=new Set([String(uid||'')]); try{let cur=currentUserId(), eff=effectiveUserId(); if(String(uid)===cur||String(uid)===eff||String(uid)==='0'){aliases.add(cur); aliases.add(eff)}}catch{} return aliases}
@@ -304,8 +304,11 @@ function isOwnerUser(u){
 function applyAccess(){
   let role=getAppRole(state.user);
   state.currentRole=role;
-  let canAdmin=role==='admin'||role==='moderator';
+  let canAdmin=['developer','admin','moderator','teacher'].includes(role);
   let btn=$('#modeSwitch');
+  let infoButton=document.querySelector('.rail-btn[data-admin-view="info"]');
+  if(infoButton)infoButton.hidden=role!=='developer';
+  if(role!=='developer'&&state.aview==='info')state.aview='dashboard';
   if(btn){
     btn.style.display='inline-flex';
     btn.hidden=false;
@@ -405,6 +408,46 @@ window.__RTM_LEARNER__={
   ,openAcknowledgement:async function(id){if(!window.RTMV5100||!window.RTMV5100.openAssignmentById)throw new Error('Редакции ещё загружаются');return window.RTMV5100.openAssignmentById(id)}
   ,setHintsEnabled:function(value){if(window.RTMHelp)window.RTMHelp.setEnabled(Boolean(value));emitLearnerSnapshot()}
   ,openHint:function(anchor,key){if(window.RTMHelp)window.RTMHelp.open(anchor,key)}
+};
+/* React owns the new admin shell and route activation. The legacy runtime keeps
+   data mutations and specialized editors behind this narrow compatibility bridge. */
+var rtmAdminMount=null,rtmAdminHome=null,rtmProjectsHome=null;
+function decorateAdminGuidance(){
+  if(!rtmAdminMount)return;
+  rtmAdminMount.querySelectorAll('button').forEach(function(button){
+    if(button.hasAttribute('data-tip'))return;
+    var label=button.getAttribute('aria-label')||button.getAttribute('title')||String(button.textContent||'').trim();
+    if(label)button.setAttribute('data-tip',label);
+  });
+}
+function adminSnapshot(){
+  var learner=learnerSnapshot(),labels={developer:'Разработчик',admin:'Администратор',moderator:'Редактор',teacher:'Преподаватель',employee:'Пользователь'};
+  return {mode:state.mode,route:state.aview||'dashboard',role:learner.role,roleLabel:labels[learner.role]||learner.role,syncing:state.syncing,syncError:state.syncError||'',appearance:learner.appearance,releaseVersion:learner.releaseVersion};
+}
+function emitAdminSnapshot(){window.dispatchEvent(new CustomEvent('rtm:admin-change'));}
+window.__RTM_ADMIN__={
+  getSnapshot:adminSnapshot,
+  subscribe:function(handler){window.addEventListener('rtm:admin-change',handler);window.addEventListener('rtm:learner-change',handler);return function(){window.removeEventListener('rtm:admin-change',handler);window.removeEventListener('rtm:learner-change',handler)}},
+  mount:function(host){
+    var main=document.querySelector('#adminApp .admin-main'),projects=document.getElementById('projectsPanel');if(!host||!main)return;
+    if(!rtmAdminHome)rtmAdminHome={parent:main.parentNode,next:main.nextSibling};if(projects&&!rtmProjectsHome)rtmProjectsHome={parent:projects.parentNode,next:projects.nextSibling};
+    if(projects)host.appendChild(projects);host.appendChild(main);rtmAdminMount=host;document.body.classList.add('rtm-admin-react-active');
+  },
+  unmount:function(){
+    var main=document.querySelector('.adm-workspace > .admin-main'),projects=document.querySelector('.adm-workspace > #projectsPanel');
+    if(main&&rtmAdminHome&&rtmAdminHome.parent)rtmAdminHome.parent.insertBefore(main,rtmAdminHome.next);
+    if(projects&&rtmProjectsHome&&rtmProjectsHome.parent)rtmProjectsHome.parent.insertBefore(projects,rtmProjectsHome.next);
+    rtmAdminMount=null;document.body.classList.remove('rtm-admin-react-active');
+  },
+  openRoute:function(route){
+    route=String(route||'dashboard');if(route==='info'&&String(state.currentRole)!=='developer')route='dashboard';
+    switchAdmin(route);
+    queueMicrotask(decorateAdminGuidance);
+    emitAdminSnapshot();
+  },
+  refresh:async function(){await loadAll(true);emitAdminSnapshot()},
+  setMode:function(mode){setMode(mode);emitAdminSnapshot()},
+  openClassic:function(){var url=new URL(location.href);url.searchParams.set('rtm_admin_ui','classic');location.assign(url.href)}
 };
 if(window.__RTM_V48__)window.__RTM_V48_INIT__=init;
 else if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);

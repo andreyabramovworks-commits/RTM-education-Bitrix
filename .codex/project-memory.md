@@ -18,6 +18,7 @@
 
 - Entry points: `frontend/src/main.jsx`, `frontend/src/LegacyReactHost.jsx`.
 - Learner UI owner: `frontend/src/LearnerApp.jsx`; its isolated light-theme design system is `frontend/src/learner.css`.
+- Admin UI owner: `frontend/src/AdminApp.jsx`; its isolated desktop-first design system is `frontend/src/admin.css`. Legacy business operations and specialized editors are consumed through `window.__RTM_ADMIN__` during the v53 transition.
 - Runtime manifest: `frontend/src/legacyRuntime.js` is the only ordered asset manifest.
 - Main modules: `runtime-core`, `api`, `learning`, `knowledge`, `acknowledgements`, `canvas`.
 - Data flow: browser UI → backend API → PostgreSQL / protected external integration.
@@ -37,7 +38,7 @@
 - Never add `vNNN.js` or `vNNN.css` release patch files.
 - Add behavior to the responsible functional module and edit its source style directly.
 - One initialization path and one in-flight synchronization are allowed; `LegacyReactHost.jsx` is the sole startup owner and calls init only after every functional module is loaded.
-- Learner React code uses `window.__RTM_LEARNER__`; storage, progress and rich material renderers stay behind that bridge.
+- Learner React code uses `window.__RTM_LEARNER__`; admin React code uses `window.__RTM_ADMIN__`; storage, progress and rich material renderers stay behind these bridges.
 - Commit, push, deploy and release tags require verified changes.
 - Do not commit secrets, HAR files, local build verification folders or environment files.
 

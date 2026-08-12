@@ -88,3 +88,22 @@ Learner screens inherited historical CSS cascades and repeated DOM render wrappe
 #### Change restriction
 
 Do not add learner UI to historical runtime CSS or expose raw mutable runtime state to React. Extend the learner bridge with a narrow action or snapshot field instead.
+
+### ADR-005: React owns the administrative shell
+
+- Date: 2026-08-12
+- Status: accepted
+
+#### Context
+
+The legacy administration combined route activation, rendering and event binding across several functional runtime modules. Visual corrections accumulated in a large CSS cascade and made route transitions and overlays unpredictable.
+
+#### Decision
+
+`AdminApp.jsx` is the canonical owner of the administrative shell, navigation and active route presentation. It consumes a narrow `window.__RTM_ADMIN__` bridge. The functional runtime remains the owner of existing data mutations, permission rules and specialized course, article, test, knowledge, review and Excalidraw workflows while those screens are migrated incrementally. The classic shell is available only as an isolated transition mode through `rtm_admin_ui=classic` for the v53 release.
+
+The developer-only route is named `Наработки сцен` and is hidden and route-guarded for every other role. Excalidraw scene data and editor behavior are outside this redesign.
+
+#### Change restriction
+
+Do not add new admin route ownership, render wrappers or CSS override layers to legacy modules. Extend `AdminApp`, `admin.css` or the narrow bridge. The classic and React shells must never mount simultaneously.

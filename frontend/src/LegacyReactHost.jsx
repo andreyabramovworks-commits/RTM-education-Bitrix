@@ -8,6 +8,7 @@ import {
   releaseAsset,
 } from "./legacyRuntime";
 import { LearnerApp } from "./LearnerApp";
+import { AdminApp } from "./AdminApp";
 
 let runtimePromise = null;
 let canvasRuntimePromise = null;
@@ -23,7 +24,10 @@ function createLearnerPreviewBridge() {
   const listeners = new Set();
   const emit = (patch) => { snapshot = { ...snapshot, ...patch }; listeners.forEach((listener) => listener()); };
   const knowledge = { tree: { id: "root", type: "folder", title: "База знаний", children: [{ id: "folder-1", type: "folder", title: "Общие документы", children: [{ id: "doc-1", type: "material", title: "Этический кодекс", row: 5 }] }] }, documents: [{ id: 1, sourceRow: 5, title: "Этический кодекс", description: "Правила и ценности команды", documentUrl: "https://example.com", lightTest: { created: true }, fullTest: { created: false } }] };
-  return { getSnapshot: () => snapshot, subscribe: (listener) => { listeners.add(listener); return () => listeners.delete(listener); }, refresh: async () => {}, setMode: () => {}, openMaterial: () => {}, completeMaterial: async () => {}, completeCourse: async () => {}, courseMaterials: () => items, canOpen: (id) => id !== "test-1", loadKnowledge: async () => knowledge, openKnowledge: async () => items[0], loadAcknowledgements: async () => [], loadEditions: async () => [], openAcknowledgement: () => {}, setHintsEnabled: (value) => emit({ hintsEnabled: Boolean(value) }), openHint: () => {} };
+  const learner = { getSnapshot: () => snapshot, subscribe: (listener) => { listeners.add(listener); return () => listeners.delete(listener); }, refresh: async () => {}, setMode: (mode) => emit({ mode }), openMaterial: () => {}, completeMaterial: async () => {}, completeCourse: async () => {}, courseMaterials: () => items, canOpen: (id) => id !== "test-1", loadKnowledge: async () => knowledge, openKnowledge: async () => items[0], loadAcknowledgements: async () => [], loadEditions: async () => [], openAcknowledgement: () => {}, setHintsEnabled: (value) => emit({ hintsEnabled: Boolean(value) }), openHint: () => {} };
+  let route = "dashboard", mount = null, mainHome = null, projectsHome = null;
+  learner.admin = { getSnapshot: () => ({ ...snapshot, route, roleLabel: "Разработчик" }), subscribe: learner.subscribe, refresh: async () => {}, setMode: learner.setMode, openClassic: () => {}, mount: (host) => { const main = document.querySelector("#adminApp .admin-main"), projects = document.getElementById("projectsPanel"); if (!main || !host) return; mainHome ||= { parent: main.parentNode, next: main.nextSibling }; if (projects) projectsHome ||= { parent: projects.parentNode, next: projects.nextSibling }; if (projects) host.appendChild(projects); host.appendChild(main); mount = host; }, unmount: () => { const main = mount?.querySelector(":scope > .admin-main"), projects = mount?.querySelector(":scope > #projectsPanel"); if (main && mainHome) mainHome.parent.insertBefore(main, mainHome.next); if (projects && projectsHome) projectsHome.parent.insertBefore(projects, projectsHome.next); mount = null; }, openRoute: (next) => { route = next; document.querySelectorAll(".admin-view").forEach((node) => node.classList.toggle("active", node.id === `admin${next[0].toUpperCase()}${next.slice(1)}`)); emit({}); } };
+  return learner;
 }
 
 function loadScript(path, module) {
@@ -106,6 +110,8 @@ export function LegacyReactHost() {
   const [markup, setMarkup] = useState("");
   const [error, setError] = useState("");
   const [learnerBridge, setLearnerBridge] = useState(null);
+  const [, setBridgeTick] = useState(0);
+  const classicAdmin = new URLSearchParams(window.location.search).get("rtm_admin_ui") === "classic";
 
   useEffect(() => {
     const controller = new AbortController();
@@ -134,7 +140,9 @@ export function LegacyReactHost() {
     if (!markup) return;
     const preview = ["localhost", "127.0.0.1"].includes(window.location.hostname) && new URLSearchParams(window.location.search).get("learner_preview") === "1";
     if (preview) {
-      setLearnerBridge(createLearnerPreviewBridge());
+      const bridge = createLearnerPreviewBridge();
+      window.__RTM_ADMIN__ = bridge.admin;
+      setLearnerBridge(bridge);
       return;
     }
     loadRuntime()
@@ -148,11 +156,14 @@ export function LegacyReactHost() {
       .catch((cause) => setError(String(cause.message || cause)));
   }, [markup]);
 
+  useEffect(() => learnerBridge?.subscribe?.(() => setBridgeTick((value) => value + 1)), [learnerBridge]);
+
   if (error) return <div className="v48-load-error"><strong>Не удалось запустить RTM Обучение</strong><span>{error}</span><button onClick={() => window.location.reload()}>Повторить</button></div>;
   return <>
     {!learnerBridge && <div className="v48-loading" role="status" aria-live="polite"><span className="v48-loading-mark">RTM <b>обучение</b></span><span className="v48-loading-line" aria-hidden="true" /><small>{markup ? "Загружаем ваши материалы…" : "Подготавливаем приложение…"}</small></div>}
     {markup && <div className={`v48-react-host ${learnerBridge ? "rtm-ready" : "rtm-pending"}`} aria-hidden={!learnerBridge} inert={!learnerBridge} dangerouslySetInnerHTML={{ __html: markup }} />}
     {markup && <div id="modalBackdrop" className="modal-backdrop hidden" role="presentation"><div id="modalBox" className="modal-box" role="dialog" aria-modal="true" /></div>}
-    {learnerBridge && <LearnerApp bridge={learnerBridge} />}
+    {learnerBridge && learnerBridge.getSnapshot().mode === "user" && <LearnerApp bridge={learnerBridge} />}
+    {learnerBridge && learnerBridge.getSnapshot().mode === "admin" && !classicAdmin && window.__RTM_ADMIN__ && <AdminApp bridge={window.__RTM_ADMIN__} />}
   </>;
 }
