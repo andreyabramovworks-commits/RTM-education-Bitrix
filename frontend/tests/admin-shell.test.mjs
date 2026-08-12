@@ -65,6 +65,18 @@ test("route activation is restored after legacy rendering hooks", () => {
   assert.ok(body.indexOf("runUiHooks('adminView',v)") < body.indexOf("activateAdminView(v)"));
 });
 
+test("top-level navigation closes nested knowledge editors and reopens the selected root", () => {
+  assert.match(admin, /if \(nextRoute === route\) bridge\.openRoute\(nextRoute\)/);
+  assert.match(runtime, /state\.v540Workspace='';state\.knowledgeEditorReturn=false;state\.editorReturnCourseId=null/);
+  assert.match(runtime, /if\(route==='materials'\)\{[\s\S]*?showMaterialsList\(\)/);
+  assert.match(runtime, /bindLate\(\)/);
+});
+
+test("wide admin workspace uses the available iframe width", () => {
+  assert.match(styles, /\.adm-workspace>\.admin-main\{display:block;width:100%;max-width:none/);
+  assert.doesNotMatch(styles, /max-width:1600px/);
+});
+
 test("legacy render hooks cannot remount the React shell", () => {
   assert.match(host, /const LegacyMarkupHost = React\.memo/);
   assert.match(host, /window\.addEventListener\("rtm:learner-change", refreshShell\)/);

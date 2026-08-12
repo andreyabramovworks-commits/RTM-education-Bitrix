@@ -65,6 +65,12 @@ export function AdminApp({ bridge, onSetMode }) {
     setMenuOpen(false);
   }, [bridge, route]);
 
+  const selectRoute = (nextRoute) => {
+    if (nextRoute === route) bridge.openRoute(nextRoute);
+    else setRoute(nextRoute);
+    setMenuOpen(false);
+  };
+
   const toggleHints = () => {
     const next = !hints;
     setHints(next);
@@ -75,7 +81,7 @@ export function AdminApp({ bridge, onSetMode }) {
   return <div className={`rtm-admin-v53 ${hints ? "has-guidance" : ""}`} style={{ "--adm-accent": primary }}>
     <header className="adm-topbar">
       <button className="adm-mobile-menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Открыть меню" aria-expanded={menuOpen}>☰</button>
-      <button className="adm-brand" onClick={() => setRoute("dashboard")} data-tip="Перейти на дашборд">
+      <button className="adm-brand" onClick={() => selectRoute("dashboard")} data-tip="Перейти на дашборд">
         {snapshot.appearance?.logo ? <img src={snapshot.appearance.logo} alt="" /> : <b>RTM</b>}
         <span>{snapshot.appearance?.brandName?.replace(/^RTM\s*/i, "") || "обучение"}</span>
         <em>Администрирование</em>
@@ -91,7 +97,7 @@ export function AdminApp({ bridge, onSetMode }) {
       <aside className={`adm-sidebar ${menuOpen ? "is-open" : ""}`} aria-label="Разделы администрирования">
         <div className="adm-sidebar-intro"><span>Рабочее пространство</span><b>{snapshot.roleLabel || "Администратор"}</b></div>
         <nav>
-          {groups.map(([label, items]) => <section key={label}><h2>{label}</h2>{items.map(([id, title, tip]) => <button key={id} data-admin-route={id} className={route === id ? "active" : ""} onClick={() => setRoute(id)} data-tip={tip} aria-current={route === id ? "page" : undefined}><Icon name={id} /><span>{title}</span></button>)}</section>)}
+          {groups.map(([label, items]) => <section key={label}><h2>{label}</h2>{items.map(([id, title, tip]) => <button key={id} data-admin-route={id} className={route === id ? "active" : ""} onClick={() => selectRoute(id)} data-tip={tip} aria-current={route === id ? "page" : undefined}><Icon name={id} /><span>{title}</span></button>)}</section>)}
         </nav>
         <footer><span>Новая админка</span><b>v{snapshot.releaseVersion}</b></footer>
       </aside>
