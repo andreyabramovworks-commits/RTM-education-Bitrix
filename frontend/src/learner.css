@@ -1140,17 +1140,31 @@ body.rtm-learner-active #adminApp:not(.active) {
   .lr-page,
   .lr-material-shell {
     width: min(100% - 28px, 1180px);
-    padding: 30px 0 calc(48px + env(safe-area-inset-bottom));
+    padding: 18px 0 calc(48px + env(safe-area-inset-bottom));
   }
   .lr-page-head,
   .lr-kb-head {
     display: grid;
-    gap: 22px;
-    margin-bottom: 25px;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .lr-page-head > div > .lr-eyebrow,
+  .lr-page-head > div > p {
+    display: none;
   }
   .lr-page-head h1,
   .lr-course-summary h1 {
-    font-size: 32px;
+    margin: 0;
+    font-size: 27px;
+  }
+  .lr-kb-head .lr-search {
+    gap: 6px;
+  }
+  .lr-kb-head .lr-search > span {
+    font-size: 12px;
+  }
+  .lr-kb-head .lr-search input {
+    min-height: 46px;
   }
   .lr-tabs {
     display: grid;
@@ -1194,6 +1208,14 @@ body.rtm-learner-active #adminApp:not(.active) {
   }
   .lr-section-heading {
     align-items: start;
+    margin-bottom: 12px;
+  }
+  .lr-section-heading .lr-eyebrow {
+    display: none;
+  }
+  .lr-section-heading h2 {
+    margin: 0;
+    font-size: 22px;
   }
   .lr-section-heading > span {
     font-size: 12px;

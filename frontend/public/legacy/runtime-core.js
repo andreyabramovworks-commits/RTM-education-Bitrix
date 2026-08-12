@@ -380,6 +380,7 @@ async function hydrateLearnerItem(id){
 function applyShellMode(mode){
   document.body.classList.toggle('rtm-learner-active',mode==='user');
   document.body.classList.toggle('rtm-admin-active',mode==='admin');
+  if(mode==='admin')queueMicrotask(function(){v38EnsureMobileUi();v38RenderMobileMenu()});
 }
 document.addEventListener('click',function(event){let button=event.target.closest&&event.target.closest('.rail-btn[data-admin-view]');if(!button)return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();switchAdmin(button.dataset.adminView)},true);
 document.addEventListener('pointerdown',function(event){let button=event.target.closest&&event.target.closest('.rail-btn[data-admin-view]');if(!button)return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();switchAdmin(button.dataset.adminView)},true);

@@ -9,6 +9,9 @@ const host = await readFile(new URL("../src/LegacyReactHost.jsx", import.meta.ur
 const manifest = await readFile(new URL("../src/legacyRuntime.js", import.meta.url), "utf8");
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const learnerCss = await readFile(new URL("../src/learner.css", import.meta.url), "utf8");
+const knowledgeCss = await readFile(new URL("../public/legacy/knowledge.css", import.meta.url), "utf8");
+const acknowledgementCss = await readFile(new URL("../public/legacy/acknowledgements.css", import.meta.url), "utf8");
+const canvas = await readFile(new URL("../public/legacy/canvas.js", import.meta.url), "utf8");
 
 test("v51.5 has one initial synchronization path", () => {
   assert.match(app, /let initPromise=null/);
@@ -24,8 +27,8 @@ test("v51.5 runtime uses one canonical manifest", () => {
   assert.match(host, /from "\.\/legacyRuntime"/);
   assert.match(host, /if \(runtimePromise\) return runtimePromise/);
   assert.doesNotMatch(host, /const LEGACY_(?:STYLES|SCRIPTS)/);
-  assert.match(manifest, /RELEASE_VERSION = "52\.1\.8"/);
-  assert.match(index, /bitrix-bootstrap\.js\?v=52\.1\.8-r1/);
+  assert.match(manifest, /RELEASE_VERSION = "52\.2\.0"/);
+  assert.match(index, /bitrix-bootstrap\.js\?v=52\.2\.0-r1/);
   assert.match(host, /await Promise\.all\(LEGACY_STYLES\.map\(loadStyle\)\)/);
   assert.match(host, /rtm-pending/);
   assert.match(app, /window\.__RTM_SHELL_INIT__=init/);
@@ -90,4 +93,23 @@ test("v52.1 loads the heavy article renderer only for articles", () => {
 test("v52.1 keeps learner actions theme-aware without legacy important overrides", () => {
   assert.match(learnerCss, /linear-gradient\(135deg, color-mix\(in srgb, var\(--lr-primary\)/);
   assert.doesNotMatch(learnerCss, /\.learner-app \.lr-primary\s*\{/);
+});
+
+test("v52.2 gives mobile articles one vertical scroll owner", () => {
+  assert.match(canvas, /mobile=matchMedia\('\(max-width:800px\)'\)\.matches/);
+  assert.match(canvas, /root\.style\.height=\(mobile\?contentHeight:viewportHeight\)\+'px'/);
+  assert.match(canvas, /root\.style\.overflowY=mobile\?'visible':'auto'/);
+  assert.match(knowledgeCss, /\.rtm-unified-complete-hit\{[\s\S]*?color:transparent!important/);
+});
+
+test("v52.2 restores mobile admin navigation and owns the revision modal", () => {
+  assert.match(app, /if\(mode==='admin'\)queueMicrotask\(function\(\)\{v38EnsureMobileUi\(\);v38RenderMobileMenu\(\)\}\)/);
+  assert.match(wizard, /class="v514-ack"/);
+  assert.doesNotMatch(wizard, /class="v5100-wizard v514-ack"/);
+  assert.match(acknowledgementCss, /\.modal-box:has\(\.v514-ack\)/);
+});
+
+test("v52.2 keeps mobile learner headings compact", () => {
+  assert.match(learnerCss, /\.lr-page-head > div > \.lr-eyebrow,[\s\S]*?display: none/);
+  assert.match(learnerCss, /\.lr-section-heading \.lr-eyebrow[\s\S]*?display: none/);
 });
