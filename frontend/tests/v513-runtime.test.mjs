@@ -27,8 +27,8 @@ test("v51.5 runtime uses one canonical manifest", () => {
   assert.match(host, /from "\.\/legacyRuntime"/);
   assert.match(host, /if \(runtimePromise\) return runtimePromise/);
   assert.doesNotMatch(host, /const LEGACY_(?:STYLES|SCRIPTS)/);
-  assert.match(manifest, /RELEASE_VERSION = "53\.0\.3"/);
-  assert.match(index, /bitrix-bootstrap\.js\?v=53\.0\.3-r1/);
+  assert.match(manifest, /RELEASE_VERSION = "53\.0\.4"/);
+  assert.match(index, /bitrix-bootstrap\.js\?v=53\.0\.4-r1/);
   assert.match(host, /await Promise\.all\(LEGACY_STYLES\.map\(loadStyle\)\)/);
   assert.match(host, /rtm-pending/);
   assert.match(app, /window\.__RTM_SHELL_INIT__=init/);
@@ -103,7 +103,7 @@ test("v52.2 gives mobile articles one vertical scroll owner", () => {
 });
 
 test("v52.2 restores mobile admin navigation and owns the revision modal", () => {
-  assert.match(app, /if\(mode==='admin'\)queueMicrotask\(function\(\)\{v38EnsureMobileUi\(\);v38RenderMobileMenu\(\)\}\)/);
+  assert.match(app, /if\(mode==='admin'\)queueMicrotask\(function\(\)\{if\(typeof v38EnsureMobileUi==='function'\)v38EnsureMobileUi\(\);if\(typeof v38RenderMobileMenu==='function'\)v38RenderMobileMenu\(\)\}\)/);
   assert.match(wizard, /class="v514-ack"/);
   assert.doesNotMatch(wizard, /class="v5100-wizard v514-ack"/);
   assert.match(acknowledgementCss, /\.modal-box:has\(\.v514-ack\)/);

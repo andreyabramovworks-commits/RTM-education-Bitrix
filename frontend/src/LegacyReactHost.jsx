@@ -173,8 +173,11 @@ export function LegacyReactHost() {
   }, [learnerBridge]);
 
   const setShellMode = useCallback((mode) => {
-    learnerBridge?.setMode?.(mode);
-    setBridgeTick((value) => value + 1);
+    try {
+      learnerBridge?.setMode?.(mode);
+    } finally {
+      setBridgeTick((value) => value + 1);
+    }
   }, [learnerBridge]);
 
   if (error) return <div className="v48-load-error"><strong>Не удалось запустить RTM Обучение</strong><span>{error}</span><button onClick={() => window.location.reload()}>Повторить</button></div>;
