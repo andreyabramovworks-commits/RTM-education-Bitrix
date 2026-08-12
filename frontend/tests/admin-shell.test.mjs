@@ -58,7 +58,10 @@ test("route activation is restored after legacy rendering hooks", () => {
 
 test("legacy render hooks cannot remount the React shell", () => {
   assert.match(host, /const LegacyMarkupHost = React\.memo/);
-  assert.match(host, /learnerBridge\.subscribeShell \|\| learnerBridge\.subscribe/);
+  assert.match(host, /window\.addEventListener\("rtm:learner-change", refreshShell\)/);
+  assert.match(host, /learnerBridge\?\.setMode\?\.\(mode\)/);
+  assert.match(host, /<LearnerApp bridge=\{learnerBridge\} onSetMode=\{setShellMode\}/);
+  assert.match(host, /<AdminApp bridge=\{window\.__RTM_ADMIN__\} onSetMode=\{setShellMode\}/);
   assert.match(runtime, /subscribeShell:function\(handler\)\{window\.addEventListener\('rtm:learner-change',handler\)/);
   assert.doesNotMatch(admin, /<i>›<\/i>/);
 });

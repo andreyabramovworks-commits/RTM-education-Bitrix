@@ -42,7 +42,7 @@ function useAdminSnapshot(bridge) {
   return snapshot;
 }
 
-export function AdminApp({ bridge }) {
+export function AdminApp({ bridge, onSetMode }) {
   const snapshot = useAdminSnapshot(bridge);
   const mountRef = useRef(null);
   const [route, setRoute] = useState(() => bridge.getSnapshot().route || "dashboard");
@@ -84,7 +84,7 @@ export function AdminApp({ bridge }) {
         <button className={hints ? "is-active" : ""} onClick={toggleHints} aria-pressed={hints} data-tip="Показывать пояснения после наведения на элементы"><Icon name="help" /><span>Подсказки</span></button>
         <button onClick={() => bridge.refresh()} disabled={snapshot.syncing} data-tip="Получить актуальные данные из Bitrix24"><Icon name="sync" /><span>{snapshot.syncing ? "Обновляем…" : "Синхронизировать"}</span></button>
         <button onClick={() => bridge.openClassic()} data-tip="Открыть прежнюю админку отдельно"><Icon name="classic" /><span>Классическая версия</span></button>
-        <button className="adm-user-mode" onClick={() => bridge.setMode("user")} data-tip="Вернуться в интерфейс ученика"><Icon name="learner" /><span>К обучению</span></button>
+        <button className="adm-user-mode" onClick={() => onSetMode("user")} data-tip="Вернуться в интерфейс ученика"><Icon name="learner" /><span>К обучению</span></button>
       </div>
     </header>
     <div className="adm-layout">

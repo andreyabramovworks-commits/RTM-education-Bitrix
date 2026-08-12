@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   LEGACY_SCRIPTS,
   LEGACY_STYLES,
@@ -167,8 +167,14 @@ export function LegacyReactHost() {
 
   useEffect(() => {
     if (!learnerBridge) return;
-    const subscribe = learnerBridge.subscribeShell || learnerBridge.subscribe;
-    return subscribe?.(() => setBridgeTick((value) => value + 1));
+    const refreshShell = () => setBridgeTick((value) => value + 1);
+    window.addEventListener("rtm:learner-change", refreshShell);
+    return () => window.removeEventListener("rtm:learner-change", refreshShell);
+  }, [learnerBridge]);
+
+  const setShellMode = useCallback((mode) => {
+    learnerBridge?.setMode?.(mode);
+    setBridgeTick((value) => value + 1);
   }, [learnerBridge]);
 
   if (error) return <div className="v48-load-error"><strong>Не удалось запустить RTM Обучение</strong><span>{error}</span><button onClick={() => window.location.reload()}>Повторить</button></div>;
@@ -176,7 +182,7 @@ export function LegacyReactHost() {
     {!learnerBridge && <div className="v48-loading" role="status" aria-live="polite"><span className="v48-loading-mark">RTM <b>обучение</b></span><span className="v48-loading-line" aria-hidden="true" /><small>{markup ? "Загружаем ваши материалы…" : "Подготавливаем приложение…"}</small></div>}
     {markup && <LegacyMarkupHost markup={markup} ready={Boolean(learnerBridge)} />}
     {markup && <div id="modalBackdrop" className="modal-backdrop hidden" role="presentation"><div id="modalBox" className="modal-box" role="dialog" aria-modal="true" /></div>}
-    {learnerBridge && learnerBridge.getSnapshot().mode === "user" && <LearnerApp bridge={learnerBridge} />}
-    {learnerBridge && learnerBridge.getSnapshot().mode === "admin" && !classicAdmin && window.__RTM_ADMIN__ && <AdminApp bridge={window.__RTM_ADMIN__} />}
+    {learnerBridge && learnerBridge.getSnapshot().mode === "user" && <LearnerApp bridge={learnerBridge} onSetMode={setShellMode} />}
+    {learnerBridge && learnerBridge.getSnapshot().mode === "admin" && !classicAdmin && window.__RTM_ADMIN__ && <AdminApp bridge={window.__RTM_ADMIN__} onSetMode={setShellMode} />}
   </>;
 }
