@@ -433,13 +433,13 @@ window.__RTM_ADMIN__={
   mount:function(host){
     var root=document.getElementById('adminApp'),main=root&&root.querySelector('.admin-main');if(!host||!root||!main)return;
     if(!rtmAdminHome)rtmAdminHome={parent:main.parentNode,next:main.nextSibling};
-    if(!rtmAdminRootState)rtmAdminRootState={hidden:root.hidden,inert:root.inert,ariaHidden:root.getAttribute('aria-hidden')};
-    host.appendChild(main);root.hidden=true;root.inert=true;root.setAttribute('aria-hidden','true');rtmAdminRoot=root;rtmAdminMount=host;document.body.classList.add('rtm-admin-react-active');
+    if(!rtmAdminRootState)rtmAdminRootState={hidden:root.hidden,inert:root.inert,display:root.style.display,ariaHidden:root.getAttribute('aria-hidden')};
+    host.appendChild(main);root.hidden=true;root.inert=true;root.style.display='none';root.setAttribute('aria-hidden','true');rtmAdminRoot=root;rtmAdminMount=host;document.body.classList.add('rtm-admin-react-active');
   },
   unmount:function(){
     var main=document.querySelector('.adm-workspace > .admin-main');
     if(main&&rtmAdminHome&&rtmAdminHome.parent)rtmAdminHome.parent.insertBefore(main,rtmAdminHome.next);
-    if(rtmAdminRoot&&rtmAdminRootState){rtmAdminRoot.hidden=rtmAdminRootState.hidden;rtmAdminRoot.inert=rtmAdminRootState.inert;if(rtmAdminRootState.ariaHidden===null)rtmAdminRoot.removeAttribute('aria-hidden');else rtmAdminRoot.setAttribute('aria-hidden',rtmAdminRootState.ariaHidden)}
+    if(rtmAdminRoot&&rtmAdminRootState){rtmAdminRoot.hidden=rtmAdminRootState.hidden;rtmAdminRoot.inert=rtmAdminRootState.inert;rtmAdminRoot.style.display=rtmAdminRootState.display;if(rtmAdminRootState.ariaHidden===null)rtmAdminRoot.removeAttribute('aria-hidden');else rtmAdminRoot.setAttribute('aria-hidden',rtmAdminRootState.ariaHidden)}
     rtmAdminRoot=null;rtmAdminRootState=null;rtmAdminMount=null;document.body.classList.remove('rtm-admin-react-active');
   },
   openRoute:function(route){

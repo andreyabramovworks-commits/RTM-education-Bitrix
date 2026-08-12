@@ -29,7 +29,8 @@ test("new and classic admin shells are isolated", () => {
 });
 
 test("new admin shell suspends the complete classic shell and mounts only page content", () => {
-  assert.match(runtime, /root\.hidden=true;root\.inert=true;root\.setAttribute\('aria-hidden','true'\)/);
+  assert.match(runtime, /root\.hidden=true;root\.inert=true;root\.style\.display='none';root\.setAttribute\('aria-hidden','true'\)/);
+  assert.match(runtime, /rtmAdminRoot\.style\.display=rtmAdminRootState\.display/);
   assert.match(runtime, /host\.appendChild\(main\)/);
   assert.doesNotMatch(runtime, /host\.appendChild\(projects\)/);
   assert.doesNotMatch(styles, /\.adm-workspace #projectsPanel/);
