@@ -55,3 +55,10 @@ test("route activation is restored after legacy rendering hooks", () => {
   assert.ok(body.indexOf("renderAll()") < body.indexOf("activateAdminView(v)"));
   assert.ok(body.indexOf("runUiHooks('adminView',v)") < body.indexOf("activateAdminView(v)"));
 });
+
+test("legacy render hooks cannot remount the React shell", () => {
+  assert.match(host, /const LegacyMarkupHost = React\.memo/);
+  assert.match(host, /learnerBridge\.subscribeShell \|\| learnerBridge\.subscribe/);
+  assert.match(runtime, /subscribeShell:function\(handler\)\{window\.addEventListener\('rtm:learner-change',handler\)/);
+  assert.doesNotMatch(admin, /<i>›<\/i>/);
+});

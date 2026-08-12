@@ -395,6 +395,7 @@ window.setMode=setMode=function(mode){closeModal();applyShellMode(mode);baseSetM
 window.__RTM_LEARNER__={
   getSnapshot:learnerSnapshot,
   subscribe:function(handler){window.addEventListener('rtm:learner-change',handler);let hook=function(){handler()};window.RTMUI.afterRender.push(hook);return function(){window.removeEventListener('rtm:learner-change',handler);let i=window.RTMUI.afterRender.indexOf(hook);if(i>=0)window.RTMUI.afterRender.splice(i,1)}},
+  subscribeShell:function(handler){window.addEventListener('rtm:learner-change',handler);return function(){window.removeEventListener('rtm:learner-change',handler)}},
   refresh:async function(){await loadAll(true);emitLearnerSnapshot()},
   setMode:function(mode){setMode(mode);if(mode==='admin'&&window.__RTM_LOAD_CANVAS__)window.__RTM_LOAD_CANVAS__().catch(function(error){console.warn(error)})},
   openMaterial:async function(id){let item=await hydrateLearnerItem(id);if(materialKind(item)==='article'&&window.__RTM_LOAD_CANVAS__)await window.__RTM_LOAD_CANVAS__();window.openUserMaterial(item);emitLearnerSnapshot();return item},

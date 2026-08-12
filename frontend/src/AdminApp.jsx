@@ -91,7 +91,7 @@ export function AdminApp({ bridge }) {
       <aside className={`adm-sidebar ${menuOpen ? "is-open" : ""}`} aria-label="Разделы администрирования">
         <div className="adm-sidebar-intro"><span>Рабочее пространство</span><b>{snapshot.roleLabel || "Администратор"}</b></div>
         <nav>
-          {groups.map(([label, items]) => <section key={label}><h2>{label}</h2>{items.map(([id, title, tip]) => <button key={id} data-admin-route={id} className={route === id ? "active" : ""} onClick={() => setRoute(id)} data-tip={tip} aria-current={route === id ? "page" : undefined}><Icon name={id} /><span>{title}</span><i>›</i></button>)}</section>)}
+          {groups.map(([label, items]) => <section key={label}><h2>{label}</h2>{items.map(([id, title, tip]) => <button key={id} data-admin-route={id} className={route === id ? "active" : ""} onClick={() => setRoute(id)} data-tip={tip} aria-current={route === id ? "page" : undefined}><Icon name={id} /><span>{title}</span></button>)}</section>)}
         </nav>
         <footer><span>Новая админка</span><b>v{snapshot.releaseVersion}</b></footer>
       </aside>
