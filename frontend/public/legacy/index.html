@@ -469,10 +469,12 @@
             <div class="users-toolbar">
               <input id="usersSearch" placeholder="&#x41F;&#x43E;&#x438;&#x441;&#x43A; &#x43F;&#x43E; &#x438;&#x43C;&#x435;&#x43D;&#x438; &#x438;&#x43B;&#x438; email">
               <select id="usersDeptFilter"><option value="all">&#x412;&#x441;&#x435; &#x434;&#x435;&#x43F;&#x430;&#x440;&#x442;&#x430;&#x43C;&#x435;&#x43D;&#x442;&#x44B;</option></select>
+              <select id="usersRoleFilter"><option value="all">Все роли</option><option value="employee">Пользователь</option><option value="teacher">Преподаватель</option><option value="moderator">Редактор</option><option value="admin">Администратор</option><option value="developer">Разработчик</option></select>
+              <select id="usersSort"><option value="name">По алфавиту</option><option value="role">По роли</option></select>
             </div>
             <div class="table-card users-table-card">
               <table class="admin-table users-table">
-                <thead><tr><th>&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44C;</th><th>&#x421;&#x442;&#x430;&#x442;&#x443;&#x441;</th><th>&#x414;&#x435;&#x43F;&#x430;&#x440;&#x442;&#x430;&#x43C;&#x435;&#x43D;&#x442;&#x44B;</th><th>&#x420;&#x43E;&#x43B;&#x44C;</th><th>&#x41D;&#x430;&#x441;&#x442;&#x440;&#x43E;&#x439;&#x43A;&#x438;</th></tr></thead>
+                <thead><tr><th>&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44C;</th><th>&#x421;&#x442;&#x430;&#x442;&#x443;&#x441;</th><th>&#x414;&#x435;&#x43F;&#x430;&#x440;&#x442;&#x430;&#x43C;&#x435;&#x43D;&#x442;&#x44B;</th><th>&#x420;&#x43E;&#x43B;&#x44C;</th></tr></thead>
                 <tbody id="usersTable"></tbody>
               </table>
             </div>

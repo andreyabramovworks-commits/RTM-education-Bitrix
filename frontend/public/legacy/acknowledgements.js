@@ -254,7 +254,8 @@ enhanceRoleOverview=function(){
   guide.innerHTML='<header class="v514-role-intro"><div><span class="v514-eyebrow">Матрица доступа</span><h3>Что даёт каждая роль</h3><p>У сотрудника всегда одна роль. Каждый следующий уровень включает возможности предыдущего.</p></div><span class="v514-role-current">Выбрано: <b></b></span></header><div class="v514-role-grid">'+roles.map(function(role,index){return '<article class="v514-role-card" data-role-card="'+role.id+'"><header><span class="v514-role-number">'+(index+1)+'</span><div><h4>'+role.title+'</h4><p>'+role.subtitle+'</p></div></header><div class="v514-role-columns"><section><h5>Доступно</h5>'+items(role.can,'can')+'</section><section class="cannot"><h5>Недоступно</h5>'+(role.cannot.length?items(role.cannot,'cannot'):'<p class="v514-role-unlimited">Ограничений внутри приложения нет</p>')+'</section></div></article>';}).join('')+'</div>';
   select.insertAdjacentElement('afterend',guide);
   function sync(){guide.querySelectorAll('[data-role-card]').forEach(function(card){card.classList.toggle('selected',card.dataset.roleCard===select.value);});var chosen=roles.find(function(role){return role.id===select.value;})||roles[0];guide.querySelector('.v514-role-current b').textContent=chosen.title;}
-  select.addEventListener('change',sync);sync();
+  guide.querySelectorAll('[data-role-card]').forEach(function(card){var available=Array.from(select.options).some(function(option){return option.value===card.dataset.roleCard;});card.tabIndex=available?0:-1;card.setAttribute('role','button');card.setAttribute('aria-disabled',available?'false':'true');if(!available)card.classList.add('is-unavailable');card.onclick=function(event){if(!available||event.target.closest('.v514-role-mechanic'))return;select.value=card.dataset.roleCard;select.dispatchEvent(new Event('change',{bubbles:true}));};card.onkeydown=function(event){if(available&&(event.key==='Enter'||event.key===' ')){event.preventDefault();card.click();}};});
+  select.hidden=true;select.addEventListener('change',sync);sync();
 };
 var openAssignmentV514=openAssignment;
 openAssignment=function(row){
@@ -268,7 +269,12 @@ openAssignment=function(row){
     else action.innerHTML='<div class="v514-question"><h3>'+h(question.text)+'</h3><div class="v514-choice-list">'+(question.options||[]).map(function(option){return '<label><input name="ackChoice" type="'+(question.type==='multiple'?'checkbox':'radio')+'" value="'+h(option.id)+'"><span>'+h(option.text)+'</span></label>';}).join('')+'</div><button class="primary" id="v5100AckSubmit">Ответить и подтвердить</button></div>';
   }else if(campaign.mode==='test')action.innerHTML='<div class="v514-question"><h3>Пройдите связанный тест</h3><p>После успешного результата ознакомление будет засчитано автоматически.</p><button class="primary" onclick="closeModal()">Перейти к тесту документа</button></div>';
   else action.innerHTML='<div class="v514-confirm"><div><b>Документ изучен?</b><span>Подтверждение сохранится в истории ознакомления.</span></div><button class="primary" id="v5100AckSubmit">Подтверждаю ознакомление</button></div>';
+  var documentLink=document.querySelector('[data-v5100-open-doc]');
   var submit=document.getElementById('v5100AckSubmit');if(submit)submit.onclick=async function(){var answer=null;if(campaign.mode==='question')answer=question.type==='free'?document.getElementById('v5100AckFree').value:Array.from(document.querySelectorAll('[name=ackChoice]:checked')).map(function(x){return x.value;});submit.disabled=true;var oldText=submit.textContent;submit.textContent='Сохраняем…';try{var saved=await api('/api/v51/assignments/'+row.id+'/answer',{method:'POST',body:JSON.stringify({answer:answer})});cache.mine=null;closeModal();toast(saved.status==='completed'?'Ознакомление подтверждено':'Ответ отправлен');renderKb();}catch(error){alert(error.message||error);submit.disabled=false;submit.textContent=oldText;}};
+  if(submit&&!done&&campaign.mode==='confirm'){
+    submit.disabled=true;submit.title='Сначала откройте и изучите документ';
+    if(documentLink)documentLink.addEventListener('click',function(){submit.disabled=false;submit.title='';submit.closest('.v514-confirm').classList.add('is-ready');});
+  }
 };
 window.RTMV5100.version='51.6.0';
 document.addEventListener('click',function(event){var mechanic=event.target.closest&&event.target.closest('.v514-role-mechanic[data-help-key]');if(!mechanic)return;event.preventDefault();event.stopPropagation();openHelp(mechanic,mechanic.dataset.helpKey,0);},true);
