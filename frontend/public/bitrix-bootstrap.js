@@ -44,6 +44,14 @@
       },
     };
 
+    // Some Bitrix24 hosts only invoke the first BX24.init callback reliably.
+    // Mark the shared SDK as ready and make later legacy subscribers async but
+    // immediate, so the application cannot stall on a second initialization.
+    window.__RTM_BITRIX_INITIALIZED__ = true;
+    bitrixSdk.init = function onAlreadyInitialized(callback) {
+      if (typeof callback === "function") window.setTimeout(callback, 0);
+    };
+
     window.dispatchEvent(new CustomEvent("rtm-bitrix-ready"));
     return window.RTM_BITRIX;
   }

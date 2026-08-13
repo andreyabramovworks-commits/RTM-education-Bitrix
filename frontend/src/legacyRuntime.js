@@ -1,5 +1,5 @@
-export const RELEASE_VERSION = "53.0.9";
-export const RELEASE_ASSET_REVISION = "53.0.9-r1";
+export const RELEASE_VERSION = "53.0.10";
+export const RELEASE_ASSET_REVISION = "53.0.10-r1";
 
 export const LEGACY_STYLES = [
   "/legacy/runtime-core.css",

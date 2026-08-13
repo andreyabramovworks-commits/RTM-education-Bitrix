@@ -92,7 +92,13 @@ function loadRuntime() {
       throw new Error("Runtime не предоставил функцию запуска");
     }
     window.__RTM_LOAD_CANVAS__ = loadCanvasRuntime;
-    await window.__RTM_V48_INIT__();
+    await Promise.race([
+      window.__RTM_V48_INIT__(),
+      new Promise((_, reject) => window.setTimeout(
+        () => reject(new Error("Bitrix24 не завершил запуск приложения. Нажмите «Повторить».")),
+        15000,
+      )),
+    ]);
   })().catch((error) => {
     runtimePromise = null;
     throw error;
