@@ -1122,6 +1122,8 @@ body.rtm-learner-active #adminApp:not(.active) {
 .lr-floating-back { position:fixed; z-index:60; left:max(16px,env(safe-area-inset-left)); bottom:calc(18px + env(safe-area-inset-bottom)); display:none; align-items:center; gap:7px; min-height:42px; padding:0 14px; border:1px solid rgb(198 205 211 / 75%); border-radius:999px; color:var(--lr-text); background:rgb(255 255 252 / 72%); box-shadow:0 9px 24px rgb(26 36 52 / 12%); backdrop-filter:blur(14px); cursor:pointer; }
 .lr-floating-back .lr-icon { width:18px; height:18px; }
 .lr-music.is-active { color:var(--lr-primary); background:var(--lr-primary-soft); }
+.lr-volume{display:flex;align-items:center;width:76px}.lr-volume input{width:100%;accent-color:var(--lr-primary)}
+.lr-volume-popover{position:fixed;z-index:80;right:20px;top:72px;display:grid;gap:8px;width:210px;padding:12px 14px;border:1px solid var(--lr-border);border-radius:14px;background:rgba(255,255,255,.94);box-shadow:0 16px 40px rgb(25 39 75 / 16%);backdrop-filter:blur(18px);font-size:12px;font-weight:700}.lr-volume-popover input{width:100%;accent-color:var(--lr-primary)}
 
 @media (max-width: 1100px) {
   .lr-nav button {
@@ -1162,6 +1164,8 @@ body.rtm-learner-active #adminApp:not(.active) {
   .lr-music {
     display: none;
   }
+  .lr-volume{display:none}
+  .lr-volume-popover{top:auto;right:16px;bottom:calc(94px + env(safe-area-inset-bottom));width:min(220px,calc(100vw - 32px))}
   .lr-menu-button {
     display: inline-flex;
   }
@@ -1184,6 +1188,7 @@ body.rtm-learner-active #adminApp:not(.active) {
   .lr-revision-grid {
     grid-template-columns: 1fr;
   }
+  .lr-revision-list>article{min-width:0;overflow:hidden}.lr-revision-grid>div{min-width:0}.lr-revision-grid p{overflow-wrap:anywhere}.lr-revision-grid .lr-primary{width:100%;border-radius:14px}
   .lr-edition-history {
     grid-template-columns: 1fr;
   }

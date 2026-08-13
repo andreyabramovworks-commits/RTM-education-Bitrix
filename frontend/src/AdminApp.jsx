@@ -90,7 +90,7 @@ export function AdminApp({ bridge, onSetMode }) {
         <button className={hints ? "is-active" : ""} onClick={toggleHints} aria-pressed={hints} data-tip="Показывать пояснения после наведения на элементы"><Icon name="help" /><span>Подсказки</span></button>
         <button onClick={() => bridge.refresh()} disabled={snapshot.syncing} data-tip="Получить актуальные данные из Bitrix24"><Icon name="sync" /><span>{snapshot.syncing ? "Обновляем…" : "Синхронизировать"}</span></button>
         <button onClick={() => bridge.openClassic()} data-tip="Открыть прежнюю админку отдельно"><Icon name="classic" /><span>Классическая версия</span></button>
-        <button className="adm-user-mode" onClick={() => onSetMode("user")} data-tip="Вернуться в интерфейс ученика"><Icon name="learner" /><span>Перейти в интерфейс пользователя</span></button>
+        <button className="adm-user-mode" onClick={() => onSetMode("user")} data-tip="Вернуться в интерфейс ученика"><span>Перейти в интерфейс пользователя</span></button>
       </div>
     </header>
     <div className="adm-layout">

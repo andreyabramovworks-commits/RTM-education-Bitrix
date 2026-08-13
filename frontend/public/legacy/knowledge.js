@@ -110,7 +110,7 @@
       baseOpenUserMaterial.call(window,projection);
       var back=document.getElementById("uBackToCourse");
       if(back){
-        back.textContent=item?"← Назад к курсу":"← Назад в Базу знаний";
+        back.textContent=item?"Назад к курсу":"Назад в Базу знаний";
         back.dataset.v5041Back=item?"course":"knowledge";
       }
       var viewerRole=typeof actualRole==="function"?String(actualRole()):String(state.currentRole||"");
@@ -138,7 +138,7 @@
   function renderUserDetail(doc, node) {
     var box=document.getElementById("kbArticlesList"),crumb=document.getElementById("kbBreadcrumbs");
     if(crumb)crumb.classList.remove("root-hidden");
-    if(crumb)crumb.innerHTML='<button data-v538-user-back>← Назад</button>';
+    if(crumb)crumb.innerHTML='<button data-v538-user-back>Назад</button>';
     box.innerHTML='<div class="kb-detail v538-user-detail"><h1>'+html(doc.title)+'</h1>'+(doc.description?'<p>'+html(doc.description)+'</p>':'')+
       '<div class="kb-open-actions"><a class="primary kb-open-link" href="'+html(doc.documentUrl)+'" target="_blank" rel="noopener noreferrer">Открыть документ</a>'+
       '<button class="primary" data-v538-user-kind="article">Открыть статью</button>'+
@@ -171,7 +171,7 @@
 
   function adminDocument(doc) {
     var light=doc.lightTest||{},full=doc.fullTest||{};
-    return '<div class="v538-admin-detail" data-v538-document-id="'+html(doc.id)+'"><button data-v538-admin-back>← Назад</button><h1>'+html(doc.title)+'</h1><p>'+html(doc.description||"Описание пока не заполнено")+'</p>'+
+    return '<div class="v538-admin-detail" data-v538-document-id="'+html(doc.id)+'"><button data-v538-admin-back>Назад</button><h1>'+html(doc.title)+'</h1><p>'+html(doc.description||"Описание пока не заполнено")+'</p>'+
       '<div class="v538-action-grid">'+
       '<section><h3>Статья</h3><button class="primary" data-v538-edit-article>Открыть и редактировать статью</button><button data-v538-assign="article">Настроить назначения</button></section>'+
       '<section><h3>Тест лайт</h3>'+(light.created?'<button data-v538-edit-test="light">Открыть тест лайт</button>':'<button data-v538-create-test="light">Создать тест лайт</button>')+'<button data-v538-assign="light">Настроить назначения</button></section>'+
@@ -320,7 +320,7 @@
     }
     var project=state.projects.find(function(p){return String(p.ID)===String(state.projectListProjectId);});
     var rows=activeRows(state.items).filter(function(item){return String(item.PROPERTY_VALUES.projectId)===String(state.projectListProjectId)&&String(item.PROPERTY_VALUES.parentId||"root")==="root"&&norm(item.NAME+" "+(item.PROPERTY_VALUES.content||"")).includes(q);});
-    box.innerHTML='<div class="kb-project-head"><button id="projectListBack">← Назад</button><b>'+html(project&&project.NAME||"Проект")+'</b></div><div class="kb-doc-grid">'+rows.map(function(item){return '<div class="kb-doc-card" data-project-material="'+item.ID+'"><span class="kb-icon">'+svgIcon(item.PROPERTY_VALUES.type||"article")+'</span><div><h3>'+html(item.NAME)+'</h3><p class="muted">'+html(typeLabel(item.PROPERTY_VALUES.type))+'</p></div></div>';}).join("")+'</div>';
+    box.innerHTML='<div class="kb-project-head"><button id="projectListBack">Назад</button><b>'+html(project&&project.NAME||"Проект")+'</b></div><div class="kb-doc-grid">'+rows.map(function(item){return '<div class="kb-doc-card" data-project-material="'+item.ID+'"><span class="kb-icon">'+svgIcon(item.PROPERTY_VALUES.type||"article")+'</span><div><h3>'+html(item.NAME)+'</h3><p class="muted">'+html(typeLabel(item.PROPERTY_VALUES.type))+'</p></div></div>';}).join("")+'</div>';
     document.getElementById("projectListBack").onclick=function(){state.projectListProjectId=null;window.renderProjectList();};
     box.querySelectorAll("[data-project-material]").forEach(function(b){b.onclick=function(){var item=findItem(b.dataset.projectMaterial);if(item.PROPERTY_VALUES.type==="course")openUserCourse(item);else openUserMaterial(item);};});
   };
@@ -359,7 +359,7 @@
     return window.RTMV5038.reload().then(function () { return window.RTMV5038.renderAdmin(); });
   }
   function shell(heading, subtitle, body, actions) {
-    host().innerHTML = '<section class="v539-page v540-page"><header class="v539-page-head"><div><button id="v540Back">← Назад к Базе знаний</button><h1>'+esc(heading)+'</h1><p class="muted">'+esc(subtitle || "")+'</p></div></header>'+(actions ? '<div class="v539-sticky">'+actions+'</div>' : "")+body+'</section>';
+    host().innerHTML = '<section class="v539-page v540-page"><header class="v539-page-head"><div><button id="v540Back">Назад к Базе знаний</button><h1>'+esc(heading)+'</h1><p class="muted">'+esc(subtitle || "")+'</p></div></header>'+(actions ? '<div class="v539-sticky">'+actions+'</div>' : "")+body+'</section>';
     document.getElementById("v540Back").onclick = back;
   }
   function currentId(button) {
@@ -421,7 +421,7 @@
   async function assignments(id, kind) {
     state.v540Workspace = "assignments";
     var doc=await api("/api/v47/knowledge/documents/"+id), directory=await api("/api/v47/knowledge/directory"), prefix=kind === "article" ? "article" : kind === "light" ? "lightTest" : "fullTest", active="students", sets={students:new Set((doc[prefix+"Assignments"]||[]).map(function(r){return r.type+":"+r.id;})),reviewers:new Set((doc[prefix+"Reviewers"]||doc.reviewers||[]).map(function(r){return r.type+":"+r.id;})),editors:new Set((doc[prefix+"Editors"]||doc.editors||[]).map(function(r){return r.type+":"+r.id;}))};
-    function row(type,item,allowed,depth,children){var id=String(item.id),key=type+":"+id,style=type==="department"?' style="--tree-depth:'+(depth||0)+'"':"";return '<label class="v539-choice '+(type==="department"?"v540-department":"")+'"'+style+'><input type="checkbox" data-v540-rule="'+key+'" '+(sets[active].has(key)?"checked":"")+'><span>'+(type==="department"?'<i class="v540-tree-mark">'+(children?"▾":"└")+'</i>':"")+esc(item.name)+'</span><small>'+esc(allowed || "")+'</small></label>';}
+    function row(type,item,allowed,depth,children){var id=String(item.id),key=type+":"+id,style=type==="department"?' style="--tree-depth:'+(depth||0)+'"':"",avatar=type==="user"?'<span class="avatar-mini">'+(item.photo||item.avatar?'<img src="'+esc(item.photo||item.avatar)+'" alt="">':esc(String(item.name||'').split(/\s+/).slice(0,2).map(function(x){return x.charAt(0)}).join('')))+'</span>':"";return '<label class="v539-choice '+(type==="department"?"v540-department":"")+'"'+style+'><input type="checkbox" data-v540-rule="'+key+'" '+(sets[active].has(key)?"checked":"")+'>'+avatar+'<span>'+(type==="department"?'<i class="v540-tree-mark">'+(children?"▾":"└")+'</i>':"")+esc(item.name)+'</span><small>'+esc(allowed || "")+'</small></label>';}
     function draw(){var body="",people=(directory.users||[]).filter(function(user){return active === "students" ? true : active === "editors" ? user.editorAllowed : user.reviewerAllowed;});if(active === "students"){body+='<label class="v539-choice"><input type="checkbox" data-v540-rule="all_active:" '+(sets.students.has("all_active:")?"checked":"")+'><span>Все активные сотрудники</span><small>автоматически</small></label><h3>Подразделения, включая подотделы</h3><p class="v540-tree-help">Отступ показывает вложенность. Выбор отдела автоматически включает все его подотделы.</p>'+departmentTree(directory.departments).map(function(node){return row("department",node.item,node.children?"отдел и "+node.children+" подотд.":"подразделение",node.depth,node.children);}).join("")+"<h3>Сотрудники</h3>";}body+=people.map(function(user){return row("user",user,user.role);}).join("");shell("Назначения",doc.title+" · "+title[kind],'<input class="v539-search" id="v540Search" placeholder="Поиск сотрудника или подразделения"><div class="v539-tabs">'+[["students","Ученики"],["reviewers","Проверяющие"],["editors","Редакторы"]].map(function(tab){return '<button data-v540-tab="'+tab[0]+'" class="'+(active===tab[0]?"active":"")+'">'+tab[1]+' <b>'+sets[tab[0]].size+'</b></button>';}).join("")+'</div><div class="v539-choices">'+body+'</div>'+(kind === "article" ? '<label class="v539-inherit"><input id="v540Inherit" type="checkbox" '+(doc.inheritTestAssignments?"checked":"")+'> После сохранения применить назначения статьи к обоим тестам</label>' : ""),'<button class="primary" id="v540Save">Сохранить назначения</button>');
       document.querySelectorAll("[data-v540-tab]").forEach(function(button){button.onclick=function(){active=button.dataset.v540Tab;draw();};});document.querySelectorAll("[data-v540-rule]").forEach(function(input){input.onchange=function(){input.checked?sets[active].add(input.dataset.v540Rule):sets[active].delete(input.dataset.v540Rule);};});document.getElementById("v540Search").oninput=function(){var query=this.value.toLowerCase();document.querySelectorAll(".v539-choice").forEach(function(choice){choice.hidden=query && !choice.textContent.toLowerCase().includes(query);});};document.getElementById("v540Save").onclick=save;
     }
