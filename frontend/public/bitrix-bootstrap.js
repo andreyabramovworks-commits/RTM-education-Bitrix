@@ -11,6 +11,15 @@
   }
 
   var bitrixSdk = window.BX24;
+  var resolveReady = window.__RTM_BITRIX_READY_RESOLVE__;
+  var rejectReady = window.__RTM_BITRIX_READY_REJECT__;
+
+  if (!window.RTM_BITRIX_READY) {
+    window.RTM_BITRIX_READY = new Promise(function createReadyPromise(resolve, reject) {
+      resolveReady = resolve;
+      rejectReady = reject;
+    });
+  }
 
   function publishContext() {
     if (!bitrixSdk || window.RTM_BITRIX) {
@@ -44,14 +53,7 @@
       },
     };
 
-    // Some Bitrix24 hosts only invoke the first BX24.init callback reliably.
-    // Mark the shared SDK as ready and make later legacy subscribers async but
-    // immediate, so the application cannot stall on a second initialization.
     window.__RTM_BITRIX_INITIALIZED__ = true;
-    bitrixSdk.init = function onAlreadyInitialized(callback) {
-      if (typeof callback === "function") window.setTimeout(callback, 0);
-    };
-
     window.dispatchEvent(new CustomEvent("rtm-bitrix-ready"));
     return window.RTM_BITRIX;
   }
@@ -62,27 +64,55 @@
         detail: "Не удалось загрузить SDK Битрикс24",
       }),
     );
+    if (rejectReady) rejectReady(new Error("Не удалось загрузить SDK Битрикс24"));
     return;
   }
 
-  window.RTM_BITRIX_READY = new Promise(function waitForBitrix(resolve) {
-    var completed = false;
-    var timeout = window.setTimeout(function onTimeout() {
-      if (completed) return;
-      completed = true;
-      window.dispatchEvent(
-        new CustomEvent("rtm-bitrix-error", {
-          detail: "Битрикс24 не ответил вовремя",
-        }),
-      );
-      resolve(null);
-    }, 8000);
+  var completed = false;
+  var initSignalled = false;
+  var startedAt = Date.now();
 
-    bitrixSdk.init(function onBitrixReady() {
-      if (completed) return;
+  function authAvailable() {
+    try {
+      var auth = bitrixSdk.getAuth ? bitrixSdk.getAuth() : bitrixSdk.auth;
+      return Boolean(auth && auth.access_token && auth.domain);
+    } catch (_) {
+      return Boolean(bitrixSdk.auth && bitrixSdk.auth.access_token && bitrixSdk.auth.domain);
+    }
+  }
+
+  function complete() {
+    if (completed || !authAvailable()) return false;
+    completed = true;
+    var context = publishContext();
+    if (resolveReady) resolveReady(context);
+    delete window.__RTM_BITRIX_READY_RESOLVE__;
+    delete window.__RTM_BITRIX_READY_REJECT__;
+    return true;
+  }
+
+  function probe() {
+    if (complete()) return;
+    if (Date.now() - startedAt >= 10000) {
       completed = true;
-      window.clearTimeout(timeout);
-      resolve(publishContext());
+      var message = initSignalled
+        ? "Битрикс24 не передал данные авторизации"
+        : "Битрикс24 не завершил запуск приложения";
+      var error = new Error(message);
+      window.dispatchEvent(new CustomEvent("rtm-bitrix-error", { detail: message }));
+      if (rejectReady) rejectReady(error);
+      return;
+    }
+    window.setTimeout(probe, 100);
+  }
+
+  try {
+    bitrixSdk.init(function onBitrixReady() {
+      initSignalled = true;
+      complete();
     });
-  });
+  } catch (_) {
+    initSignalled = true;
+  }
+  probe();
 })();

@@ -8,7 +8,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from app.bitrix_auth import BitrixIdentity, encode_bitrix_params, require_admin, require_bitrix_identity
 from app.database import get_session
 from app.main import app
-from app.models import AppUser, Article, DeveloperWorkspace, DeveloperWorkspaceRevision, ExcalidrawScene, LegacyRecord
+from app.models import AppUser, Article, DeveloperWorkspace, DeveloperWorkspaceRevision, ExcalidrawScene, LegacyRecord, SystemSetting
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -54,8 +54,33 @@ def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert "rtm_release=53.0.12" in response.text
-    assert "RTM Education v53.0.12" in response.text
+    assert "rtm_release=53.0.13" in response.text
+    assert "RTM Education v53.0.13" in response.text
+
+
+def test_appearance_is_central_and_keeps_uploaded_branding() -> None:
+    payload = {
+        "brandName": "Учебный портал компании",
+        "logo": "data:image/png;base64,aGVsbG8=",
+        "theme": "custom",
+        "customColor": "#123abc",
+        "defaultSection": "kb",
+        "onboarding": "completed",
+    }
+    saved = client.put("/api/v47/appearance", json=payload)
+    assert saved.status_code == 200
+    assert saved.json()["brandName"] == payload["brandName"]
+    assert saved.json()["logo"] == payload["logo"]
+    assert saved.json()["primaryColor"] == "#123abc"
+    assert "musicUrl" not in saved.json()
+    assert client.get("/api/v47/appearance").json() == saved.json()
+    with Session(engine) as session:
+        assert session.exec(select(SystemSetting).where(SystemSetting.key == "ui.appearance")).one()
+
+
+def test_appearance_rejects_unsafe_logo_urls() -> None:
+    response = client.put("/api/v47/appearance", json={"logo": "javascript:alert(1)"})
+    assert response.status_code == 422
 
 
 def test_only_primary_developer_can_manage_developer_roles() -> None:

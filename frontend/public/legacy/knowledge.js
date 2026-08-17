@@ -451,24 +451,12 @@
     return baseRenderAllV540.apply(this,arguments);
   };
 
-  (function installColorTheme(){
-    var key="rtm_color_theme";
-    function systemTheme(){return window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}
-    function apply(value){
-      var theme=value==="dark"?"dark":"light";
-      document.documentElement.dataset.rtmTheme=theme;
-      document.documentElement.style.colorScheme=theme;
-      try{localStorage.setItem(key,theme);}catch(_){}
-      var meta=document.querySelector('meta[name="color-scheme"]');if(meta)meta.setAttribute("content",theme);
-      document.querySelectorAll(".theme-btn").forEach(function(button){button.textContent=theme==="dark"?"☀":"☾";button.title=theme==="dark"?"Включить светлую тему":"Включить тёмную тему";button.setAttribute("aria-label",button.title);button.setAttribute("aria-pressed",String(theme==="dark"));});
-      window.dispatchEvent(new CustomEvent("rtm-theme-change",{detail:{theme:theme}}));
-    }
-    function bind(){document.querySelectorAll(".theme-btn").forEach(function(button){if(button.dataset.rtmThemeBound)return;button.dataset.rtmThemeBound="1";button.onclick=function(){apply(document.documentElement.dataset.rtmTheme==="dark"?"light":"dark");};});}
-    var saved="";try{saved=localStorage.getItem(key)||"";}catch(_){}
-    apply(saved||systemTheme());bind();
-    new MutationObserver(bind).observe(document.documentElement,{childList:true,subtree:true});
+  (function installLightTheme(){
+    document.documentElement.dataset.rtmTheme="light";
+    document.documentElement.style.colorScheme="only light";
+    try{localStorage.removeItem("rtm_color_theme");}catch(_){}
+    var meta=document.querySelector('meta[name="color-scheme"]');if(meta)meta.setAttribute("content","only light");
     var academy=document.querySelector('[data-admin-view="materials"]');if(academy)academy.title="Академия";
-    window.RTMTheme={apply:apply,current:function(){return document.documentElement.dataset.rtmTheme;}};
   })();
 })();
 
@@ -584,13 +572,13 @@
   "use strict";
   var VERSION=String(window.__RTM_VERSION__ || "50.4.3");
   function finalize(){
-    document.documentElement.style.colorScheme=document.documentElement.dataset.rtmTheme==="dark"?"dark":"light";
+    document.documentElement.dataset.rtmTheme="light";
+    document.documentElement.style.colorScheme="only light";
     document.querySelectorAll(".v39-version-label").forEach(function(node){
       var expected=node.classList.contains("v39-admin-version")?"v"+VERSION:"Версия v"+VERSION;
       if(node.textContent!==expected)node.textContent=expected;
     });
   }
   finalize();
-  window.addEventListener("rtm-theme-change",finalize);
   window.RTMV5042={version:VERSION};
 })();

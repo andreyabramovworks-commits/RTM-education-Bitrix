@@ -4,7 +4,6 @@
   'use strict';
   if (new URLSearchParams(location.search).get('v47') !== '1' && window.__RTM_V48__ !== true) return;
 
-  var originalBX24 = window.BX24;
   var context = null;
   var auth = null;
   var readyPromise = null;
@@ -123,10 +122,14 @@
     if (readyPromise) return readyPromise;
     readyPromise = (async function () {
       context = findContext();
-      if (context) refreshAuth();
+      if (!context) context = await waitForContext();
+      refreshAuth();
       var current = await request('/api/v47/session');
-      if (context) await importV46();
+      try { window.__RTM_APPEARANCE__ = await request('/api/v47/appearance'); }
+      catch (appearanceError) { console.warn('RTM appearance load failed', appearanceError); }
+      await importV46();
       window.__RTMV47_USER__ = current;
+      window.dispatchEvent(new CustomEvent('rtm:session-ready'));
       return current;
     })().catch(function (error) { readyPromise = null; throw error; });
     return readyPromise;
@@ -136,7 +139,8 @@
     init: function (callback) {
       ensureReady().then(function () { callback(); }).catch(function (error) {
         console.error('RTM v47 initialization failed', error);
-        if (originalBX24 && originalBX24.init) originalBX24.init(callback);
+        window.__RTM_INIT_ERROR__ = error;
+        callback();
       });
     },
     callMethod: function (method, params, callback) {

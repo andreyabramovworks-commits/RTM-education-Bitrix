@@ -21,11 +21,11 @@ test("developer workspace is hidden and guarded for other roles", () => {
   assert.match(runtime, /route==='info'&&String\(state\.currentRole\)!=='developer'/);
 });
 
-test("new and classic admin shells are isolated", () => {
-  assert.match(host, /rtm_admin_ui/);
-  assert.match(host, /!classicAdmin/);
-  assert.match(runtime, /openClassic:function/);
-  assert.match(runtime, /searchParams\.set\('rtm_admin_ui','classic'\)/);
+test("classic admin is unreachable and the compatibility DOM always stays hidden", () => {
+  assert.match(host, /hidden\s+aria-hidden="true"\s+inert/);
+  assert.doesNotMatch(host, /rtm_admin_ui|classicAdmin|openClassic/);
+  assert.doesNotMatch(admin, /Классическая версия|openClassic/);
+  assert.doesNotMatch(runtime, /rtm_admin_ui|openClassic:function/);
 });
 
 test("new admin shell suspends the complete classic shell and mounts only page content", () => {
@@ -66,10 +66,16 @@ test("route activation is restored after legacy rendering hooks", () => {
 });
 
 test("top-level navigation closes nested knowledge editors and reopens the selected root", () => {
-  assert.match(admin, /if \(nextRoute === route\) bridge\.openRoute\(nextRoute\)/);
+  assert.match(admin, /if \(nextRoute === route\) \{[\s\S]*?bridge\.openRoute\(nextRoute\)/);
   assert.match(runtime, /state\.v540Workspace='';state\.knowledgeEditorReturn=false;state\.editorReturnCourseId=null/);
   assert.match(runtime, /if\(route==='materials'\)\{[\s\S]*?showMaterialsList\(\)/);
   assert.match(runtime, /bindLate\(\)/);
+});
+
+test("scene workspace is loaded on demand and reports failures", () => {
+  assert.match(runtime, /route==='info'&&window\.__RTM_LOAD_CANVAS__/);
+  assert.match(runtime, /function openArticleEditor\(id\)\{if\(window\.__RTM_LOAD_CANVAS__&&!window\.RTMCanvas\)/);
+  assert.match(admin, /adm-route-error/);
 });
 
 test("wide admin workspace uses the available iframe width", () => {

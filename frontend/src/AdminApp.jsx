@@ -14,7 +14,6 @@ const ICONS = {
   help: "M12 17h.01M9.1 9a3 3 0 115.3 1.9c-.9 1-2.4 1.2-2.4 3.1M12 22a10 10 0 100-20 10 10 0 000 20",
   sync: "M20 7h-5V2M4 17h5v5M20 7a8 8 0 00-14-3M4 17a8 8 0 0014 3",
   learner: "M19 12H5m6-6l-6 6 6 6",
-  classic: "M4 5h16v14H4zM4 9h16M9 9v10",
 };
 
 function Icon({ name }) {
@@ -50,6 +49,7 @@ export function AdminApp({ bridge, onSetMode }) {
     try { return localStorage.getItem("rtm_admin_hints") !== "0"; } catch { return true; }
   });
   const [menuOpen, setMenuOpen] = useState(false);
+  const [routeError, setRouteError] = useState("");
   const isDeveloper = snapshot.role === "developer";
   const groups = useMemo(() => isDeveloper ? [...GROUPS, ["Инструменты разработчика", [["info", "Наработки сцен", "Рабочая область сцен Excalidraw"]]]] : GROUPS, [isDeveloper]);
 
@@ -61,12 +61,22 @@ export function AdminApp({ bridge, onSetMode }) {
   }, [bridge]);
 
   useEffect(() => {
-    bridge.openRoute(route);
+    let active = true;
+    setRouteError("");
+    Promise.resolve(bridge.openRoute(route)).catch((error) => {
+      if (active) setRouteError(error?.message || "Не удалось открыть раздел");
+    });
     setMenuOpen(false);
+    return () => { active = false; };
   }, [bridge, route]);
 
   const selectRoute = (nextRoute) => {
-    if (nextRoute === route) bridge.openRoute(nextRoute);
+    if (nextRoute === route) {
+      setRouteError("");
+      Promise.resolve(bridge.openRoute(nextRoute)).catch((error) => {
+        setRouteError(error?.message || "Не удалось открыть раздел");
+      });
+    }
     else setRoute(nextRoute);
     setMenuOpen(false);
   };
@@ -82,14 +92,13 @@ export function AdminApp({ bridge, onSetMode }) {
     <header className="adm-topbar">
       <button className="adm-mobile-menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Открыть меню" aria-expanded={menuOpen}>☰</button>
       <button className="adm-brand" onClick={() => selectRoute("dashboard")} data-tip="Перейти на дашборд">
-        {snapshot.appearance?.logo ? <img src={snapshot.appearance.logo} alt="" /> : <b>RTM</b>}
-        <span>{snapshot.appearance?.brandName?.replace(/^RTM\s*/i, "") || "обучение"}</span>
+        {snapshot.appearance?.logo && <img src={snapshot.appearance.logo} alt={`Логотип ${snapshot.appearance?.brandName || "RTM обучение"}`} />}
+        <span>{snapshot.appearance?.brandName || "RTM обучение"}</span>
         <em>Администрирование</em>
       </button>
       <div className="adm-top-actions">
         <button className={hints ? "is-active" : ""} onClick={toggleHints} aria-pressed={hints} data-tip="Показывать пояснения после наведения на элементы"><Icon name="help" /><span>Подсказки</span></button>
         <button onClick={() => bridge.refresh()} disabled={snapshot.syncing} data-tip="Получить актуальные данные из Bitrix24"><Icon name="sync" /><span>{snapshot.syncing ? "Обновляем…" : "Синхронизировать"}</span></button>
-        <button onClick={() => bridge.openClassic()} data-tip="Открыть прежнюю админку отдельно"><Icon name="classic" /><span>Классическая версия</span></button>
         <button className="adm-user-mode" onClick={() => onSetMode("user")} data-tip="Вернуться в интерфейс ученика"><span>Перейти в интерфейс пользователя</span></button>
       </div>
     </header>
@@ -102,7 +111,9 @@ export function AdminApp({ bridge, onSetMode }) {
         <footer><span>Новая админка</span><b>v{snapshot.releaseVersion}</b></footer>
       </aside>
       {menuOpen && <button className="adm-menu-scrim" onClick={() => setMenuOpen(false)} aria-label="Закрыть меню" />}
-      <main className="adm-workspace" data-admin-route={route} ref={mountRef} />
+      <main className="adm-workspace" data-admin-route={route} ref={mountRef}>
+        {routeError && <div className="adm-route-error" role="alert">{routeError}</div>}
+      </main>
     </div>
   </div>;
 }

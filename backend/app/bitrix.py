@@ -9,7 +9,7 @@ def bitrix_page(*, install: bool = False, launch_params: dict[str, str] | None =
     mode = "install" if install else "app"
     title = "Установка RTM Education" if install else "RTM Education"
     safe_title = escape(title)
-    frame_query = {"bitrix_frame": "1", "rtm_release": "53.0.12", **(launch_params or {})}
+    frame_query = {"bitrix_frame": "1", "rtm_release": "53.0.13", **(launch_params or {})}
     frame_src = "/?" + escape(urlencode(frame_query), quote=True)
 
     html = f"""<!doctype html>
@@ -46,7 +46,7 @@ def bitrix_page(*, install: bool = False, launch_params: dict[str, str] | None =
   </style>
 </head>
 <body data-mode="{mode}">
-  {('<section class="install"><h1>Подключаем RTM Education</h1><p>Проверяем связь с порталом и сервером. На этом этапе приложение только читает данные текущего пользователя и ничего не записывает в Битрикс24.</p><div class="checks" id="checks"></div><p id="details"></p></section>' if install else f'<div hidden><div id="checks"></div><div id="details"></div></div><main class="workspace"><iframe src="{frame_src}" title="RTM Education v53.0.12"></iframe></main>')}
+  {('<section class="install"><h1>Подключаем RTM Education</h1><p>Проверяем связь с порталом и сервером. На этом этапе приложение только читает данные текущего пользователя и ничего не записывает в Битрикс24.</p><div class="checks" id="checks"></div><p id="details"></p></section>' if install else f'<div hidden><div id="checks"></div><div id="details"></div></div><main class="workspace"><iframe src="{frame_src}" title="RTM Education v53.0.13"></iframe></main>')}
   <script>
     (() => {{
       const mode = document.body.dataset.mode;

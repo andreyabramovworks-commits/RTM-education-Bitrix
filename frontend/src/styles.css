@@ -1,3 +1,18 @@
+html {
+  color-scheme: only light !important;
+  background: #f5f7fb;
+}
+
+html,
+body,
+button,
+input,
+textarea,
+select,
+dialog {
+  color-scheme: only light !important;
+}
+
 html,
 body,
 #root,
@@ -22,13 +37,8 @@ body,
   min-height: 100%;
 }
 
-.v48-react-host.rtm-pending,
-body.rtm-learner-active .v48-react-host {
-  display: none;
-}
-
-body.rtm-admin-active .v48-react-host.rtm-ready {
-  display: block;
+.v48-react-host {
+  display: none !important;
 }
 
 .v48-loading,
@@ -143,4 +153,14 @@ body.rtm-admin-active .v48-react-host.rtm-ready {
 
 .api-indicator.offline {
   background: #ef4444;
+}
+
+@media (prefers-color-scheme: dark) {
+  html,
+  body,
+  #root,
+  .app-shell {
+    color: #172033 !important;
+    background-color: #f5f7fb !important;
+  }
 }

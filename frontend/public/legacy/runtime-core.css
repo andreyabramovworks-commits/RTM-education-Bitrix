@@ -332,13 +332,6 @@ img,video,iframe,canvas,svg{max-width:100%}
   .topbar{position:relative;padding-top:8px}.hero{padding-block:18px!important}.v38-mobile-drawer{width:min(72vw,420px)}.modal-box{max-height:92dvh}.take-test-card>button.primary{left:max(16px,env(safe-area-inset-left));right:max(16px,env(safe-area-inset-right));width:auto}
 }
 
-@media(prefers-color-scheme:dark){
-  body{background:#0b1220;color:#e5e7eb}.topbar,.icon-rail,.panel,.dash-card,.table-card,.settings-card,.materials-card,.course-card,.course-section,.reader-card,.test-intro-card,.take-test-card,.question-card,.pages-panel,.rich-editor-card,.course-structure-editor,.section-editor,.modal-box,.v38-mobile-drawer{background:#111827;color:#e5e7eb;border-color:#2b3648}
-  button,input,textarea,select,.v37-theme-card,.v37-choice,.v37-storage-grid>div{background:#172033;color:#e5e7eb;border-color:#3a4659}.muted,.row-sub,.stat span,.admin-table th,.admin-table td:before{color:#9aa8bc}
-  .projects-panel,.section-editor-head,.course-section-head,.admin-table th,.format-toolbar,.page-row,.answer{background:#151e2e;border-color:#2b3648}.project-row.active,#v38MobileNav button.active,.rail-btn.active{background:#263659;color:#dce7ff}
-  .hero.blue,.hero.pink,.hero.green{background:#17243a}.donut:after{background:#111827}.rich-editor .rtm-image-block.v37-image-clean .rtm-block-tools{background:#172033!important;border-color:#3a4659!important}
-  @media(max-width:800px){.admin-table tr{background:#111827;border-color:#2b3648}.admin-table td{border-color:#243044!important}#v38MobileMenuBtn{background:#172033;border-color:#3a4659}#v38MobileMenuBtn span{background:#e5e7eb}.v38-mobile-projects,.v38-mobile-menu-bottom{border-color:#2b3648}}
-}
 @media(max-width:800px){
   .v38-mobile-project-row{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:4px;align-items:center}
   #v38MobileNav .v38-mobile-projects .v38-mobile-project-row>button{min-width:0}
@@ -356,7 +349,6 @@ img,video,iframe,canvas,svg{max-width:100%}
 .v39-admin-version{margin-top:auto;padding:8px 0 2px;text-align:center;white-space:nowrap}
 @media(max-width:1100px){.v39-admin-version{margin-top:0;margin-left:auto;padding:8px}}
 @media(max-width:800px){.v39-profile-version{margin-top:18px;padding-bottom:calc(4px + env(safe-area-inset-bottom))}}
-@media(prefers-color-scheme:dark){.rtm-content-block.v39-media-error .rtm-block-body{background:#151e2e!important;border-color:#3a4659!important}.v39-media-error-panel,.v39-version-label{color:#9aa8bc!important}.v39-media-error-panel b{color:#e5e7eb!important}.v39-media-error-panel button{background:#172033!important}.v39-profile-version{border-color:#2b3648}}
 
 /* source: v040-layout.css */
 .v40-html-fallback,

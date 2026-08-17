@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import json
+import re
 import time
 import urllib.request
 from typing import Annotated, Any
@@ -25,6 +26,7 @@ from app.models import (
     KnowledgeTest,
     LegacyRecord,
     Project,
+    SystemSetting,
     TestAttempt,
     utcnow,
 )
@@ -120,6 +122,87 @@ class RoleUpdate(BaseModel):
 class SceneWrite(BaseModel):
     scene: dict[str, Any]
     title: str = ""
+
+
+class AppearanceWrite(BaseModel):
+    brandName: str = PydanticField(default="RTM обучение", min_length=1, max_length=120)
+    logo: str = PydanticField(default="", max_length=500_000)
+    theme: str = PydanticField(default="indigo", max_length=30)
+    customColor: str = PydanticField(default="#315cf6", max_length=7)
+    defaultSection: str = PydanticField(default="learn", max_length=20)
+    onboarding: str = PydanticField(default="completed", max_length=20)
+
+
+APPEARANCE_KEY = "ui.appearance"
+LEGACY_APPEARANCE_KEY = "rtm_ui_settings_v1"
+APPEARANCE_THEMES = {
+    "indigo": "#5146e5", "blue": "#2563eb", "emerald": "#059669",
+    "rose": "#e11d48", "amber": "#d97706", "violet": "#7c3aed",
+    "teal": "#0d9488", "cyan": "#0891b2", "fuchsia": "#c026d3",
+    "lime": "#65a30d", "slate": "#475569",
+}
+
+
+def _validate_appearance(payload: AppearanceWrite | dict[str, Any]) -> dict[str, Any]:
+    data = payload.model_dump() if isinstance(payload, AppearanceWrite) else dict(payload or {})
+    brand_name = str(data.get("brandName") or "RTM обучение").strip()[:120]
+    logo = str(data.get("logo") or "").strip()
+    if logo and not (
+        logo.startswith("https://")
+        or re.match(r"^data:image/(?:png|jpeg|webp|svg\+xml);base64,", logo, re.IGNORECASE)
+    ):
+        raise HTTPException(status_code=422, detail="Logo must be an HTTPS URL or an uploaded image")
+    if len(logo) > 500_000:
+        raise HTTPException(status_code=422, detail="Logo is too large")
+    theme = str(data.get("theme") or "indigo")
+    custom_color = str(data.get("customColor") or "#315cf6").lower()
+    if not re.fullmatch(r"#[0-9a-f]{6}", custom_color):
+        raise HTTPException(status_code=422, detail="Invalid theme color")
+    if theme not in APPEARANCE_THEMES and theme != "custom":
+        theme = "indigo"
+    default_section = str(data.get("defaultSection") or "learn")
+    if default_section not in {"learn", "kb"}:
+        default_section = "learn"
+    onboarding = str(data.get("onboarding") or "completed")
+    if onboarding not in {"completed", "pending"}:
+        onboarding = "completed"
+    return {
+        "brandName": brand_name,
+        "logo": logo,
+        "theme": theme,
+        "customColor": custom_color,
+        "primaryColor": APPEARANCE_THEMES.get(theme, custom_color),
+        "defaultSection": default_section,
+        "onboarding": onboarding,
+        "configured": True,
+    }
+
+
+def _default_appearance() -> dict[str, Any]:
+    result = _validate_appearance({})
+    result["configured"] = False
+    return result
+
+
+def _read_appearance_setting(session: Session) -> tuple[SystemSetting | None, dict[str, Any]]:
+    row = session.exec(select(SystemSetting).where(SystemSetting.key == APPEARANCE_KEY)).first()
+    if row is None:
+        return None, _default_appearance()
+    try:
+        return row, _validate_appearance(json.loads(row.value))
+    except (TypeError, ValueError, json.JSONDecodeError, HTTPException):
+        return row, _default_appearance()
+
+
+def _save_appearance_setting(session: Session, data: dict[str, Any]) -> dict[str, Any]:
+    row = session.exec(select(SystemSetting).where(SystemSetting.key == APPEARANCE_KEY)).first()
+    if row is None:
+        row = SystemSetting(key=APPEARANCE_KEY)
+    stored = {key: value for key, value in data.items() if key not in {"configured", "primaryColor", "musicUrl", "musicPlaylist"}}
+    row.value = json.dumps(stored, ensure_ascii=False, separators=(",", ":"))
+    session.add(row)
+    session.commit()
+    return _validate_appearance(stored)
 
 
 def _assert_developer(identity: BitrixIdentity) -> None:
@@ -503,6 +586,38 @@ def v47_status(
 ) -> dict[str, Any]:
     records = session.exec(select(LegacyRecord)).all()
     return {"version": "v47", "records": len(records), "needs_import": not records, "role": identity.user.role}
+
+
+@router.get("/appearance")
+def get_appearance(
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    row, appearance = _read_appearance_setting(session)
+    if row is not None:
+        return appearance
+    # Preserve the appearance uploaded in older releases. The value is read
+    # from the portal itself, validated and copied once into PostgreSQL; after
+    # that PostgreSQL is authoritative for every user and device.
+    try:
+        options = bitrix_call(identity, "app.option.get", {}) or {}
+        raw = options.get(LEGACY_APPEARANCE_KEY) if isinstance(options, dict) else None
+        legacy = json.loads(raw) if isinstance(raw, str) and raw else None
+        if isinstance(legacy, dict):
+            return _save_appearance_setting(session, _validate_appearance(legacy))
+    except Exception:
+        pass
+    return appearance
+
+
+@router.put("/appearance")
+def save_appearance(
+    payload: AppearanceWrite,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_admin)],
+) -> dict[str, Any]:
+    del identity
+    return _save_appearance_setting(session, _validate_appearance(payload))
 
 
 @router.get("/developer-workspace")

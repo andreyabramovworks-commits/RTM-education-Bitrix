@@ -13,11 +13,12 @@ import { AdminApp } from "./AdminApp";
 let runtimePromise = null;
 let canvasRuntimePromise = null;
 
-const LegacyMarkupHost = React.memo(function LegacyMarkupHost({ markup, ready, active }) {
+const LegacyMarkupHost = React.memo(function LegacyMarkupHost({ markup, ready }) {
   return <div
     className={`v48-react-host ${ready ? "rtm-ready" : "rtm-pending"}`}
-    aria-hidden={!ready || !active}
-    inert={!ready || !active}
+    hidden
+    aria-hidden="true"
+    inert
     dangerouslySetInnerHTML={{ __html: markup }}
   />;
 });
@@ -35,7 +36,7 @@ function createLearnerPreviewBridge() {
   const knowledge = { tree: { id: "root", type: "folder", title: "База знаний", children: [{ id: "folder-1", type: "folder", title: "Общие документы", children: [{ id: "doc-1", type: "material", title: "Этический кодекс", row: 5 }] }] }, documents: [{ id: 1, sourceRow: 5, title: "Этический кодекс", description: "Правила и ценности команды", documentUrl: "https://example.com", lightTest: { created: true }, fullTest: { created: false } }] };
   const learner = { getSnapshot: () => snapshot, subscribe: (listener) => { listeners.add(listener); return () => listeners.delete(listener); }, subscribeShell: (listener) => { listeners.add(listener); return () => listeners.delete(listener); }, refresh: async () => {}, setMode: (mode) => emit({ mode }), openMaterial: () => {}, completeMaterial: async () => {}, completeCourse: async () => {}, courseMaterials: () => items, canOpen: (id) => id !== "test-1", loadKnowledge: async () => knowledge, openKnowledge: async () => items[0], loadAcknowledgements: async () => [], loadEditions: async () => [], openAcknowledgement: () => {}, setHintsEnabled: (value) => emit({ hintsEnabled: Boolean(value) }), openHint: () => {} };
   let route = "dashboard", mount = null, mainHome = null, adminRoot = null, adminRootState = null;
-  learner.admin = { getSnapshot: () => ({ ...snapshot, route, roleLabel: "Разработчик" }), subscribe: learner.subscribe, refresh: async () => {}, setMode: learner.setMode, openClassic: () => {}, mount: (host) => { const root = document.getElementById("adminApp"), main = root?.querySelector(".admin-main"); if (!main || !host) return; mainHome ||= { parent: main.parentNode, next: main.nextSibling }; adminRootState ||= { hidden: root.hidden, inert: root.inert, display: root.style.display, ariaHidden: root.getAttribute("aria-hidden") }; host.appendChild(main); root.hidden = true; root.inert = true; root.style.display = "none"; root.setAttribute("aria-hidden", "true"); adminRoot = root; mount = host; }, unmount: () => { const main = mount?.querySelector(":scope > .admin-main"); if (main && mainHome) mainHome.parent.insertBefore(main, mainHome.next); if (adminRoot && adminRootState) { adminRoot.hidden = adminRootState.hidden; adminRoot.inert = adminRootState.inert; adminRoot.style.display = adminRootState.display; if (adminRootState.ariaHidden === null) adminRoot.removeAttribute("aria-hidden"); else adminRoot.setAttribute("aria-hidden", adminRootState.ariaHidden); } adminRoot = null; adminRootState = null; mount = null; }, openRoute: (next) => { route = next; mount?.querySelectorAll(".admin-view").forEach((node) => node.classList.toggle("active", node.id === `admin${next[0].toUpperCase()}${next.slice(1)}`)); emit({}); } };
+  learner.admin = { getSnapshot: () => ({ ...snapshot, route, roleLabel: "Разработчик" }), subscribe: learner.subscribe, refresh: async () => {}, setMode: learner.setMode, mount: (host) => { const root = document.getElementById("adminApp"), main = root?.querySelector(".admin-main"); if (!main || !host) return; mainHome ||= { parent: main.parentNode, next: main.nextSibling }; adminRootState ||= { hidden: root.hidden, inert: root.inert, display: root.style.display, ariaHidden: root.getAttribute("aria-hidden") }; host.appendChild(main); root.hidden = true; root.inert = true; root.style.display = "none"; root.setAttribute("aria-hidden", "true"); adminRoot = root; mount = host; }, unmount: () => { const main = mount?.querySelector(":scope > .admin-main"); if (main && mainHome) mainHome.parent.insertBefore(main, mainHome.next); if (adminRoot && adminRootState) { adminRoot.hidden = adminRootState.hidden; adminRoot.inert = adminRootState.inert; adminRoot.style.display = adminRootState.display; if (adminRootState.ariaHidden === null) adminRoot.removeAttribute("aria-hidden"); else adminRoot.setAttribute("aria-hidden", adminRootState.ariaHidden); } adminRoot = null; adminRootState = null; mount = null; }, openRoute: (next) => { route = next; mount?.querySelectorAll(".admin-view").forEach((node) => node.classList.toggle("active", node.id === `admin${next[0].toUpperCase()}${next.slice(1)}`)); emit({}); } };
   return learner;
 }
 
@@ -126,8 +127,6 @@ export function LegacyReactHost() {
   const [error, setError] = useState("");
   const [learnerBridge, setLearnerBridge] = useState(null);
   const [, setBridgeTick] = useState(0);
-  const classicAdmin = new URLSearchParams(window.location.search).get("rtm_admin_ui") === "classic";
-
   useEffect(() => {
     const controller = new AbortController();
     fetch(releaseAsset("/legacy/index.html"), {
@@ -189,9 +188,9 @@ export function LegacyReactHost() {
   if (error) return <div className="v48-load-error"><strong>Не удалось запустить RTM Обучение</strong><span>{error}</span><button onClick={() => window.location.reload()}>Повторить</button></div>;
   return <>
     {!learnerBridge && <div className="v48-loading" role="status" aria-live="polite"><span className="v48-loading-mark">RTM <b>обучение</b></span><span className="v48-loading-line" aria-hidden="true" /><small>{markup ? "Загружаем ваши материалы…" : "Подготавливаем приложение…"}</small></div>}
-    {markup && <LegacyMarkupHost markup={markup} ready={Boolean(learnerBridge)} active={Boolean(classicAdmin && learnerBridge?.getSnapshot().mode === "admin")} />}
+    {markup && <LegacyMarkupHost markup={markup} ready={Boolean(learnerBridge)} />}
     {markup && <div id="modalBackdrop" className="modal-backdrop hidden" role="presentation"><div id="modalBox" className="modal-box" role="dialog" aria-modal="true" /></div>}
     {learnerBridge && learnerBridge.getSnapshot().mode === "user" && <LearnerApp bridge={learnerBridge} onSetMode={setShellMode} />}
-    {learnerBridge && learnerBridge.getSnapshot().mode === "admin" && !classicAdmin && window.__RTM_ADMIN__ && <AdminApp bridge={window.__RTM_ADMIN__} onSetMode={setShellMode} />}
+    {learnerBridge && learnerBridge.getSnapshot().mode === "admin" && window.__RTM_ADMIN__ && <AdminApp bridge={window.__RTM_ADMIN__} onSetMode={setShellMode} />}
   </>;
 }

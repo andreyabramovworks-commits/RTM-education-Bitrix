@@ -91,3 +91,39 @@ test("standalone preview does not load the external Bitrix SDK", () => {
   });
   assert.deepEqual(appended, []);
 });
+
+test("embedded loader publishes readiness before the external SDK finishes", () => {
+  const appended = [];
+  const window = { self: {}, top: {}, dispatchEvent() {} };
+  vm.runInNewContext(loaderSource, {
+    window,
+    document: {
+      referrer: "https://rtm-group.bitrix24.ru/marketplace/app/",
+      createElement: () => ({}),
+      head: { appendChild: (node) => appended.push(node) },
+    },
+    CustomEvent: TestCustomEvent,
+    Error,
+    Promise,
+  });
+  assert.ok(window.RTM_BITRIX_READY instanceof Promise);
+  assert.equal(appended.length, 1);
+  assert.equal(appended[0].src, "https://api.bitrix24.com/api/v1/");
+});
+
+test("auth readiness completes startup even when the SDK init callback is late", async () => {
+  const auth = { access_token: "token", domain: "rtm-group.bitrix24.ru" };
+  const window = {
+    self: {}, top: {},
+    BX24: { init() {}, getAuth: () => auth, isAdmin: () => false, callMethod() {} },
+    setTimeout, clearTimeout, dispatchEvent() {},
+  };
+  vm.runInNewContext(source, {
+    window,
+    document: { referrer: "https://rtm-group.bitrix24.ru/marketplace/app/" },
+    CustomEvent: TestCustomEvent,
+    Promise,
+  });
+  await window.RTM_BITRIX_READY;
+  assert.equal(window.RTM_BITRIX.getAuth(), auth);
+});

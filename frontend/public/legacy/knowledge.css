@@ -35,15 +35,6 @@ html[data-rtm-theme="light"]{color-scheme:light;--rtm-bg:#f4f7fb;--rtm-surface:#
 html[data-rtm-theme="light"] body,html[data-rtm-theme="light"] #app{background:var(--rtm-page-gradient)!important;background-attachment:fixed!important;color:#172033!important}
 html[data-rtm-theme="light"] .topbar,html[data-rtm-theme="light"] .icon-rail,html[data-rtm-theme="light"] .panel,html[data-rtm-theme="light"] .dash-card,html[data-rtm-theme="light"] .table-card,html[data-rtm-theme="light"] .settings-card,html[data-rtm-theme="light"] .materials-card,html[data-rtm-theme="light"] .course-card,html[data-rtm-theme="light"] .course-section,html[data-rtm-theme="light"] .reader-card,html[data-rtm-theme="light"] .test-intro-card,html[data-rtm-theme="light"] .take-test-card,html[data-rtm-theme="light"] .question-card,html[data-rtm-theme="light"] .pages-panel,html[data-rtm-theme="light"] .rich-editor-card,html[data-rtm-theme="light"] .course-structure-editor,html[data-rtm-theme="light"] .section-editor,html[data-rtm-theme="light"] .modal-box{background:var(--rtm-surface-gradient)!important;color:#172033!important;border-color:#dbe3ef!important}
 html[data-rtm-theme="light"] button,html[data-rtm-theme="light"] input,html[data-rtm-theme="light"] textarea,html[data-rtm-theme="light"] select{color-scheme:light;background:#fff;color:#172033;border-color:#dbe3ef}
-html[data-rtm-theme="dark"]{color-scheme:dark;--rtm-bg:#0b1220;--rtm-surface:#111827;--rtm-line:#334155;--rtm-line-soft:#263244;--rtm-text:#e5edf8;--rtm-muted:#9fb0c7;--rtm-primary-soft:#263659;--rtm-shadow:0 10px 28px rgba(0,0,0,.28)}
-html[data-rtm-theme="dark"] body,html[data-rtm-theme="dark"] #app,html[data-rtm-theme="dark"] .admin-main,html[data-rtm-theme="dark"] .editor-view,html[data-rtm-theme="dark"] .user-view{background:#0b1220!important;color:#e5edf8!important}
-html[data-rtm-theme="dark"] .topbar,html[data-rtm-theme="dark"] .icon-rail,html[data-rtm-theme="dark"] .panel,html[data-rtm-theme="dark"] .dash-card,html[data-rtm-theme="dark"] .table-card,html[data-rtm-theme="dark"] .settings-card,html[data-rtm-theme="dark"] .materials-card,html[data-rtm-theme="dark"] .course-card,html[data-rtm-theme="dark"] .course-section,html[data-rtm-theme="dark"] .reader-card,html[data-rtm-theme="dark"] .test-intro-card,html[data-rtm-theme="dark"] .take-test-card,html[data-rtm-theme="dark"] .question-card,html[data-rtm-theme="dark"] .pages-panel,html[data-rtm-theme="dark"] .rich-editor-card,html[data-rtm-theme="dark"] .course-structure-editor,html[data-rtm-theme="dark"] .section-editor,html[data-rtm-theme="dark"] .modal-box,html[data-rtm-theme="dark"] .v538-admin-detail,html[data-rtm-theme="dark"] .v538-user-detail,html[data-rtm-theme="dark"] .v539-shell{background:#111827!important;color:#e5edf8!important;border-color:#334155!important}
-html[data-rtm-theme="dark"] button,html[data-rtm-theme="dark"] input,html[data-rtm-theme="dark"] textarea,html[data-rtm-theme="dark"] select,html[data-rtm-theme="dark"] .v37-theme-card,html[data-rtm-theme="dark"] .v37-choice,html[data-rtm-theme="dark"] .v539-choice{color-scheme:dark;background:#172033;color:#e5edf8;border-color:#3a4659}
-html[data-rtm-theme="dark"] .projects-panel,html[data-rtm-theme="dark"] .section-editor-head,html[data-rtm-theme="dark"] .course-section-head,html[data-rtm-theme="dark"] .admin-table th,html[data-rtm-theme="dark"] .format-toolbar,html[data-rtm-theme="dark"] .page-row,html[data-rtm-theme="dark"] .answer,html[data-rtm-theme="dark"] .v51-test-settings,html[data-rtm-theme="dark"] .v51-template-panel,html[data-rtm-theme="dark"] .v51-canvas-help,html[data-rtm-theme="dark"] .v51-question-editor{background:#151e2e!important;color:#e5edf8!important;border-color:#334155!important}
-html[data-rtm-theme="dark"] .muted,html[data-rtm-theme="dark"] .row-sub,html[data-rtm-theme="dark"] small,html[data-rtm-theme="dark"] .admin-table th{color:#9fb0c7!important}
-html[data-rtm-theme="dark"] .hero.blue,html[data-rtm-theme="dark"] .hero.pink,html[data-rtm-theme="dark"] .hero.green{background:linear-gradient(180deg,#17243a,#0b1220)!important}
-html[data-rtm-theme="dark"] .project-row.active,html[data-rtm-theme="dark"] .rail-btn.active,html[data-rtm-theme="dark"] #v38MobileNav button.active{background:#263659!important;color:#e5edf8!important}
-html[data-rtm-theme="dark"] .rtm-canvas-stage,html[data-rtm-theme="dark"] .excalidraw{color-scheme:light}
 .rtm-unified-test-choice{background:transparent!important;color:transparent!important}
 .rtm-unified-test-choice.is-selected{background:rgba(255,248,225,.22)!important}
 
@@ -64,55 +55,6 @@ html #app,
 html .v48-react-host{
   min-height:100%;background:var(--rtm-bg,#f4f7fb)
 }
-html[data-rtm-theme="dark"] body,
-html[data-rtm-theme="dark"] #root,
-html[data-rtm-theme="dark"] #app,
-html[data-rtm-theme="dark"] .v48-react-host,
-html[data-rtm-theme="dark"] .app-shell,
-html[data-rtm-theme="dark"] .admin-shell,
-html[data-rtm-theme="dark"] .user-shell,
-html[data-rtm-theme="dark"] .admin-view,
-html[data-rtm-theme="dark"] .user-view,
-html[data-rtm-theme="dark"] .analytics-view,
-html[data-rtm-theme="dark"] .materials-view,
-html[data-rtm-theme="dark"] .database-view,
-html[data-rtm-theme="dark"] .kb-view,
-html[data-rtm-theme="dark"] .profile-view{
-  background:#0b1220!important;color:#e5edf8!important
-}
-html[data-rtm-theme="dark"] .analytics-tabs,
-html[data-rtm-theme="dark"] .analytics-tools,
-html[data-rtm-theme="dark"] .analytics-filter-panel,
-html[data-rtm-theme="dark"] .kb-detail,
-html[data-rtm-theme="dark"] .v538-action-grid section,
-html[data-rtm-theme="dark"] .v539-form,
-html[data-rtm-theme="dark"] .v539-sticky,
-html[data-rtm-theme="dark"] .v539-page,
-html[data-rtm-theme="dark"] .v540-page{
-  background:#111827!important;color:#e5edf8!important;border-color:#334155!important
-}
-html[data-rtm-theme="dark"] .admin-table td,
-html[data-rtm-theme="dark"] .admin-table tr,
-html[data-rtm-theme="dark"] .analytics-tab{
-  background:#111827!important;color:#e5edf8!important;border-color:#334155!important
-}
-html[data-rtm-theme="dark"] .analytics-tab.active{
-  color:#ff6b91!important;border-bottom-color:#ef174c!important
-}
-/* Authored element colours stay intact; only the surrounding canvas is gray. */
-html[data-rtm-theme="dark"] .rtm-canvas-stage,
-html[data-rtm-theme="dark"] .rtm-unified-reader,
-html[data-rtm-theme="dark"] .rtm-unified-reader-scroll,
-html[data-rtm-theme="dark"] .v492-reader,
-html[data-rtm-theme="dark"] .v51-take-canvas,
-html[data-rtm-theme="dark"] #v540Canvas,
-html[data-rtm-theme="dark"] #rtmArticleCanvas{
-  background:#343b47!important
-}
-html[data-rtm-theme="dark"] .excalidraw{background:#3b424d!important;color-scheme:dark}
-html[data-rtm-theme="dark"] .excalidraw .App-menu_top,
-html[data-rtm-theme="dark"] .excalidraw .Island{color-scheme:dark}
-
 .v492-reader{overscroll-behavior:contain;scrollbar-gutter:stable;overflow-y:auto!important}
 .v492-reader-canvas{min-height:100%;overflow:visible!important}
 .v538-linked-preview,.v40-inline-editor{min-width:0}
@@ -130,7 +72,6 @@ html[data-rtm-theme="dark"] .excalidraw .Island{color-scheme:dark}
 /* source: v5042.css */
 /* RTM v50.4.3: stable previews, completion control and explicit application themes. */
 html[data-rtm-theme="light"]{color-scheme:light!important}
-html[data-rtm-theme="dark"]{color-scheme:dark!important}
 
 .v51-test-intro{width:min(820px,100%)!important}
 .v51-test-intro .test-info-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important}
@@ -162,56 +103,6 @@ html[data-rtm-theme="dark"]{color-scheme:dark!important}
 .v542-test-preview>header h2{margin:0 0 4px}.v542-test-preview>header p{margin:0;color:var(--rtm-muted,#64748b)}
 .v542-test-preview .v51-take-canvas{height:min(72dvh,820px);overflow:auto!important}
 
-html[data-rtm-theme="dark"] body,
-html[data-rtm-theme="dark"] #app,
-html[data-rtm-theme="dark"] .user-container,
-html[data-rtm-theme="dark"] .admin-main,
-html[data-rtm-theme="dark"] .editor-view{background:#0b1220!important;color:#e5edf8!important}
-html[data-rtm-theme="dark"] .stat,
-html[data-rtm-theme="dark"] .profile-card,
-html[data-rtm-theme="dark"] .profile-leaderboard,
-html[data-rtm-theme="dark"] .profile-system-status,
-html[data-rtm-theme="dark"] .leader-row,
-html[data-rtm-theme="dark"] .course-card,
-html[data-rtm-theme="dark"] .course-hero-card,
-html[data-rtm-theme="dark"] .kb-tree-card,
-html[data-rtm-theme="dark"] .kb-detail,
-html[data-rtm-theme="dark"] .v538-user-detail,
-html[data-rtm-theme="dark"] .v538-admin-detail,
-html[data-rtm-theme="dark"] .v538-action-grid section,
-html[data-rtm-theme="dark"] .v539-page,
-html[data-rtm-theme="dark"] .v539-form,
-html[data-rtm-theme="dark"] .v539-sticky,
-html[data-rtm-theme="dark"] .v540-page,
-html[data-rtm-theme="dark"] .v51-test-intro,
-html[data-rtm-theme="dark"] .v51-test-settings,
-html[data-rtm-theme="dark"] .v51-template-panel,
-html[data-rtm-theme="dark"] .v51-question-editor{
-  background:#111827!important;color:#e5edf8!important;border-color:#334155!important
-}
-html[data-rtm-theme="dark"] .leader-row,
-html[data-rtm-theme="dark"] .material-line,
-html[data-rtm-theme="dark"] .course-section-head,
-html[data-rtm-theme="dark"] .section-editor-head,
-html[data-rtm-theme="dark"] .v51-canvas-help{background:#151e2e!important;color:#e5edf8!important;border-color:#334155!important}
-html[data-rtm-theme="dark"] input,
-html[data-rtm-theme="dark"] textarea,
-html[data-rtm-theme="dark"] select,
-html[data-rtm-theme="dark"] button:not(.primary):not(.rail-btn.active):not(.rtm-unified-complete-hit):not(.rtm-complete-hit){
-  background:#111827!important;color:#e5edf8!important;border-color:#475569!important
-}
-html[data-rtm-theme="dark"] .muted,
-html[data-rtm-theme="dark"] small,
-html[data-rtm-theme="dark"] .stat span,
-html[data-rtm-theme="dark"] .row-sub{color:#a9b8cd!important}
-html[data-rtm-theme="dark"] .rtm-canvas-stage,
-html[data-rtm-theme="dark"] .rtm-unified-reader,
-html[data-rtm-theme="dark"] .rtm-unified-reader-scroll,
-html[data-rtm-theme="dark"] .v51-take-canvas,
-html[data-rtm-theme="dark"] #v540Canvas{background:#343b47!important}
-html[data-rtm-theme="dark"] .rtm-unified-reader-scene{background:#e4e7eb!important}
-html[data-rtm-theme="dark"] .primary,
-html[data-rtm-theme="dark"] .rail-btn.active{color:#fff!important;background:var(--rtm-primary,#ef174c)!important;border-color:var(--rtm-primary,#ef174c)!important}
 
 @media(max-width:800px){
   .v51-test-intro .test-info-grid{grid-template-columns:1fr!important}

@@ -13,7 +13,7 @@ class SystemSetting(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     key: str = Field(index=True, unique=True, max_length=120)
-    value: str = Field(default="", max_length=4000)
+    value: str = Field(default="", sa_column=Column(Text, nullable=False))
     created_at: datetime = Field(
         default_factory=utcnow,
         sa_column=Column(DateTime(timezone=True), nullable=False),
