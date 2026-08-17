@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import json
 
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
@@ -53,8 +54,8 @@ def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app")
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert "rtm_release=51.2.0" in response.text
-    assert "RTM Education v51.2.0" in response.text
+    assert "rtm_release=53.0.12" in response.text
+    assert "RTM Education v53.0.12" in response.text
 
 
 def test_only_primary_developer_can_manage_developer_roles() -> None:
@@ -128,7 +129,7 @@ def test_developer_workspace_get_initializes_protected_sheet() -> None:
 def test_session_bootstrap_sets_secure_http_only_cookie() -> None:
     response = client.get("/api/v47/session")
     assert response.status_code == 200
-    assert response.json()["browser_session"]
+    assert "browser_session" not in response.json()
     cookie = response.headers.get("set-cookie", "")
     assert "rtm_session=" in cookie
     assert "HttpOnly" in cookie
@@ -187,7 +188,7 @@ def test_projection_updates_and_server_scene_survives_article_edit() -> None:
         assert stored.scene == scene
 
 
-def test_project_level_article_scene_is_shared_with_student() -> None:
+def test_unassigned_project_level_article_scene_is_hidden_from_student() -> None:
     project_id = client.post("/api/v47/legacy/rtm_prj", json={"name": "Root project", "properties": {}}).json()["id"]
     article_id = client.post("/api/v47/legacy/rtm_items", json={
         "name": "Root article",
@@ -221,8 +222,7 @@ def test_project_level_article_scene_is_shared_with_student() -> None:
     app.dependency_overrides[require_bitrix_identity] = student_override
     try:
         loaded = client.get(f"/api/v47/scenes/{article_id}/root-page")
-        assert loaded.status_code == 200
-        assert loaded.json()["scene"] == scene
+        assert loaded.status_code == 404
     finally:
         app.dependency_overrides[require_bitrix_identity] = admin_override
 
@@ -241,6 +241,61 @@ def test_student_cannot_create_course() -> None:
     try:
         response = client.post("/api/v47/legacy/rtm_items", json={"name": "Denied", "properties": {"type": "course"}})
         assert response.status_code == 403
+    finally:
+        app.dependency_overrides[require_bitrix_identity] = admin_override
+
+
+def test_student_reads_only_assigned_learning_records_and_self() -> None:
+    project_id = client.post("/api/v47/legacy/rtm_prj", json={"name": "Scoped project", "properties": {}}).json()["id"]
+    assigned_id = client.post("/api/v47/legacy/rtm_items", json={"name": "Assigned", "properties": {"type": "course", "status": "published", "projectId": project_id}}).json()["id"]
+    hidden_id = client.post("/api/v47/legacy/rtm_items", json={"name": "Hidden", "properties": {"type": "course", "status": "published", "projectId": project_id}}).json()["id"]
+    client.post("/api/v47/legacy/rtm_assigns", json={"name": "Assignment", "properties": {"userId": "student-scope", "targetId": assigned_id}})
+    foreign_progress_id = client.post("/api/v47/legacy/rtm_progress", json={"name": "Foreign", "properties": {"userId": "other-student", "targetId": hidden_id}}).json()["id"]
+
+    def student_override():
+        with Session(engine) as session:
+            user = session.exec(select(AppUser).where(AppUser.bitrix_user_id == "student-scope")).first()
+            if user is None:
+                user = AppUser(bitrix_user_id="student-scope", first_name="Scoped", role="student", manual_role="student")
+                session.add(user); session.commit(); session.refresh(user)
+            return BitrixIdentity(user=user, access_token="test", domain="rtm-group.bitrix24.ru")
+
+    app.dependency_overrides[require_bitrix_identity] = student_override
+    try:
+        item_ids = {row["ID"] for row in client.get("/api/v47/legacy/rtm_items").json()}
+        assert assigned_id in item_ids
+        assert hidden_id not in item_ids
+        assert client.get(f"/api/v47/legacy/rtm_items/{hidden_id}").status_code == 404
+        assert [row["ID"] for row in client.get("/api/v47/users").json()] == ["student-scope"]
+        assert client.put(f"/api/v47/legacy/rtm_progress/{foreign_progress_id}", json={"name": "Stolen", "properties": {"userId": "student-scope", "targetId": assigned_id}}).status_code == 403
+        assert client.delete(f"/api/v47/legacy/rtm_progress/{foreign_progress_id}").status_code == 403
+        assert client.post("/api/v47/legacy/rtm_progress", json={"name": "Own", "properties": {"userId": "student-scope", "targetId": assigned_id}}).status_code == 201
+    finally:
+        app.dependency_overrides[require_bitrix_identity] = admin_override
+
+
+def test_linked_knowledge_material_requires_course_assignment() -> None:
+    document_id = client.get("/api/v47/knowledge/documents").json()[0]["id"]
+    project_id = client.post("/api/v47/legacy/rtm_prj", json={"name": "Linked project", "properties": {}}).json()["id"]
+    course_id = client.post("/api/v47/legacy/rtm_items", json={"name": "Linked course", "properties": {"type": "course", "status": "published", "projectId": project_id}}).json()["id"]
+    item_id = client.post("/api/v47/legacy/rtm_items", json={"name": "Linked article", "properties": {"type": "article", "status": "published", "projectId": project_id, "parentId": course_id, "meta": json.dumps({"linkedKnowledge": True, "knowledgeDocumentId": document_id, "knowledgeKind": "article"})}}).json()["id"]
+
+    def student_override():
+        with Session(engine) as session:
+            user = session.exec(select(AppUser).where(AppUser.bitrix_user_id == "linked-student")).first()
+            if user is None:
+                user = AppUser(bitrix_user_id="linked-student", role="student", manual_role="student")
+                session.add(user); session.commit(); session.refresh(user)
+            return BitrixIdentity(user=user, access_token="test", domain="rtm-group.bitrix24.ru")
+
+    app.dependency_overrides[require_bitrix_identity] = student_override
+    try:
+        url = f"/api/v47/knowledge/documents/{document_id}/linked/article?course_item_id={item_id}"
+        assert client.get(url).status_code == 403
+        with Session(engine) as session:
+            session.add(LegacyRecord(entity="rtm_assigns", legacy_id="linked-assignment", name="Assigned", properties={"userId": "linked-student", "targetId": course_id}))
+            session.commit()
+        assert client.get(url).status_code == 200
     finally:
         app.dependency_overrides[require_bitrix_identity] = admin_override
 

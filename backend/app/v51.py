@@ -145,6 +145,8 @@ def _validate_campaign(payload: CampaignWrite, document: KnowledgeDocument) -> N
         test = document.light_test if payload.testKind == "light" else document.full_test
         if not (test or {}).get("created"):
             raise HTTPException(422, "Выбранный тест этого документа ещё не создан")
+        if not (test or {}).get("questions"):
+            raise HTTPException(422, "Linked test must contain at least one question")
     settings = payload.notificationSettings or {}
     for key in ("bitrix", "task", "escalation"):
         if key in settings and not isinstance(settings[key], bool):
@@ -383,12 +385,59 @@ def _assignment_payload(session: Session, row: AcknowledgementAssignment) -> dic
     edition = session.get(KnowledgeEdition, campaign.edition_id) if campaign else None
     document = session.get(KnowledgeDocument, edition.document_id) if edition else None
     user = session.get(AppUser, row.user_id)
+    public_test = None
+    if campaign and campaign.mode == "test" and document:
+        source = document.light_test if campaign.test_kind == "light" else document.full_test
+        public_test = {
+            "title": source.get("title") or document.title,
+            "questions": [
+                {
+                    "id": str(question.get("id") or f"q_{index}"),
+                    "type": str(question.get("type") or "single"),
+                    "text": str(question.get("text") or ""),
+                    "answers": list(question.get("answers") or []),
+                    "pairsLeft": [str(pair.get("left") or "") for pair in question.get("pairs") or []],
+                    "pairOptions": sorted(str(pair.get("right") or "") for pair in question.get("pairs") or []),
+                }
+                for index, question in enumerate(source.get("questions") or [])
+            ],
+        }
     return {"id": row.id, "campaignId": row.campaign_id, "userId": row.user_id, "userBitrixId": user.bitrix_user_id if user else "",
             "userName": _name(user), "status": row.status, "answer": row.answer, "assignedAt": _iso(row.assigned_at), "dueAt": _iso(row.due_at),
             "startedAt": _iso(row.started_at), "completedAt": _iso(row.completed_at), "reviewedAt": _iso(row.reviewed_at),
             "reviewComment": row.review_comment, "manualReason": row.manual_reason, "campaign": _campaign(campaign) if campaign else None,
             "edition": _edition(edition) if edition else None,
-            "document": {"id": document.id, "title": document.title, "description": document.description, "documentUrl": document.document_url} if document else None}
+            "document": {"id": document.id, "title": document.title, "description": document.description, "documentUrl": document.document_url} if document else None,
+            "test": public_test}
+
+
+def _grade_linked_test(test: dict[str, Any], submitted: Any) -> tuple[bool, int]:
+    questions = list(test.get("questions") or [])
+    if not questions or not isinstance(submitted, dict):
+        raise HTTPException(422, "Submit answers for every test question")
+    answers = submitted.get("answers")
+    if not isinstance(answers, dict):
+        raise HTTPException(422, "Test answers must be an object")
+    correct_count = 0
+    for index, question in enumerate(questions):
+        question_id = str(question.get("id") or f"q_{index}")
+        actual = answers.get(question_id)
+        if str(question.get("type") or "single") == "match":
+            expected = [str(pair.get("right") or "") for pair in question.get("pairs") or []]
+            values = [str(value) for value in actual] if isinstance(actual, list) else []
+            correct = bool(expected) and values == expected
+        else:
+            expected = sorted(int(value) for value in question.get("correct") or [])
+            try:
+                values = sorted(int(value) for value in (actual if isinstance(actual, list) else [actual]))
+            except (TypeError, ValueError):
+                values = []
+            correct = bool(expected) and values == expected
+        if correct:
+            correct_count += 1
+    score = round(correct_count * 100 / len(questions))
+    pass_score = max(0, min(100, int(test.get("passScore") or 100)))
+    return score >= pass_score, score
 
 
 @router.get("/documents/{document_id}/editions")
@@ -667,7 +716,13 @@ def answer_assignment(assignment_id:int,payload:AnswerWrite,session:Annotated[Se
             row.status="pending_review"; row.answer={"value":answer}; row.started_at=row.started_at or now; row.updated_at=now; session.add(row); _event(session,row.campaign_id,"answer_submitted",assignment=row,actor_id=identity.user.id); session.commit(); return _assignment_payload(session,row)
         expected={str(value) for value in (campaign.question.get("correct") or [])}; actual={str(value) for value in (answer if isinstance(answer,list) else [answer])}; passed=actual==expected
     else:
-        passed=bool((answer or {}).get("passed")) if isinstance(answer,dict) else False
+        edition = session.get(KnowledgeEdition, campaign.edition_id)
+        document = session.get(KnowledgeDocument, edition.document_id) if edition else None
+        if not document:
+            raise HTTPException(409, "Linked test document is unavailable")
+        test = document.light_test if campaign.test_kind == "light" else document.full_test
+        passed, score = _grade_linked_test(test, answer)
+        answer = {"answers": answer.get("answers", {}), "score": score}
     row.answer={"value":answer,"passed":passed}; row.started_at=row.started_at or now
     row.status="completed" if passed else "returned"; row.completed_at=now if passed else None; row.updated_at=now; session.add(row)
     _event(session,row.campaign_id,"completed" if passed else "answer_rejected",assignment=row,actor_id=identity.user.id)

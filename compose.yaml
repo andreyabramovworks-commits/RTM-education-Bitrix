@@ -46,6 +46,12 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        VITE_APP_ENV: ${APP_ENV:-production}
+        VITE_APP_VERSION: ${APP_VERSION:-unknown}
+        VITE_POSTHOG_ENABLED: ${VITE_POSTHOG_ENABLED:-false}
+        VITE_POSTHOG_KEY: ${VITE_POSTHOG_KEY:-}
+        VITE_POSTHOG_HOST: ${VITE_POSTHOG_HOST:-https://eu.i.posthog.com}
     restart: unless-stopped
     depends_on:
       backend:

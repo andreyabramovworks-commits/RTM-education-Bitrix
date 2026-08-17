@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 
 from app.models import AppUser, BitrixDepartment, KnowledgeDocument
-from app.v51 import CampaignWrite, EditionDeleteWrite, _due_at, _google_file_id, _is_in_department, _match_rules, _render_task_template, _validate_campaign
+from app.v51 import CampaignWrite, EditionDeleteWrite, _due_at, _google_file_id, _grade_linked_test, _is_in_department, _match_rules, _render_task_template, _validate_campaign
 
 
 def test_department_rule_includes_nested_department():
@@ -34,8 +34,14 @@ def test_control_question_requires_correct_option():
 
 
 def test_linked_test_must_exist_for_test_acknowledgement():
-    document = KnowledgeDocument(source_row=1, title="Документ", document_url="https://example.com", light_test={"created": True})
+    document = KnowledgeDocument(source_row=1, title="Документ", document_url="https://example.com", light_test={"created": True, "questions": [{"id": "q1", "type": "single", "correct": [0]}]})
     _validate_campaign(CampaignWrite(mode="test", testKind="light", recipientRules=[{"type": "all_active"}], responsibleRules=[{"type": "user", "id": "1"}]), document)
+
+
+def test_linked_test_is_graded_from_server_owned_answer_key():
+    linked_test = {"passScore": 100, "questions": [{"id": "q1", "type": "single", "correct": [1]}]}
+    assert _grade_linked_test(linked_test, {"answers": {"q1": [1]}}) == (True, 100)
+    assert _grade_linked_test(linked_test, {"passed": True, "answers": {"q1": [0]}}) == (False, 0)
 
 
 def test_calendar_deadline_ends_on_last_selected_day():

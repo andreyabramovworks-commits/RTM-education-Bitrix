@@ -10,42 +10,6 @@
   var readyPromise = null;
   var entities = ['rtm_prj', 'rtm_items', 'rtm_assigns', 'rtm_progress', 'rtm_events', 'rtm_attempts', 'rtm_roles', 'rtm_canvas'];
 
-  async function shareBrowserSession(target, origin) {
-    var sessionKey = '';
-    try {
-      context = findContext();
-      if (context) refreshAuth();
-      var current = await request('/api/v47/session');
-      sessionKey = current && current.browser_session || '';
-      if (sessionKey) try { localStorage.setItem('rtm_server_session', sessionKey); } catch (_) {}
-    } catch (_) {
-      try { sessionKey = localStorage.getItem('rtm_server_session') || ''; } catch (_) {}
-    }
-    if (sessionKey && target) target.postMessage({rtmV48: 'session', sessionKey: sessionKey}, origin);
-  }
-
-  window.addEventListener('message', function (event) {
-    if (event.origin !== location.origin || !event.data || event.data.rtmV48 !== 'session-request') return;
-    shareBrowserSession(event.source, event.origin);
-  });
-
-  function receiveOpenerSession() {
-    if (!window.opener || new URLSearchParams(location.search).get('rtm_fullscreen') !== '1') return Promise.resolve();
-    return new Promise(function (resolve) {
-      var done = false;
-      function finish(event) {
-        if (done || event.origin !== location.origin || event.source !== window.opener || !event.data || event.data.rtmV48 !== 'session') return;
-        done = true;
-        window.removeEventListener('message', finish);
-        try { localStorage.setItem('rtm_server_session', event.data.sessionKey || ''); } catch (_) {}
-        resolve();
-      }
-      window.addEventListener('message', finish);
-      window.opener.postMessage({rtmV48: 'session-request'}, location.origin);
-      setTimeout(function () { if (!done) { done = true; window.removeEventListener('message', finish); resolve(); } }, 2500);
-    });
-  }
-
   function resultFacade(payload) {
     return {
       error: function () { return payload.error || null; },
@@ -92,23 +56,19 @@
       headers.Authorization = 'Bearer ' + auth.access_token;
       headers['X-Bitrix-Domain'] = auth.domain;
     }
-    try {
-      var serverSession = localStorage.getItem('rtm_server_session');
-      if (serverSession) headers['X-RTM-Session'] = serverSession;
-    } catch (_) {}
     options.headers = Object.assign({}, options.headers || {}, headers);
     var response = await fetch(path, options);
+    if (window.rtmCapture) window.rtmCapture('rtm_api_request', {
+      method: String(options.method || 'GET').toUpperCase(),
+      status: response.status,
+      ok: response.ok
+    });
     if (response.status === 401 && retry !== false) {
       context = findContext();
       if (context) {
         await context.call('profile', {});
         refreshAuth();
-      } else {
-        await receiveOpenerSession();
-        var recovered = '';
-        try { recovered = localStorage.getItem('rtm_server_session') || ''; } catch (_) {}
-        if (!recovered) throw new Error('Bitrix24 session expired. Open the application inside Bitrix24 again.');
-      }
+      } else throw new Error('Bitrix24 session expired. Open the application inside Bitrix24 again.');
       return request(path, options, false);
     }
     if (!response.ok) {
@@ -164,9 +124,7 @@
     readyPromise = (async function () {
       context = findContext();
       if (context) refreshAuth();
-      if (!context) await receiveOpenerSession();
       var current = await request('/api/v47/session');
-      if (current.browser_session) try { localStorage.setItem('rtm_server_session', current.browser_session); } catch (_) {}
       if (context) await importV46();
       window.__RTMV47_USER__ = current;
       return current;

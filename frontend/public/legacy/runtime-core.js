@@ -55,7 +55,7 @@ async function del(entity,id){try{return await call('entity.item.delete',{ENTITY
 window.RTMUI=window.RTMUI||{afterRender:[],adminView:[]};
 function runUiHooks(kind,value){(window.RTMUI[kind]||[]).slice().forEach(function(hook){try{hook(value)}catch(error){console.error('RTM UI hook failed',error)}})}
 function activateAdminView(v){let target=$('#admin'+cap(v));if(!target)return false;state.aview=v;$$('.rail-btn').forEach(x=>x.classList.toggle('active',x.dataset.adminView===v));$$('.admin-view').forEach(x=>x.classList.remove('active'));target.classList.add('active');return true;}
-function switchAdmin(v){let target=$('#admin'+cap(v));if(!target)return;state.aview=v;shellLayout();activateAdminView(v);if(v==='reviews'){runUiHooks('adminView',v)}else{renderAll();runUiHooks('adminView',v);activateAdminView(v)}window.dispatchEvent(new CustomEvent('rtm:admin-change'));}
+function switchAdmin(v){let target=$('#admin'+cap(v));if(!target)return;state.aview=v;shellLayout();if(v!=='reviews')renderAll();runUiHooks('adminView',v);activateAdminView(v);window.dispatchEvent(new CustomEvent('rtm:admin-change'));}
 function renderEvents(){let q=($('#eventSearch')?.value||'').toLowerCase(); let evs=state.events.filter(e=>(eventUserName(e)+' '+(e.PROPERTY_VALUES?.event||'')+' '+(e.PROPERTY_VALUES?.targetName||'')).toLowerCase().includes(q)); $('#eventsTotal').textContent='Всего: '+evs.length; $('#eventsTable').innerHTML=evs.map(e=>'<tr><td>'+fmt(e.PROPERTY_VALUES.createdAt)+'</td><td><a>'+esc(eventUserName(e))+'</a></td><td>'+esc(e.PROPERTY_VALUES.event||'—')+'</td><td><a>'+esc(typeLabel(findItem(e.PROPERTY_VALUES.targetId)?.PROPERTY_VALUES?.type)||'Материал')+': '+esc(e.PROPERTY_VALUES.targetName||'—')+'</a></td><td>'+esc(e.PROPERTY_VALUES.duration||'—')+'</td></tr>').join('')||'<tr><td colspan="5">Событий нет</td></tr>'}
 function targetPoints(id){let it=findItem(id); if(!it)return 0; let meta=j(it.PROPERTY_VALUES?.meta); return Math.max(0,Number(meta.points||0))}
 function userIdAliases(uid){let aliases=new Set([String(uid||'')]); try{let cur=currentUserId(), eff=effectiveUserId(); if(String(uid)===cur||String(uid)===eff||String(uid)==='0'){aliases.add(cur); aliases.add(eff)}}catch{} return aliases}
@@ -399,8 +399,8 @@ window.__RTM_LEARNER__={
   subscribe:function(handler){window.addEventListener('rtm:learner-change',handler);let hook=function(){handler()};window.RTMUI.afterRender.push(hook);return function(){window.removeEventListener('rtm:learner-change',handler);let i=window.RTMUI.afterRender.indexOf(hook);if(i>=0)window.RTMUI.afterRender.splice(i,1)}},
   subscribeShell:function(handler){window.addEventListener('rtm:learner-change',handler);return function(){window.removeEventListener('rtm:learner-change',handler)}},
   refresh:async function(){await loadAll(true);emitLearnerSnapshot()},
-  setMode:function(mode){setMode(mode);if(mode==='admin'&&window.__RTM_LOAD_CANVAS__)window.__RTM_LOAD_CANVAS__().catch(function(error){console.warn(error)})},
-  openMaterial:async function(id){let item=await hydrateLearnerItem(id);if(window.__RTM_LOAD_CANVAS__)await window.__RTM_LOAD_CANVAS__();return item},
+  setMode:function(mode){setMode(mode)},
+  openMaterial:async function(id){let item=await hydrateLearnerItem(id);if(materialKind(item)==='article'&&window.__RTM_LOAD_CANVAS__)await window.__RTM_LOAD_CANVAS__();return item},
   renderMaterial:function(id){let item=findItem(id);if(!item)return;window.openUserMaterial(item);emitLearnerSnapshot();return item},
   completeMaterial:async function(id){let item=findItem(id);if(!item)return;await complete(id,materialKind(item));renderAll();emitLearnerSnapshot()},
   completeCourse:async function(id){let course=findItem(id);if(!course)return;await complete(id,'course');renderAll();emitLearnerSnapshot()},
@@ -416,7 +416,7 @@ window.__RTM_LEARNER__={
 };
 /* React owns the new admin shell and route activation. The legacy runtime keeps
    data mutations and specialized editors behind this narrow compatibility bridge. */
-var rtmAdminMount=null,rtmAdminHome=null,rtmProjectsHome=null,rtmAdminRoot=null,rtmAdminRootState=null;
+var rtmAdminMount=null,rtmAdminHome=null,rtmAdminRoot=null,rtmAdminRootState=null;
 function decorateAdminGuidance(){
   if(!rtmAdminMount)return;
   rtmAdminMount.querySelectorAll('button').forEach(function(button){
@@ -434,16 +434,14 @@ window.__RTM_ADMIN__={
   getSnapshot:adminSnapshot,
   subscribe:function(handler){window.addEventListener('rtm:admin-change',handler);window.addEventListener('rtm:learner-change',handler);return function(){window.removeEventListener('rtm:admin-change',handler);window.removeEventListener('rtm:learner-change',handler)}},
   mount:function(host){
-    var root=document.getElementById('adminApp'),main=root&&root.querySelector('.admin-main'),projects=document.getElementById('projectsPanel');if(!host||!root||!main)return;
+    var root=document.getElementById('adminApp'),main=root&&root.querySelector('.admin-main');if(!host||!root||!main)return;
     if(!rtmAdminHome)rtmAdminHome={parent:main.parentNode,next:main.nextSibling};
-    if(projects&&!rtmProjectsHome)rtmProjectsHome={parent:projects.parentNode,next:projects.nextSibling};
     if(!rtmAdminRootState)rtmAdminRootState={hidden:root.hidden,inert:root.inert,display:root.style.display,ariaHidden:root.getAttribute('aria-hidden')};
-    if(projects)host.appendChild(projects);host.appendChild(main);root.hidden=true;root.inert=true;root.style.display='none';root.setAttribute('aria-hidden','true');rtmAdminRoot=root;rtmAdminMount=host;document.body.classList.add('rtm-admin-react-active');bind();
+    host.appendChild(main);root.hidden=true;root.inert=true;root.style.display='none';root.setAttribute('aria-hidden','true');rtmAdminRoot=root;rtmAdminMount=host;document.body.classList.add('rtm-admin-react-active');bind();
   },
   unmount:function(){
     var main=document.querySelector('.adm-workspace > .admin-main');
     if(main&&rtmAdminHome&&rtmAdminHome.parent)rtmAdminHome.parent.insertBefore(main,rtmAdminHome.next);
-    var projects=document.querySelector('.adm-workspace > #projectsPanel');if(projects&&rtmProjectsHome&&rtmProjectsHome.parent)rtmProjectsHome.parent.insertBefore(projects,rtmProjectsHome.next);
     if(rtmAdminRoot&&rtmAdminRootState){rtmAdminRoot.hidden=rtmAdminRootState.hidden;rtmAdminRoot.inert=rtmAdminRootState.inert;rtmAdminRoot.style.display=rtmAdminRootState.display;if(rtmAdminRootState.ariaHidden===null)rtmAdminRoot.removeAttribute('aria-hidden');else rtmAdminRoot.setAttribute('aria-hidden',rtmAdminRootState.ariaHidden)}
     rtmAdminRoot=null;rtmAdminRootState=null;rtmAdminMount=null;document.body.classList.remove('rtm-admin-react-active');
   },

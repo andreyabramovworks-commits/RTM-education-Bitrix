@@ -13,11 +13,11 @@ import { AdminApp } from "./AdminApp";
 let runtimePromise = null;
 let canvasRuntimePromise = null;
 
-const LegacyMarkupHost = React.memo(function LegacyMarkupHost({ markup, ready }) {
+const LegacyMarkupHost = React.memo(function LegacyMarkupHost({ markup, ready, active }) {
   return <div
     className={`v48-react-host ${ready ? "rtm-ready" : "rtm-pending"}`}
-    aria-hidden={!ready}
-    inert={!ready}
+    aria-hidden={!ready || !active}
+    inert={!ready || !active}
     dangerouslySetInnerHTML={{ __html: markup }}
   />;
 });
@@ -189,7 +189,7 @@ export function LegacyReactHost() {
   if (error) return <div className="v48-load-error"><strong>Не удалось запустить RTM Обучение</strong><span>{error}</span><button onClick={() => window.location.reload()}>Повторить</button></div>;
   return <>
     {!learnerBridge && <div className="v48-loading" role="status" aria-live="polite"><span className="v48-loading-mark">RTM <b>обучение</b></span><span className="v48-loading-line" aria-hidden="true" /><small>{markup ? "Загружаем ваши материалы…" : "Подготавливаем приложение…"}</small></div>}
-    {markup && <LegacyMarkupHost markup={markup} ready={Boolean(learnerBridge)} />}
+    {markup && <LegacyMarkupHost markup={markup} ready={Boolean(learnerBridge)} active={Boolean(classicAdmin && learnerBridge?.getSnapshot().mode === "admin")} />}
     {markup && <div id="modalBackdrop" className="modal-backdrop hidden" role="presentation"><div id="modalBox" className="modal-box" role="dialog" aria-modal="true" /></div>}
     {learnerBridge && learnerBridge.getSnapshot().mode === "user" && <LearnerApp bridge={learnerBridge} onSetMode={setShellMode} />}
     {learnerBridge && learnerBridge.getSnapshot().mode === "admin" && !classicAdmin && window.__RTM_ADMIN__ && <AdminApp bridge={window.__RTM_ADMIN__} onSetMode={setShellMode} />}

@@ -141,6 +141,7 @@ export function LearnerApp({ bridge, onSetMode }) {
   const [history, setHistory] = useState([]), [music, setMusic] = useState(false), [musicPanel, setMusicPanel] = useState(false), [track, setTrack] = useState(0), [volume, setVolume] = useState(() => { const saved = Number(localStorage.getItem("rtm_music_volume")); return saved >= 0.08 && saved <= 0.3 ? saved : 0.1; });
   const tracks = useMemo(() => Array.isArray(snapshot.appearance?.musicPlaylist) && snapshot.appearance.musicPlaylist.length ? snapshot.appearance.musicPlaylist : DEFAULT_PLAYLIST, [snapshot.appearance?.musicPlaylist]);
   const audioRef = useRef(null);
+  const menuWasOpen = useRef(false);
   useEffect(() => bridge.subscribe(() => setSnapshot(bridge.getSnapshot())), [bridge]);
   useEffect(() => { const update = () => setSnapshot(bridge.getSnapshot()); window.addEventListener("rtm:help-change", update); return () => window.removeEventListener("rtm:help-change", update); }, [bridge]);
   useEffect(() => { const learner = snapshot.mode === "user"; document.body.classList.toggle("rtm-learner-active", learner); document.body.classList.toggle("rtm-admin-active", !learner); return () => { document.body.classList.remove("rtm-learner-active"); document.body.classList.remove("rtm-admin-active"); }; }, [snapshot.mode]);
@@ -156,6 +157,30 @@ export function LearnerApp({ bridge, onSetMode }) {
     else player.pause();
   }, [music, track, volume, tracks.length]);
   useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; localStorage.setItem("rtm_music_volume", String(volume)); }, [volume]);
+  useEffect(() => {
+    if (!menu) {
+      if (menuWasOpen.current) document.querySelector(".lr-menu-button")?.focus();
+      menuWasOpen.current = false;
+      return;
+    }
+    menuWasOpen.current = true;
+    const panel = document.querySelector(".lr-mobile-nav");
+    panel?.setAttribute("role", "dialog");
+    panel?.setAttribute("aria-modal", "true");
+    panel?.setAttribute("aria-label", "Мобильная навигация");
+    const focusable = () => [...(panel?.querySelectorAll("button:not([disabled]),a[href]") || [])];
+    focusable()[0]?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") { event.preventDefault(); setMenu(false); return; }
+      if (event.key !== "Tab") return;
+      const nodes = focusable(); if (!nodes.length) return;
+      const first = nodes[0], last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [menu]);
   const toggleMusic = () => { const next = !music; setMusic(next); setMusicPanel(next); };
   const openMaterial = async (material, course) => { const hydrated = await bridge.openMaterial(material.ID); if (hydrated) { setHistory((old) => [...old.slice(-8), { view, selectedCourse, materialContext: null }]); setMaterialContext({ material: hydrated, course }); } };
   const setHints = () => bridge.setHintsEnabled(!snapshot.hintsEnabled);

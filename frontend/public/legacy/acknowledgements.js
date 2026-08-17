@@ -257,6 +257,24 @@ enhanceRoleOverview=function(){
   guide.querySelectorAll('[data-role-card]').forEach(function(card){var available=Array.from(select.options).some(function(option){return option.value===card.dataset.roleCard;});card.tabIndex=available?0:-1;card.setAttribute('role','button');card.setAttribute('aria-disabled',available?'false':'true');if(!available)card.classList.add('is-unavailable');card.onclick=function(event){if(!available||event.target.closest('.v514-role-mechanic'))return;select.value=card.dataset.roleCard;select.dispatchEvent(new Event('change',{bubbles:true}));};card.onkeydown=function(event){if(available&&(event.key==='Enter'||event.key===' ')){event.preventDefault();card.click();}};});
   select.hidden=true;select.addEventListener('change',sync);sync();
 };
+function renderAcknowledgementTest(action,row,campaign){
+  var test=row.test||{},questions=test.questions||[];
+  if(!questions.length){action.innerHTML='<div class="v5100-empty">Тест пока не содержит вопросов. Обратитесь к ответственному.</div>';return;}
+  function questionHtml(question,index){
+    var id=h(question.id||('q_'+index)),type=question.type||'single';
+    if(type==='match')return '<fieldset class="v514-question"><legend>'+(index+1)+'. '+h(question.text)+'</legend>'+(question.pairsLeft||[]).map(function(left,pairIndex){return '<label>'+h(left)+'<select data-ack-match="'+id+'_'+pairIndex+'"><option value="">Выберите соответствие</option>'+(question.pairOptions||[]).map(function(value){return '<option value="'+h(value)+'">'+h(value)+'</option>';}).join('')+'</select></label>';}).join('')+'</fieldset>';
+    return '<fieldset class="v514-question"><legend>'+(index+1)+'. '+h(question.text)+'</legend><div class="v514-choice-list">'+(question.answers||[]).map(function(value,answerIndex){return '<label><input name="ackTest_'+id+'" type="'+(type==='multiple'?'checkbox':'radio')+'" value="'+answerIndex+'"><span>'+h(value)+'</span></label>';}).join('')+'</div></fieldset>';
+  }
+  action.innerHTML='<div class="v514-test"><h3>'+h(test.title||'Связанный тест')+'</h3>'+questions.map(questionHtml).join('')+'<button class="primary" id="v5100AckTestSubmit">Проверить ответы</button></div>';
+  var submit=document.getElementById('v5100AckTestSubmit');
+  submit.onclick=async function(){
+    var answers={};
+    questions.forEach(function(question,index){var id=String(question.id||('q_'+index));if(question.type==='match')answers[id]=Array.from(document.querySelectorAll('[data-ack-match^="'+CSS.escape(id)+'_"]')).map(function(select){return select.value;});else answers[id]=Array.from(document.querySelectorAll('[name="ackTest_'+CSS.escape(id)+'"]:checked')).map(function(input){return Number(input.value);});});
+    submit.disabled=true;var oldText=submit.textContent;submit.textContent='Проверяем…';
+    try{var saved=await api('/api/v51/assignments/'+row.id+'/answer',{method:'POST',body:JSON.stringify({answer:{answers:answers}})});cache.mine=null;if(saved.status==='completed'){closeModal();toast('Тест пройден. Ознакомление подтверждено');renderKb();}else{alert('Тест не пройден. Проверьте ответы и попробуйте снова.');submit.disabled=false;submit.textContent=oldText;}}
+    catch(error){alert(error.message||error);submit.disabled=false;submit.textContent=oldText;}
+  };
+}
 var openAssignmentV514=openAssignment;
 openAssignment=function(row){
   if(!row||row.status==='exempted')return openAssignmentV514(row);
@@ -275,6 +293,7 @@ openAssignment=function(row){
     submit.disabled=true;submit.title='Сначала откройте и изучите документ';
     if(documentLink)documentLink.addEventListener('click',function(){submit.disabled=false;submit.title='';submit.closest('.v514-confirm').classList.add('is-ready');});
   }
+  if(campaign.mode==='test')renderAcknowledgementTest(action,row,campaign);
 };
 window.RTMV5100.version='51.6.0';
 document.addEventListener('click',function(event){var mechanic=event.target.closest&&event.target.closest('.v514-role-mechanic[data-help-key]');if(!mechanic)return;event.preventDefault();event.stopPropagation();openHelp(mechanic,mechanic.dataset.helpKey,0);},true);

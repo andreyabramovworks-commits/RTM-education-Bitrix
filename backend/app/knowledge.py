@@ -300,6 +300,18 @@ def linked_document(
         )
         if not course_reference:
             raise HTTPException(404, "Linked course material not found")
+        if course_reference and identity.user.role not in {"developer", "admin", "editor", "teacher"}:
+            owner_id = str(identity.user.bitrix_user_id)
+            target_ids = {str(course_item_id), str(props.get("parentId") or "")}
+            assignment = session.exec(select(LegacyRecord).where(
+                LegacyRecord.entity == "rtm_assigns",
+            )).all()
+            if not any(
+                str(item.properties.get("userId") or "") == owner_id
+                and str(item.properties.get("targetId") or "") in target_ids
+                for item in assignment
+            ):
+                raise HTTPException(403, "Linked course material is not assigned to this user")
     if not course_reference and not _allows(row.article_assignments, identity, departments):
         raise HTTPException(403, "Knowledge document is not assigned to this user")
     if kind == "article":
@@ -347,7 +359,9 @@ def create_test(document_id:int,kind:str,session:Annotated[Session,Depends(get_s
     return {"created":True,"test":test}
 
 @router.get("/directory")
-def directory(session:Annotated[Session,Depends(get_session)],_:Annotated[BitrixIdentity,Depends(require_bitrix_identity)]):
+def directory(session:Annotated[Session,Depends(get_session)],identity:Annotated[BitrixIdentity,Depends(require_bitrix_identity)]):
+    if identity.user.role not in {"developer", "admin", "editor", "teacher"}:
+        raise HTTPException(403, "Directory access requires a staff role")
     ensure_catalog(session); users=session.exec(select(AppUser).where(AppUser.active==True)).all(); deps=session.exec(select(BitrixDepartment).where(BitrixDepartment.active==True)).all()
     return {"users":[{"id":u.bitrix_user_id,"name":f"{u.first_name} {u.last_name}".strip(),"departmentIds":u.department_ids,"role":u.role,"reviewerAllowed":u.role in {"teacher","editor","admin","developer"},"editorAllowed":u.role in {"teacher","editor","admin","developer"}} for u in users],"departments":[{"id":d.bitrix_department_id,"name":d.name,"parentId":d.parent_id,"headUserId":d.head_user_id} for d in deps],"documents":[{"id":d.id,"title":d.title,"tests":[d.light_test.get("title"),d.full_test.get("title")]} for d in session.exec(select(KnowledgeDocument).where(KnowledgeDocument.active==True)).all()]}
 

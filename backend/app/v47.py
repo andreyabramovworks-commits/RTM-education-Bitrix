@@ -167,6 +167,69 @@ def _legacy_dict(record: LegacyRecord) -> dict[str, Any]:
     }
 
 
+def _is_legacy_manager(identity: BitrixIdentity) -> bool:
+    return identity.user.role in {"developer", "admin", "editor", "teacher"}
+
+
+def _student_visible_item_ids(session: Session, identity: BitrixIdentity) -> set[str]:
+    user_id = str(identity.user.bitrix_user_id)
+    assignments = session.exec(select(LegacyRecord).where(LegacyRecord.entity == "rtm_assigns")).all()
+    visible = {
+        str(row.properties.get("targetId") or "")
+        for row in assignments
+        if str(row.properties.get("userId") or "") == user_id
+    }
+    visible.discard("")
+    items = session.exec(select(LegacyRecord).where(LegacyRecord.entity == "rtm_items")).all()
+    published = {
+        row.legacy_id
+        for row in items
+        if row.properties.get("deleted") != "Y"
+        and str(row.properties.get("status") or "published") == "published"
+    }
+    visible.intersection_update(published)
+    changed = True
+    while changed:
+        changed = False
+        for row in items:
+            props = row.properties or {}
+            if props.get("deleted") == "Y" or str(props.get("status") or "published") != "published":
+                continue
+            if row.legacy_id in visible or str(props.get("parentId") or "") in visible:
+                if row.legacy_id not in visible:
+                    visible.add(row.legacy_id)
+                    changed = True
+    return visible
+
+
+def _can_read_legacy_record(
+    session: Session,
+    identity: BitrixIdentity,
+    record: LegacyRecord,
+    visible_item_ids: set[str] | None = None,
+) -> bool:
+    if _is_legacy_manager(identity):
+        return True
+    user_id = str(identity.user.bitrix_user_id)
+    props = record.properties or {}
+    if record.entity in {"rtm_assigns", "rtm_progress", "rtm_events", "rtm_attempts", "rtm_roles"}:
+        return str(props.get("userId") or "") == user_id
+    item_ids = visible_item_ids if visible_item_ids is not None else _student_visible_item_ids(session, identity)
+    if record.entity == "rtm_items":
+        return record.legacy_id in item_ids
+    if record.entity == "rtm_canvas":
+        target_id = str(props.get("articleId") or props.get("targetId") or "")
+        return target_id in item_ids
+    if record.entity == "rtm_prj":
+        project_ids = {
+            str(row.properties.get("projectId") or "")
+            for row in session.exec(select(LegacyRecord).where(LegacyRecord.entity == "rtm_items")).all()
+            if row.legacy_id in item_ids
+        }
+        return record.legacy_id in project_ids
+    return False
+
+
 def _json(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
@@ -377,8 +440,16 @@ def _assert_write(identity: BitrixIdentity, entity: str, properties: dict[str, A
     if entity not in {"rtm_progress", "rtm_events", "rtm_attempts"}:
         raise HTTPException(status_code=403, detail="This operation requires editor role")
     owner = str(properties.get("userId") or "")
-    if owner and owner != identity.user.bitrix_user_id:
+    if owner != identity.user.bitrix_user_id:
         raise HTTPException(status_code=403, detail="Students may only update their own progress")
+
+
+def _assert_student_target(session: Session, identity: BitrixIdentity, entity: str, properties: dict[str, Any]) -> None:
+    if _is_legacy_manager(identity) or entity not in {"rtm_progress", "rtm_events", "rtm_attempts"}:
+        return
+    target_id = str(properties.get("testId") or properties.get("targetId") or properties.get("courseId") or "")
+    if not target_id or target_id not in _student_visible_item_ids(session, identity):
+        raise HTTPException(status_code=403, detail="Learning target is not assigned to this student")
 
 
 @router.get("/session")
@@ -386,10 +457,8 @@ def session_info(
     response: Response,
     identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
 ) -> dict[str, Any]:
-    browser_session = ""
     if identity.access_token:
         session_id, ttl = create_browser_session(identity)
-        browser_session = session_id
         response.set_cookie(
             key="rtm_session", value=session_id, max_age=ttl, httponly=True,
             secure=True, samesite="lax", path="/",
@@ -400,7 +469,6 @@ def session_info(
         "name": f"{identity.user.first_name} {identity.user.last_name}".strip(),
         "role": identity.user.role,
         "is_bitrix_admin": identity.user.is_bitrix_admin,
-        "browser_session": browser_session,
     }
 
 
@@ -422,7 +490,7 @@ def proxy_bitrix_call(
     }
     if payload.method not in allowed:
         raise HTTPException(status_code=403, detail="Bitrix24 method is not allowed")
-    privileged = {"tasks.task.add", "im.notify.personal.add", "disk.storage.uploadfile", "disk.folder.uploadfile"}
+    privileged = {"tasks.task.add", "im.notify.personal.add", "im.notify.system.add", "disk.storage.uploadfile", "disk.folder.uploadfile"}
     if payload.method in privileged and identity.user.role not in {"developer", "admin", "editor", "teacher"}:
         raise HTTPException(status_code=403, detail="Editor role is required")
     return {"data": bitrix_call(identity, payload.method, payload.params)}
@@ -589,13 +657,18 @@ def import_v46(
 def list_legacy(
     entity: str,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
     summary: bool = False,
 ) -> list[dict[str, Any]]:
     if entity not in SUPPORTED_ENTITIES:
         raise HTTPException(status_code=404, detail="Unknown entity")
     records = session.exec(select(LegacyRecord).where(LegacyRecord.entity == entity)).all()
-    result = [_legacy_dict(record) for record in sorted(records, key=lambda row: row.id or 0, reverse=True)]
+    visible_item_ids = None if _is_legacy_manager(identity) else _student_visible_item_ids(session, identity)
+    result = [
+        _legacy_dict(record)
+        for record in sorted(records, key=lambda row: row.id or 0, reverse=True)
+        if _can_read_legacy_record(session, identity, record, visible_item_ids)
+    ]
     if not summary or entity != "rtm_items":
         return result
     for item in result:
@@ -617,12 +690,14 @@ def get_legacy(
     entity: str,
     legacy_id: str,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
 ) -> dict[str, Any]:
     if entity not in SUPPORTED_ENTITIES:
         raise HTTPException(status_code=404, detail="Unknown entity")
     record = session.exec(select(LegacyRecord).where(LegacyRecord.entity == entity, LegacyRecord.legacy_id == legacy_id)).first()
     if record is None:
+        raise HTTPException(status_code=404, detail="Record not found")
+    if not _can_read_legacy_record(session, identity, record):
         raise HTTPException(status_code=404, detail="Record not found")
     return _legacy_dict(record)
 
@@ -637,6 +712,7 @@ def create_legacy(
     if entity not in SUPPORTED_ENTITIES:
         raise HTTPException(status_code=404, detail="Unknown entity")
     _assert_write(identity, entity, payload.properties)
+    _assert_student_target(session, identity, entity, payload.properties)
     record = _upsert_legacy(session, entity, LegacyRecordInput(NAME=payload.name, PROPERTY_VALUES=payload.properties))
     session.flush()
     sync_normalized(session)
@@ -656,6 +732,9 @@ def update_legacy(
     record = session.exec(select(LegacyRecord).where(LegacyRecord.entity == entity, LegacyRecord.legacy_id == legacy_id)).first()
     if record is None:
         raise HTTPException(status_code=404, detail="Record not found")
+    if not _is_legacy_manager(identity) and str(record.properties.get("userId") or "") != identity.user.bitrix_user_id:
+        raise HTTPException(status_code=403, detail="Students may only update their own progress")
+    _assert_student_target(session, identity, entity, payload.properties)
     record.name = payload.name
     record.properties = payload.properties
     record.updated_at = utcnow()
@@ -673,8 +752,10 @@ def delete_legacy(
     session: Annotated[Session, Depends(get_session)],
     identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
 ) -> Response:
-    _assert_write(identity, entity, {})
     record = session.exec(select(LegacyRecord).where(LegacyRecord.entity == entity, LegacyRecord.legacy_id == legacy_id)).first()
+    _assert_write(identity, entity, record.properties if record else {})
+    if record:
+        _assert_student_target(session, identity, entity, record.properties)
     if record:
         session.delete(record)
         session.flush()
@@ -688,10 +769,15 @@ def get_scene(
     article_legacy_id: str,
     page_key: str,
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
 ) -> dict[str, Any]:
     article = _find_article(session, article_legacy_id)
     if article is None:
+        raise HTTPException(status_code=404, detail="Article not found")
+    source = session.exec(select(LegacyRecord).where(
+        LegacyRecord.entity == "rtm_items", LegacyRecord.legacy_id == article_legacy_id,
+    )).first()
+    if source is None or not _can_read_legacy_record(session, identity, source):
         raise HTTPException(status_code=404, detail="Article not found")
     scene = session.exec(select(ExcalidrawScene).where(
         ExcalidrawScene.article_id == article.id,
@@ -816,9 +902,12 @@ def publish_scene_draft(
 @router.get("/users")
 def list_users(
     session: Annotated[Session, Depends(get_session)],
-    _: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
 ) -> list[dict[str, Any]]:
-    users = session.exec(select(AppUser).where(AppUser.active == True)).all()  # noqa: E712
+    query = select(AppUser).where(AppUser.active == True)  # noqa: E712
+    if not _is_legacy_manager(identity):
+        query = query.where(AppUser.id == identity.user.id)
+    users = session.exec(query).all()
     return [{
         "ID": user.bitrix_user_id, "NAME": user.first_name, "LAST_NAME": user.last_name,
         "EMAIL": user.email, "ACTIVE": user.active, "ROLE": user.role,

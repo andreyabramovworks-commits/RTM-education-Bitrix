@@ -20,15 +20,15 @@ test("v51.5 has one initial synchronization path", () => {
   assert.match(app, /if\(loadAllPromise\)return loadAllPromise/);
   assert.doesNotMatch(api, /Initial automatic synchronization/);
   assert.doesNotMatch(api, /__RTM_V48_INIT__\(\)/);
-  assert.match(host, /await window\.__RTM_V48_INIT__\(\)/);
+  assert.match(host, /window\.__RTM_V48_INIT__\(\)/);
 });
 
 test("v51.5 runtime uses one canonical manifest", () => {
   assert.match(host, /from "\.\/legacyRuntime"/);
   assert.match(host, /if \(runtimePromise\) return runtimePromise/);
   assert.doesNotMatch(host, /const LEGACY_(?:STYLES|SCRIPTS)/);
-  assert.match(manifest, /RELEASE_VERSION = "53\.0\.8"/);
-  assert.match(index, /bitrix-bootstrap\.js\?v=53\.0\.8-r1/);
+  assert.match(manifest, /RELEASE_VERSION = "53\.0\.12"/);
+  assert.match(index, /bitrix-loader\.js\?v=53\.0\.12-r1/);
   assert.match(host, /await Promise\.all\(LEGACY_STYLES\.map\(loadStyle\)\)/);
   assert.match(host, /rtm-pending/);
   assert.match(app, /window\.__RTM_SHELL_INIT__=init/);

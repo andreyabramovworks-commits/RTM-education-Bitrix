@@ -12,21 +12,47 @@ git fetch --quiet origin main
 
 CURRENT="$(git rev-parse HEAD)"
 TARGET="$(git rev-parse origin/main)"
+LAST_SUCCESS="$(git rev-parse --verify refs/rtm/last-success 2>/dev/null || printf '%s' "$CURRENT")"
+ROLLBACK_TARGET="$LAST_SUCCESS"
 
-if [[ "$CURRENT" == "$TARGET" ]] && [[ "${FORCE_DEPLOY:-0}" != "1" ]]; then
+if [[ "$LAST_SUCCESS" == "$TARGET" ]] && [[ "${FORCE_DEPLOY:-0}" != "1" ]]; then
     exit 0
 fi
 
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    logger -t rtm-deploy "Deployment refused: server worktree has local changes"
+    exit 1
+fi
+
+rollback() {
+    local exit_code=$?
+    trap - ERR
+    logger -t rtm-deploy "Deployment ${TARGET:0:12} failed; rolling back to ${ROLLBACK_TARGET:0:12}"
+    git reset --hard "$ROLLBACK_TARGET"
+    export APP_VERSION="${ROLLBACK_TARGET:0:12}"
+    if docker compose build \
+        && docker compose up -d --remove-orphans \
+        && docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile; then
+        logger -t rtm-deploy "Rollback to ${ROLLBACK_TARGET:0:12} completed"
+    else
+        logger -t rtm-deploy "Rollback to ${ROLLBACK_TARGET:0:12} also failed"
+    fi
+    exit "$exit_code"
+}
+trap rollback ERR
+
 git merge --ff-only "$TARGET"
 export APP_VERSION="${TARGET:0:12}"
+docker compose config --quiet
 docker compose build
+docker compose run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 docker compose up -d --remove-orphans
-docker compose cp deploy/Caddyfile caddy:/tmp/rtm-Caddyfile
-docker compose exec -T caddy caddy validate --config /tmp/rtm-Caddyfile --adapter caddyfile
-docker compose exec -T caddy caddy reload --config /tmp/rtm-Caddyfile --adapter caddyfile
+docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 
 for attempt in {1..30}; do
     if curl --fail --silent --show-error https://rtmgroupdocs.fvds.ru/api/ready >/dev/null; then
+        git update-ref refs/rtm/last-success "$TARGET"
+        trap - ERR
         logger -t rtm-deploy "Deployment ${TARGET:0:12} completed"
         exit 0
     fi
@@ -34,4 +60,4 @@ for attempt in {1..30}; do
 done
 
 logger -t rtm-deploy "Deployment ${TARGET:0:12} failed readiness check"
-exit 1
+false

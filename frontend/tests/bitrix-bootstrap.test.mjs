@@ -4,6 +4,7 @@ import test from "node:test";
 import vm from "node:vm";
 
 const source = await readFile(new URL("../public/bitrix-bootstrap.js", import.meta.url), "utf8");
+const loaderSource = await readFile(new URL("../public/bitrix-loader.js", import.meta.url), "utf8");
 
 class TestCustomEvent {
   constructor(type, options = {}) {
@@ -76,4 +77,17 @@ test("does not initialize the Bitrix SDK in a standalone window", () => {
 
   assert.equal(window.RTM_BITRIX, undefined);
   assert.equal(window.RTM_BITRIX_READY, undefined);
+});
+
+test("standalone preview does not load the external Bitrix SDK", () => {
+  const appended = [];
+  const window = {};
+  window.self = window;
+  window.top = window;
+  vm.runInNewContext(loaderSource, {
+    window,
+    document: { referrer: "", createElement: () => ({}), head: { appendChild: (node) => appended.push(node) } },
+    CustomEvent: TestCustomEvent,
+  });
+  assert.deepEqual(appended, []);
 });

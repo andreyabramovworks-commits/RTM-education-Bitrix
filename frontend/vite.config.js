@@ -25,7 +25,7 @@ function copyRuntimePublic() {
   };
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react(), copyRuntimePublic()],
-  publicDir: false,
-});
+  publicDir: command === "serve" ? "public" : false,
+}));
