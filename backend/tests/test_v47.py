@@ -51,11 +51,28 @@ def test_learner_summary_strips_heavy_material_payload_and_detail_restores_it() 
 
 
 def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
-    response = client.get("/bitrix/app")
-    assert response.status_code == 200
+    response = client.get("/bitrix/app", follow_redirects=False)
+    assert response.status_code == 303
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert "rtm_release=53.0.13" in response.text
-    assert "RTM Education v53.0.13" in response.text
+    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.14"
+
+
+def test_bitrix_shell_preserves_only_safe_application_routes() -> None:
+    response = client.post(
+        "/bitrix/app?rtm_assignment=17&rtm_view=acknowledgements&AUTH_ID=secret",
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.14&rtm_assignment=17&rtm_view=acknowledgements"
+    assert "AUTH_ID" not in response.headers["location"]
+
+
+def test_repeated_bitrix_launch_never_renders_a_nested_frame() -> None:
+    for _ in range(50):
+        response = client.post("/bitrix/app", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"].startswith("/?bitrix_frame=1&")
+        assert "<iframe" not in response.text.lower()
 
 
 def test_appearance_is_central_and_keeps_uploaded_branding() -> None:
