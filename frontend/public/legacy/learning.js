@@ -671,13 +671,14 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   window.takeTestSubmit = takeTestSubmit = async function (event) {
     event.preventDefault(); var form = event.currentTarget, test = findItem(form.dataset.takeTest); if (!test) return;
     if (form.dataset.submitting) return; form.dataset.submitting = '1'; clearTimeout(form._v51timer);
+    var submitButton=form.querySelector('button[type="submit"]');if(submitButton){submitButton.disabled=true;submitButton.dataset.label=submitButton.textContent;submitButton.textContent='Отправляем ответы…';}
     var meta = normalizeMeta(j(test.PROPERTY_VALUES.meta)), timedOut = form.dataset.timedOut === '1' || meta.timeLimit && (Date.now() - Number(form.dataset.testStart || Date.now())) > meta.timeLimit * 60000;
     var good = 0, automatic = 0, hasFree = false;
     meta.questions.forEach(function (question) { if (isFree(question)) hasFree = true; else { automatic += 1; if (selectedCorrect(question, takeAnswers[question.id])) good += 1; } });
     if (timedOut) hasFree = false;
     var autoPassed = !timedOut && (automatic === 0 || good >= Number(meta.passRequired || 0)), score = automatic ? Math.round(good / automatic * 100) : timedOut ? 0 : 100, reviewerId = courseReviewer(test), returned = timedOut ? null : userAttempt(test.ID, ['returned']);
     var props = {courseId: String(materialCourseId(test) || test.PROPERTY_VALUES.parentId || ''), testId: String(test.ID), userId: String(typeof rtmCanonicalUserId === 'function' ? rtmCanonicalUserId(effectiveUserId()) : effectiveUserId()), score: String(score), automaticCorrect: String(good), automaticTotal: String(automatic), automaticPassed: autoPassed ? 'Y' : 'N', passed: hasFree ? 'PENDING' : autoPassed ? 'Y' : 'N', pendingReview: hasFree ? 'Y' : 'N', reviewStatus: hasFree ? 'pending_review' : autoPassed ? 'auto_passed' : 'auto_failed', reviewerId: reviewerId, answers: JSON.stringify(takeAnswers), testSnapshot: JSON.stringify({schemaVersion: 2, title: test.NAME, questions: meta.questions}), revision: String(Number(returned && returned.PROPERTY_VALUES.revision || 0) + 1), createdAt: returned && returned.PROPERTY_VALUES.createdAt || now(), updatedAt: now()};
-    var attemptId;
+    var attemptId;try{
     if (returned) { attemptId = returned.ID; await upd(E.attempts, returned.ID, returned.NAME || 'Попытка теста', props); returned.PROPERTY_VALUES = props; }
     else { attemptId = await add(E.attempts, 'Попытка теста', props); state.attempts.unshift({ID: String(attemptId), NAME: 'Попытка теста', PROPERTY_VALUES: props, DATE_CREATE: props.createdAt}); }
     localStorage.removeItem(orderKey(test));
@@ -689,7 +690,8 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     modal('<div class="test-outcome ' + (autoPassed ? hasFree ? 'pending' : 'ok' : 'bad') + '"><h2>' + title + '</h2><p>Верно: <b>' + good + ' из ' + automatic + '</b></p>' + (timedOut ? '<p>Попыток осталось: <b>' + left + '</b></p>' : message) + (timedOut && left > 0 ? '<button class="primary" id="v51OutcomeRetry">Пройти заново</button>' : '') + '<button id="v51OutcomeNext">Продолжить</button></div>');
     var retryButton = document.getElementById('v51OutcomeRetry'); if (retryButton) retryButton.onclick = function () { closeModal(); var body = document.getElementById('uMaterialBody'); if (body) { body.innerHTML = renderTakeTest(test); document.querySelectorAll('[data-take-test]').forEach(function (row) { row.onsubmit = takeTestSubmit; }); } };
     document.getElementById('v51OutcomeNext').onclick = function () { closeModal(); if (autoPassed || !meta.required) adjacentMat(1); else openUserMaterial(test); };
-    renderProfile(); renderUserCourses();
+    toast('Ответы сохранены');renderProfile(); renderUserCourses();
+    }catch(error){delete form.dataset.submitting;if(submitButton){submitButton.disabled=false;submitButton.textContent=submitButton.dataset.label||'Отправить ответы';}alert('Не удалось отправить ответы. Ваш выбор сохранён на экране. '+(error&&error.message||error));}
   };
 
   function reviewVisible(attempt) {
@@ -797,6 +799,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   document.addEventListener('DOMContentLoaded', function () { ensureReviewView(); fitMobileReaderHeight(); });
   ensureReviewView();
   var knowledgeTestEditorHome = null;
+  function restoreKnowledgeTestEditor(){var testView=document.getElementById('testEditorView');if(testView&&knowledgeTestEditorHome&&knowledgeTestEditorHome.parent&&knowledgeTestEditorHome.parent.isConnected){knowledgeTestEditorHome.parent.insertBefore(testView,knowledgeTestEditorHome.next&&knowledgeTestEditorHome.next.parentNode===knowledgeTestEditorHome.parent?knowledgeTestEditorHome.next:null);testView.classList.add('hidden')}knowledgeTestEditorHome=null;state.knowledgeEditorReturn=false;state.v540Workspace='';var projectsPanel=document.getElementById('projectsPanel');if(projectsPanel)projectsPanel.style.display='';}
   async function openKnowledgeTest(doc, kind) {
     state.v540Workspace = 'test';
     var key = kind === 'full' ? 'fullTest' : 'lightTest', source = clone(doc[key] || {}), syntheticId = 'knowledge_' + doc.id + '_' + kind;
@@ -817,15 +820,14 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     bindTestTabs();
     var back = document.getElementById('backFromTestEditor');
     if (back) back.onclick = function () {
-      state.knowledgeEditorReturn = false;
-      state.v540Workspace = '';
-      if(testView&&knowledgeTestEditorHome){knowledgeTestEditorHome.parent.insertBefore(testView,knowledgeTestEditorHome.next);testView.classList.add('hidden');knowledgeTestEditorHome=null;}
-      if (projectsPanel) projectsPanel.style.display = '';
+      restoreKnowledgeTestEditor();
       switchAdmin('database');
       if (window.RTMV5038) window.RTMV5038.reload().then(function () { window.RTMV5038.renderAdmin(); });
     };
     if (back) back.textContent = 'Назад к Базе знаний';
   }
+  var stableSwitchAdmin=window.switchAdmin||switchAdmin;
+  window.switchAdmin=switchAdmin=function(view){if(state.knowledgeEditorReturn&&view!=='database')restoreKnowledgeTestEditor();return stableSwitchAdmin.apply(this,arguments);};
   window.renderInlineTestEditor = function (item) {
     return '<div class="inline-full-editor v51-inline-test-launch"><div class="inline-title">' + esc(item.NAME) + '</div><p>Тест редактируется в едином визуальном редакторе: сцена слева, параметры вопросов справа.</p><button type="button" class="primary" data-v51-open-inline-test="' + item.ID + '">Открыть визуальный редактор</button></div>';
   };
@@ -887,6 +889,8 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   }
   function instantiateBlock(template, question, questionIndex, prototypeIndex, targetY, frameId) {
     var source = template.elements.filter(function (element) { return elementQuestionIndex(element) === prototypeIndex; });
+    var seenQuestionText=false;
+    source=source.filter(function(element){var binding=element.customData&&element.customData.rtmTestText;if(!binding||binding.kind!=='question')return true;if(seenQuestionText)return false;seenQuestionText=true;return true;});
     var minY = Math.min.apply(null, source.map(function (element) { return Number(element.y || 0); }));
     var maxY = Math.max.apply(null, source.map(function (element) { return Number(element.y || 0) + Number(element.height || 0); }));
     var options = question.options || [];
