@@ -565,3 +565,9 @@ Rollback: тег `v53.0.11`. Миграции базы данных не доб�
 - Общая серверная тема применяется всему приложению в принудительной светлой палитре.
 
 Rollback: тег создаётся перед production-deploy. Миграции базы данных не добавлялись.
+# v53.0.23 — 2026-08-20
+
+- Completion persistence no longer reports a false failure when a stale legacy view disappears after the server accepts progress.
+- Article completion proceeds to the next available course material and activity telemetry cannot block it.
+- Removed automatic native `title` generation that produced oversized concatenated browser tooltips; contextual help is attached only to mapped controls.
+- Hardened legacy/react view transitions and made mobile acknowledgement sheets use the full available height.

@@ -64,10 +64,10 @@ function MaterialSurface({ bridge, material, course, onBack }) {
       if (active) setRenderError(error?.message || "Не удалось открыть материал");
     });
     const back = node.querySelector("#uBackToCourse"); if (back) back.onclick = () => onBackRef.current();
-    const done = node.querySelector("#uMarkMaterialDone"); if (done) done.onclick = async () => { await bridge.completeMaterial(material.ID); onBackRef.current(); };
+    const done = node.querySelector("#uMarkMaterialDone"); if (done && kindOf(material) !== "article") done.onclick = async () => { await bridge.completeMaterial(material.ID); onBackRef.current(); };
     const observer = new MutationObserver(() => { if (node.classList.contains("hidden")) onBackRef.current(); });
     observer.observe(node, { attributes: true, attributeFilter: ["class"] });
-    return () => { active = false; observer.disconnect(); if (parent) parent.insertBefore(node, next); };
+    return () => { active = false; observer.disconnect(); if (node.parentNode === slot.current && parent?.isConnected) { if (next?.parentNode === parent) parent.insertBefore(node, next); else parent.appendChild(node); } };
   }, [bridge, material.ID, renderKey]);
   return <main className="lr-material-shell"><button className="lr-back lr-material-back" onClick={onBack}><Icon name="back" />Назад</button><div className="lr-material-context"><span>{course?.NAME || "Материал"}</span><span aria-hidden="true">/</span><strong>{material.NAME}</strong></div>{renderError && <section className="lr-material-error" role="alert"><b>Не удалось открыть материал</b><span>{renderError}</span><button className="lr-secondary" onClick={() => setRenderKey((value) => value + 1)}>Повторить</button></section>}<div ref={slot} className="lr-legacy-material" /></main>;
 }

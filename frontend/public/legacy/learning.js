@@ -47,7 +47,7 @@
   var openMaterialBase = window.openUserMaterial;
   if (typeof openMaterialBase === 'function') window.openUserMaterial = function (item) { var result = openMaterialBase.apply(this, arguments); beginActivity(item); return result; };
   var finishArticleBase = window.finishCurrentArticle;
-  if (typeof finishArticleBase === 'function') window.finishCurrentArticle = async function () { await flushActivity(); activity = null; return finishArticleBase.apply(this, arguments); };
+  if (typeof finishArticleBase === 'function') window.finishCurrentArticle = async function () { try { await flushActivity(); } catch (error) { console.warn('Activity flush did not block article completion', error); } activity = null; return finishArticleBase.apply(this, arguments); };
   document.addEventListener('visibilitychange', function () { if (document.hidden) flushActivity(); else if (visibleMaterial()) beginActivity(visibleMaterial()); });
   setInterval(function () { if (!document.hidden && activity) flushActivity(); }, 30000);
 
