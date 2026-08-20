@@ -796,6 +796,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   new MutationObserver(function () { fitMobileReaderHeight(); }).observe(document.documentElement, {childList: true, subtree: true});
   document.addEventListener('DOMContentLoaded', function () { ensureReviewView(); fitMobileReaderHeight(); });
   ensureReviewView();
+  var knowledgeTestEditorHome = null;
   async function openKnowledgeTest(doc, kind) {
     state.v540Workspace = 'test';
     var key = kind === 'full' ? 'fullTest' : 'lightTest', source = clone(doc[key] || {}), syntheticId = 'knowledge_' + doc.id + '_' + kind;
@@ -805,6 +806,8 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     if (item) { item.NAME = source.title; item.PROPERTY_VALUES = props; } else state.items.push({ID: syntheticId, NAME: source.title, PROPERTY_VALUES: props});
     state.testId = syntheticId; state.testEditorTab = 'questions'; state.knowledgeEditorReturn = true;
     switchAdmin('materials'); showOnlyEditor('testEditorView');
+    var testView=document.getElementById('testEditorView'),databaseView=document.getElementById('adminDatabase');
+    if(testView&&databaseView){if(!knowledgeTestEditorHome)knowledgeTestEditorHome={parent:testView.parentNode,next:testView.nextSibling};databaseView.appendChild(testView);testView.classList.remove('hidden');activateAdminView('database');state.aview='database';}
     var adminShell = document.querySelector('.admin-shell'), projectsPanel = document.getElementById('projectsPanel');
     if (adminShell) { adminShell.classList.remove('with-projects'); adminShell.classList.add('no-projects'); }
     if (projectsPanel) projectsPanel.style.display = 'none';
@@ -816,6 +819,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     if (back) back.onclick = function () {
       state.knowledgeEditorReturn = false;
       state.v540Workspace = '';
+      if(testView&&knowledgeTestEditorHome){knowledgeTestEditorHome.parent.insertBefore(testView,knowledgeTestEditorHome.next);testView.classList.add('hidden');knowledgeTestEditorHome=null;}
       if (projectsPanel) projectsPanel.style.display = '';
       switchAdmin('database');
       if (window.RTMV5038) window.RTMV5038.reload().then(function () { window.RTMV5038.renderAdmin(); });

@@ -23,5 +23,9 @@
 @keyframes adm-view-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @media(max-width:1250px){.adm-workspace[data-admin-route="materials"]{grid-template-columns:1fr}.adm-workspace[data-admin-route="materials"]>#projectsPanel{position:static;max-height:none}.adm-workspace .users-toolbar{grid-template-columns:1fr 1fr}.adm-workspace .v51-checks{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.adm-workspace .users-toolbar,.adm-workspace .v51-checks{grid-template-columns:1fr}.adm-workspace .v51-settings-grid{grid-template-columns:1fr 1fr}}
+
+.adm-workspace .v51-checks label{display:flex;flex-direction:row;align-items:center;gap:12px}
+.adm-workspace .v51-checks label>span:last-child{display:grid;gap:2px;min-width:0}
+.adm-workspace .v51-checks label b,.adm-workspace .v51-checks label small{display:block}
 @media(hover:hover) and (pointer:fine){.adm-workspace button:hover,.adm-top-actions button:hover,.adm-sidebar nav button:hover{transform:translateY(-1px)}}
 .adm-route-error{position:sticky;top:0;z-index:40;margin:0 0 16px;padding:12px 14px;border:1px solid #fecaca;border-radius:12px;background:#fff1f2;color:#b91c1c;font-weight:700}
