@@ -1067,7 +1067,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     root.querySelectorAll('[data-v52-review-filter]').forEach(function (button) { button.onclick = function () { reviewState.filter = button.dataset.v52ReviewFilter; reviewState.selected = ''; renderReviewsV52(root); }; });
     root.querySelectorAll('[data-v52-review]').forEach(function (button) { button.onclick = function () { reviewState.selected = button.dataset.v52Review; renderReviewsV52(root); }; });
     var search = root.querySelector('#v52ReviewSearch'); if (search) search.oninput = function () { reviewState.query = search.value; reviewState.selected = ''; renderReviewsV52(root); };
-    var back = document.getElementById('v52ReviewBack'); if (back) back.onclick = function () { reviewState.selected = ''; root.querySelector('.v52-review-workspace').classList.remove('has-detail'); };
+    var back = document.getElementById('v52ReviewBack'); if (back) back.onclick = function () { reviewState.selected = ''; var workspace=root.querySelector('.v52-review-workspace');if(workspace)workspace.classList.remove('has-detail'); };
     var cancel = root.querySelector('#v52ReviewCancel'); if (cancel) cancel.onclick = function () { reviewState.selected = ''; renderReviewsV52(root); };
     var refresh = root.querySelector('#v52ReviewRefresh'); if (refresh) refresh.onclick = async function () { await loadAll(true); renderReviewsV52(root); };
     var save = document.getElementById('v52SaveReview'); if (save && selected) save.onclick = async function () {

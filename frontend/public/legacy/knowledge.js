@@ -288,13 +288,13 @@
     modal('<div class="v542-test-preview"><header><div><h2>'+html(projection.NAME)+'</h2><p>Предпросмотр как у ученика · правильные ответы отмечены</p></div><button type="button" data-v542-close-preview>Закрыть</button></header>'+renderTakeTest(projection)+'</div>');
     var close=document.querySelector("[data-v542-close-preview]");if(close)close.onclick=closeModal;
   }
-  window.openTestEditor=openTestEditor=async function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta||state.mode==='admin')return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);})||await api("/api/v47/knowledge/documents/"+meta.knowledgeDocumentId);return previewLinkedTest(doc,meta.knowledgeKind,item);};
+  window.openTestEditor=openTestEditor=async function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);})||await api("/api/v47/knowledge/documents/"+meta.knowledgeDocumentId);return previewLinkedTest(doc,meta.knowledgeKind,item);};
 
   var baseInlineTestEditor=window.renderInlineTestEditor;
   window.renderInlineTestEditor=function(item){
     var meta=linkedMeta(item);
     if(!meta)return baseInlineTestEditor.apply(this,arguments);
-    return '<div class="inline-full-editor v538-linked-preview"><div class="inline-title">'+html(item.NAME)+'</div><div class="v538-readonly-note">Это общий тест из Базы знаний. В курсе он доступен только для просмотра, чтобы изменения не затронули другие курсы.</div><button type="button" class="primary" data-v51-open-inline-test="'+html(item.ID)+'">Просмотреть тест</button></div>';
+    return '<div class="inline-full-editor v538-linked-preview"><div class="inline-title">'+html(item.NAME)+'</div><div class="v538-readonly-note">Это общий тест из Базы знаний. В курсе он доступен только для просмотра.</div><div class="inline-actions"><button type="button" class="primary" data-v51-open-inline-test="'+html(item.ID)+'">Предпросмотр</button><button type="button" data-v538-open-knowledge="'+html(meta.knowledgeDocumentId)+'">Открыть в базе знаний</button></div></div>';
   };
 
   async function courseRoleEditor(item) {
@@ -422,6 +422,13 @@
     async function save(){var payload={}, rules=function(name){return Array.from(sets[name]).map(function(value){var part=value.split(":");return {type:part.shift(),id:part.join(":")};});};payload[prefix+"Assignments"]=rules("students");payload[prefix+"Reviewers"]=rules("reviewers");payload[prefix+"Editors"]=rules("editors");if(kind === "article")payload.inheritTestAssignments=document.getElementById("v540Inherit").checked;await api("/api/v47/knowledge/documents/"+id,{method:"PUT",body:JSON.stringify(payload)});toast("Назначения сохранены");back();}
     draw();
   }
+  async function unifiedAssignments(id,kind){
+    state.v540Workspace="assignments";
+    var doc=await api("/api/v47/knowledge/documents/"+id),dir=await api("/api/v47/knowledge/directory"),prefix=kind==="article"?"article":kind==="light"?"lightTest":"fullTest",recipientRules=doc[prefix+"Assignments"]||[],responsibleRules=doc[prefix+"Reviewers"]||doc.reviewers||[],selectedUsers=recipientRules.filter(function(r){return r.type==="user";}).map(function(r){return r.id;}),selectedDepartments=recipientRules.filter(function(r){return r.type==="department";}).map(function(r){return r.id;}),responsibles=responsibleRules.filter(function(r){return r.type==="user";}).map(function(r){return r.id;}),all=recipientRules.some(function(r){return r.type==="all_active";}),picker;
+    shell("Назначения",doc.title+" · "+title[kind],'<div id="v540UnifiedPicker"></div>','<button class="primary" id="v540UnifiedSave">Сохранить назначения</button>');
+    picker=window.RTMAssignmentPicker.mount(document.getElementById("v540UnifiedPicker"),{users:dir.users||[],departments:dir.departments||[],responsibles:(dir.users||[]).filter(function(u){return u.reviewerAllowed;}),selectedUsers:selectedUsers,selectedDepartments:selectedDepartments,includeChildren:selectedDepartments,selectedResponsibles:responsibles,allActive:all});
+    document.getElementById("v540UnifiedSave").onclick=async function(){var value=picker.getValue(),rules=value.allActive?[{type:"all_active",id:""}]:value.selectedUserIds.map(function(uid){return{type:"user",id:uid};}).concat(value.departmentIds.map(function(departmentId){return{type:"department",id:departmentId,includeChildren:value.includeChildren.includes(departmentId)};})),payload={};payload[prefix+"Assignments"]=rules;payload[prefix+"Reviewers"]=value.responsibleIds.map(function(uid){return{type:"user",id:uid};});await api("/api/v47/knowledge/documents/"+id,{method:"PUT",body:JSON.stringify(payload)});toast("Назначения сохранены");back();};
+  }
   document.addEventListener("click", function (event) {
     var target=event.target,button=target&&target.closest&&target.closest("[data-v538-edit-article],[data-v538-edit-test],[data-v538-assign],[data-v538-create-test]");if(!button)return;
     var id=currentId(button);if(!id)return;
@@ -436,8 +443,10 @@
       state.v540Workspace="";
       toast(error.message||String(error));
     });
-    else assignments(id,kind).catch(function(error){state.v540Workspace="";toast(error.message||String(error));});
+    else unifiedAssignments(id,kind).catch(function(error){state.v540Workspace="";toast(error.message||String(error));});
   }, true);
+
+  document.addEventListener("click",function(event){var button=event.target.closest&&event.target.closest("[data-v538-open-knowledge]");if(!button)return;event.preventDefault();event.stopPropagation();adminSelected=button.dataset.v538OpenKnowledge;state.v540Workspace="";if(typeof switchAdmin==="function")switchAdmin("database");renderAdminKnowledge();},true);
 
   var baseRenderAllV540=window.renderAll;
   window.renderAll=renderAll=function(){

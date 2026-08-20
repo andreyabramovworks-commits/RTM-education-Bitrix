@@ -8,8 +8,8 @@ const host = await readFile(new URL("../src/LegacyReactHost.jsx", import.meta.ur
 const runtime = await readFile(new URL("../public/legacy/runtime-core.js", import.meta.url), "utf8");
 const learning = await readFile(new URL("../public/legacy/learning.js", import.meta.url), "utf8");
 const knowledge = await readFile(new URL("../public/legacy/knowledge.js", import.meta.url), "utf8");
-const releaseStyles = await readFile(new URL("../public/legacy/release-53-0-18.css", import.meta.url), "utf8");
-const releaseRuntime = await readFile(new URL("../public/legacy/release-53-0-18.js", import.meta.url), "utf8");
+const runtimeStyles = await readFile(new URL("../public/legacy/runtime-core.css", import.meta.url), "utf8");
+const assignmentPicker = await readFile(new URL("../public/legacy/assignment-picker.js", import.meta.url), "utf8");
 
 test("v53 admin shell owns navigation and exposes every approved route", () => {
   for (const route of ["dashboard", "materials", "users", "database", "reviews", "analytics", "events", "settings", "info"]) {
@@ -106,17 +106,17 @@ test("all-active recipient mode can hide detailed recipient groups", async () =>
   assert.match(acknowledgementStyles, /\[hidden\]\s*\{\s*display:\s*none\s*!important\s*\}/);
 });
 
-test("v53.0.18 removes linked course roles and permits admin test editing", () => {
+test("v53.0.19 removes linked course roles and routes linked tests through knowledge", () => {
   assert.doesNotMatch(knowledge, /button\.textContent="Роли"/);
-  assert.match(knowledge, /!meta\|\|state\.mode==='admin'/);
+  assert.doesNotMatch(knowledge, /!meta\|\|state\.mode==='admin'/);
 });
 
-test("v53.0.18 owns the final responsive course and material-loading surfaces", () => {
-  assert.match(releaseStyles, /#courseSectionsEditor \.material-line/);
-  assert.match(releaseStyles, /\[data-v538-course-roles\]\{display:none!important\}/);
-  assert.match(releaseStyles, /#userMaterialView\.rtm-material-pending/);
-  assert.match(releaseRuntime, /MutationObserver\(stabilizeMaterialView\)/);
-  assert.match(releaseRuntime, /\[data-toggle-required\]/);
+test("v53.0.19 owns the final responsive course and material-loading surfaces", () => {
+  assert.match(runtimeStyles, /#courseSectionsEditor \.material-line/);
+  assert.match(runtimeStyles, /\[data-v538-course-roles\]\{display:none\}/);
+  assert.match(assignmentPicker, /data-picker-all/);
+  assert.match(assignmentPicker, /rtm-picker-specific/);
+  assert.match(runtime, /\[data-toggle-required\]/);
 });
 
 test("legacy render hooks cannot remount the React shell", () => {
