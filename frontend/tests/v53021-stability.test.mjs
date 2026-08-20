@@ -23,7 +23,7 @@ test("section settings use the shared modal instead of a browser prompt", () => 
 
 test("knowledge test editor is restored before leaving its route", () => {
   assert.match(learning, /function restoreKnowledgeTestEditor/);
-  assert.match(learning, /state\.knowledgeEditorReturn&&view!==['"]database['"]/);
+  assert.match(runtime, /state\.knowledgeEditorReturn&&v!==['"]database['"]/);
   assert.match(learning, /restoreKnowledgeTestEditor\(\);\s*switchAdmin\(['"]database['"]\)/);
 });
 

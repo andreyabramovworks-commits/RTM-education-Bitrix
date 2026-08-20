@@ -164,3 +164,9 @@ body,
     background-color: #f5f7fb !important;
   }
 }
+
+:root,
+html,
+body {
+  color-scheme: only light;
+}
