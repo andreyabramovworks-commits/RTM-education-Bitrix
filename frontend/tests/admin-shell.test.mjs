@@ -106,12 +106,12 @@ test("all-active recipient mode can hide detailed recipient groups", async () =>
   assert.match(acknowledgementStyles, /\[hidden\]\s*\{\s*display:\s*none\s*!important\s*\}/);
 });
 
-test("v53.0.19 removes linked course roles and routes linked tests through knowledge", () => {
+test("v53.0.20 removes linked course roles and routes linked tests through knowledge", () => {
   assert.doesNotMatch(knowledge, /button\.textContent="Роли"/);
   assert.doesNotMatch(knowledge, /!meta\|\|state\.mode==='admin'/);
 });
 
-test("v53.0.19 owns the final responsive course and material-loading surfaces", () => {
+test("v53.0.20 owns the final responsive course and material-loading surfaces", () => {
   assert.match(runtimeStyles, /#courseSectionsEditor \.material-line/);
   assert.match(runtimeStyles, /\[data-v538-course-roles\]\{display:none\}/);
   assert.match(assignmentPicker, /data-picker-all/);

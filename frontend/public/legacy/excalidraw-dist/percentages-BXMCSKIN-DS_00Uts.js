@@ -42802,7 +42802,7 @@ function G5e({ elements: e, viewport: t, origin: n, readOnly: r, onComplete: a }
     if (o.id === (l == null ? void 0 : l.id) || Ef(o)) return /* @__PURE__ */ m.jsx("button", { type: "button", "aria-label": "Завершить материал", className: "rtm-complete-hit", style: c, onClick: () => {
       var h;
       return a == null ? void 0 : a(String(((h = o.customData) == null ? void 0 : h.rtmCompletionId) || o.id));
-    }, children: "Завершить" }, o.id);
+    } }, o.id);
     const f = Ub(o.link);
     return f ? /* @__PURE__ */ m.jsx("a", { className: "rtm-link-hit", style: c, href: f, target: "_blank", rel: "noopener noreferrer", "aria-label": o.text || "Открыть ссылку" }, o.id) : null;
   }) });
@@ -42944,7 +42944,7 @@ function iW({ options: e }) {
         if (j.id === (_ == null ? void 0 : _.id) || Ef(j)) return /* @__PURE__ */ m.jsx("button", { type: "button", "aria-label": "Завершить материал", className: "rtm-unified-complete-hit", style: D, onClick: () => {
           var H, V;
           return (V = e.onComplete) == null ? void 0 : V.call(e, String(((H = j.customData) == null ? void 0 : H.rtmCompletionId) || j.id));
-        }, children: "Завершить" }, j.id);
+        } }, j.id);
         const z = Ub(j.link);
         return z ? /* @__PURE__ */ m.jsx("a", { className: "rtm-unified-link-hit", style: D, href: z, target: "_blank", rel: "noopener noreferrer", "aria-label": j.text || "Открыть ссылку" }, j.id) : null;
       }),

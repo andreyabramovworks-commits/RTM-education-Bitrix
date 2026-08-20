@@ -291,7 +291,7 @@
   window.openTestEditor=openTestEditor=async function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);})||await api("/api/v47/knowledge/documents/"+meta.knowledgeDocumentId);return previewLinkedTest(doc,meta.knowledgeKind,item);};
 
   var baseInlineTestEditor=window.renderInlineTestEditor;
-  window.renderInlineTestEditor=function(item){
+  window.renderInlineTestEditor=renderInlineTestEditor=function(item){
     var meta=linkedMeta(item);
     if(!meta)return baseInlineTestEditor.apply(this,arguments);
     return '<div class="inline-full-editor v538-linked-preview"><div class="inline-title">'+html(item.NAME)+'</div><div class="v538-readonly-note">Это общий тест из Базы знаний. В курсе он доступен только для просмотра.</div><div class="inline-actions"><button type="button" class="primary" data-v51-open-inline-test="'+html(item.ID)+'">Предпросмотр</button><button type="button" data-v538-open-knowledge="'+html(meta.knowledgeDocumentId)+'">Открыть в базе знаний</button></div></div>';
@@ -353,7 +353,8 @@
     return window.RTMV5038.reload().then(function () { return window.RTMV5038.renderAdmin(); });
   }
   function shell(heading, subtitle, body, actions) {
-    host().innerHTML = '<section class="v539-page v540-page"><header class="v539-page-head"><div><button id="v540Back">Назад к Базе знаний</button><h1>'+esc(heading)+'</h1><p class="muted">'+esc(subtitle || "")+'</p></div></header>'+(actions ? '<div class="v539-sticky">'+actions+'</div>' : "")+body+'</section>';
+    if (!host()) throw new Error("Knowledge workspace is not mounted yet");
+    host().innerHTML = '<section class="v539-page v540-page"><header class="v539-page-head"><div><button id="v540Back">Назад к Базе знаний</button><h1>'+esc(heading)+'</h1><p class="muted">'+esc(subtitle || "")+'</p></div>'+(actions ? '<div class="v540-page-actions">'+actions+'</div>' : "")+'</header>'+body+'</section>';
     document.getElementById("v540Back").onclick = back;
   }
   function currentId(button) {
@@ -376,7 +377,9 @@
     shell("Редактирование статьи", doc.title,
       '<div class="v539-form"><label>Название<input id="v540Title" value="'+esc(doc.title)+'"></label><label>Описание<textarea id="v540Description">'+esc(doc.description || "")+'</textarea></label><label>Ссылка на документ<input id="v540Url" value="'+esc(doc.documentUrl || "")+'"></label></div><div id="v540Canvas"></div>',
       '<button class="primary" id="v540Save">Сохранить изменения</button>');
-    window.RTMCanvas.mount(document.getElementById("v540Canvas"), { pageKey:"knowledge-admin:"+id, scene:scene, readOnly:false, completionRequired:true, title:doc.title, brandColor:"#12b886", onChange:function(next){scene=next;}, onRequestDisk:window.RTMV46 && window.RTMV46.pickDiskMedia });
+    if(window.__RTM_LOAD_CANVAS__)await window.__RTM_LOAD_CANVAS__();
+    var canvasHost=document.getElementById("v540Canvas");if(!canvasHost||!window.RTMCanvas)throw new Error("Редактор статьи не загрузился. Повторите открытие.");
+    window.RTMCanvas.mount(canvasHost, { pageKey:"knowledge-admin:"+id, scene:scene, readOnly:false, completionRequired:true, title:doc.title, brandColor:"#12b886", onChange:function(next){scene=next;}, onRequestDisk:window.RTMV46 && window.RTMV46.pickDiskMedia });
     document.getElementById("v540Save").onclick = async function () {
       this.disabled = true;
       await api("/api/v47/knowledge/documents/"+id, { method:"PUT", body:JSON.stringify({ title:document.getElementById("v540Title").value.trim(), description:document.getElementById("v540Description").value, documentUrl:document.getElementById("v540Url").value.trim(), scene:scene }) });
@@ -447,6 +450,17 @@
   }, true);
 
   document.addEventListener("click",function(event){var button=event.target.closest&&event.target.closest("[data-v538-open-knowledge]");if(!button)return;event.preventDefault();event.stopPropagation();adminSelected=button.dataset.v538OpenKnowledge;state.v540Workspace="";if(typeof switchAdmin==="function")switchAdmin("database");renderAdminKnowledge();},true);
+
+  /* One assignment owner for courses and standalone materials. Course rules are
+     inherited by children; linked knowledge materials stay read-only here. */
+  var previousAssignmentPanel=window.renderAssignmentPanel;
+  window.renderAssignmentPanel=renderAssignmentPanel=function(kind){
+    var cfg=assignmentConfig(kind),pane=$(cfg.pane);if(!pane||!cfg.id||!window.RTMAssignmentPicker)return previousAssignmentPanel&&previousAssignmentPanel(kind);
+    var rows=state.assigns.filter(function(row){var p=row.PROPERTY_VALUES||{};return String(p.targetId)===String(cfg.id)&&String(p.targetType)===String(cfg.targetType);}),recipients=rows.filter(function(row){return (row.PROPERTY_VALUES||{}).assignmentKind!=="teacher";}),teachers=rows.filter(function(row){return (row.PROPERTY_VALUES||{}).assignmentKind==="teacher";}),people=(state.users||[]).map(function(user){return Object.assign({},user,{id:String(user.ID),name:fullName(user),role:roleLabel(getAppRole(user)),departmentIds:user.UF_DEPARTMENT||[]});}),picker;
+    pane.innerHTML='<section class="assignment-card v540-material-assignments"><div class="assignment-head"><div><h2>Получатели и ответственные</h2><p class="muted">'+(kind==="course"?'Назначение курса автоматически действует для всех его материалов.':'Настройте получателей и проверяющих материала.')+'</p></div><button class="primary" data-v540-save-material-assignments>Сохранить назначения</button></div><div data-v540-material-picker></div></section>';
+    picker=window.RTMAssignmentPicker.mount(pane.querySelector('[data-v540-material-picker]'),{users:people,departments:(state.departments||[]).map(function(d){return{id:String(d.ID),name:d.NAME,parentId:String(d.UF_PARENT_SECTION||d.PARENT_ID||"")};}),responsibles:people.filter(function(u){return ["teacher","admin","developer","moderator"].includes(String(getAppRole(u)));}),selectedUsers:recipients.map(function(row){return String(row.PROPERTY_VALUES.userId);}),selectedDepartments:[],includeChildren:[],selectedResponsibles:teachers.map(function(row){return String(row.PROPERTY_VALUES.userId);}),allActive:false});
+    pane.querySelector('[data-v540-save-material-assignments]').onclick=async function(){var button=this,value=picker.getValue(),wanted=new Set(value.userIds.map(String)),wantedTeachers=new Set(value.responsibleIds.map(String));button.disabled=true;try{for(var row of recipients){if(!wanted.has(String(row.PROPERTY_VALUES.userId))){await del(E.assigns,row.ID);state.assigns=state.assigns.filter(function(item){return String(item.ID)!==String(row.ID);});}}var existing=new Set(recipients.map(function(row){return String(row.PROPERTY_VALUES.userId);}));for(var uid of wanted){if(existing.has(uid))continue;var props={targetId:String(cfg.id),targetType:cfg.targetType,userId:uid,source:kind==="course"?"course":"material"},aid=await add(E.assigns,'Назначение: '+cfg.title,props);state.assigns.unshift({ID:String(aid),NAME:'Назначение: '+cfg.title,PROPERTY_VALUES:props,DATE_CREATE:now()});}for(var teacher of teachers){if(!wantedTeachers.has(String(teacher.PROPERTY_VALUES.userId))){await del(E.assigns,teacher.ID);state.assigns=state.assigns.filter(function(item){return String(item.ID)!==String(teacher.ID);});}}var existingTeachers=new Set(teachers.map(function(row){return String(row.PROPERTY_VALUES.userId);}));for(var responsible of wantedTeachers){if(!existingTeachers.has(responsible))await addTeacher(kind,responsible,"",false,false);}await persistNow();toast('Назначения сохранены');renderAssignmentPanel(kind);}finally{button.disabled=false;}};
+  };
 
   var baseRenderAllV540=window.renderAll;
   window.renderAll=renderAll=function(){
