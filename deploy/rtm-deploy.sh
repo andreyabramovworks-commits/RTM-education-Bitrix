@@ -15,7 +15,7 @@ TARGET="$(git rev-parse origin/main)"
 LAST_SUCCESS="$(git rev-parse --verify refs/rtm/last-success 2>/dev/null || printf '%s' "$CURRENT")"
 ROLLBACK_TARGET="$LAST_SUCCESS"
 
-if [[ "$LAST_SUCCESS" == "$TARGET" ]] && [[ "${FORCE_DEPLOY:-0}" != "1" ]]; then
+if [[ "$CURRENT" == "$TARGET" ]] && [[ "$LAST_SUCCESS" == "$TARGET" ]] && [[ "${FORCE_DEPLOY:-0}" != "1" ]]; then
     exit 0
 fi
 
@@ -50,7 +50,10 @@ docker compose up -d --remove-orphans
 docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 
 for attempt in {1..30}; do
-    if curl --fail --silent --show-error https://rtmgroupdocs.fvds.ru/api/ready >/dev/null; then
+    DEPLOYED_VERSION="$(curl --fail --silent --show-error https://rtmgroupdocs.fvds.ru/api/health 2>/dev/null \
+        | sed -n 's/.*"version":"\([^"]*\)".*/\1/p' || true)"
+    if curl --fail --silent --show-error https://rtmgroupdocs.fvds.ru/api/ready >/dev/null \
+        && [[ "$DEPLOYED_VERSION" == "${TARGET:0:12}"* ]]; then
         git update-ref refs/rtm/last-success "$TARGET"
         trap - ERR
         logger -t rtm-deploy "Deployment ${TARGET:0:12} completed"

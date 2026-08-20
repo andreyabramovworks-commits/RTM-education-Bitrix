@@ -46,6 +46,12 @@
 		reverse_proxy backend:8000
 	}
 
+	# Finance service is hosted outside this Compose project.
+	handle /finance-api/* {
+		uri strip_prefix /finance-api
+		reverse_proxy 172.18.0.1:18080
+	}
+
 	handle {
 		header {
 			-X-Frame-Options
