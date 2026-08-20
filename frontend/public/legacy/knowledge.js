@@ -247,7 +247,7 @@
   }
 
   var baseSwitchAdmin=window.switchAdmin;
-  window.switchAdmin=switchAdmin=function(view){
+  function knowledgeSwitchAdmin(view){
     if(view==="database"&&!["developer","admin","editor","moderator"].includes(String(state.currentRole||"")))return toast("Управление Базой знаний доступно редакторам, администраторам и разработчику");
     var result=baseSwitchAdmin.apply(this,arguments);
     if(view==="database"){state.aview="database";renderAdminKnowledge().catch(function(error){toast(error.message||String(error));});}
@@ -263,7 +263,7 @@
   window.addMaterialModalForCourse=addMaterialModalForCourse=function(){
     baseCourseModal.apply(this,arguments);
     var grid=document.querySelector(".add-material-grid");if(!grid||grid.querySelector("[data-v538-course]"))return;
-    var tile=document.createElement("button");tile.className="add-tile";tile.dataset.v538Course="1";tile.innerHTML='<span>📚</span><div><h3>Из Базы знаний</h3><p class="muted">Статья и созданные тесты</p></div>';grid.appendChild(tile);
+    var tile=document.createElement("button");tile.className="add-tile";tile.dataset.v538Course="1";tile.innerHTML='<svg class="tile-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="7" ry="3"/><path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5"/><path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg><div><h3>Из Базы знаний</h3><p class="muted">Статьи и созданные тесты</p></div>';grid.appendChild(tile);
     tile.onclick=coursePicker;
   };
   async function coursePicker() {

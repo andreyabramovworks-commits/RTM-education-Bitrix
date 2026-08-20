@@ -678,20 +678,21 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     if (timedOut) hasFree = false;
     var autoPassed = !timedOut && (automatic === 0 || good >= Number(meta.passRequired || 0)), score = automatic ? Math.round(good / automatic * 100) : timedOut ? 0 : 100, reviewerId = courseReviewer(test), returned = timedOut ? null : userAttempt(test.ID, ['returned']);
     var props = {courseId: String(materialCourseId(test) || test.PROPERTY_VALUES.parentId || ''), testId: String(test.ID), userId: String(typeof rtmCanonicalUserId === 'function' ? rtmCanonicalUserId(effectiveUserId()) : effectiveUserId()), score: String(score), automaticCorrect: String(good), automaticTotal: String(automatic), automaticPassed: autoPassed ? 'Y' : 'N', passed: hasFree ? 'PENDING' : autoPassed ? 'Y' : 'N', pendingReview: hasFree ? 'Y' : 'N', reviewStatus: hasFree ? 'pending_review' : autoPassed ? 'auto_passed' : 'auto_failed', reviewerId: reviewerId, answers: JSON.stringify(takeAnswers), testSnapshot: JSON.stringify({schemaVersion: 2, title: test.NAME, questions: meta.questions}), revision: String(Number(returned && returned.PROPERTY_VALUES.revision || 0) + 1), createdAt: returned && returned.PROPERTY_VALUES.createdAt || now(), updatedAt: now()};
-    var attemptId;try{
+    var attemptId,persisted=false;try{
     if (returned) { attemptId = returned.ID; await upd(E.attempts, returned.ID, returned.NAME || 'Попытка теста', props); returned.PROPERTY_VALUES = props; }
     else { attemptId = await add(E.attempts, 'Попытка теста', props); state.attempts.unshift({ID: String(attemptId), NAME: 'Попытка теста', PROPERTY_VALUES: props, DATE_CREATE: props.createdAt}); }
     localStorage.removeItem(orderKey(test));
     if (autoPassed) await complete(test.ID, 'test');
+    persisted=true;
     if (hasFree) { var destination = reviewerId || ((state.users || []).find(function (user) { return ['admin', 'developer'].includes(getAppRole(user)); }) || {}).ID; await notifyUser(destination, 'В RTM Education новый свободный ответ по тесту «' + test.NAME + '» ожидает проверки.'); }
     var title = timedOut ? 'Время истекло — тест не пройден' : hasFree ? (autoPassed ? 'Автоматическая часть пройдена' : 'Автоматическая часть не пройдена') : autoPassed ? 'Тест пройден' : 'Тест не пройден';
     var message = hasFree ? '<p>Свободный ответ отправлен проверяющему.</p>' + (autoPassed ? '<p>Следующий материал доступен.</p>' : '<p>Для открытия следующего материала сначала пройдите автоматическую часть.</p>') : '';
     var left = remainingAttempts(test, meta);
     modal('<div class="test-outcome ' + (autoPassed ? hasFree ? 'pending' : 'ok' : 'bad') + '"><h2>' + title + '</h2><p>Верно: <b>' + good + ' из ' + automatic + '</b></p>' + (timedOut ? '<p>Попыток осталось: <b>' + left + '</b></p>' : message) + (timedOut && left > 0 ? '<button class="primary" id="v51OutcomeRetry">Пройти заново</button>' : '') + '<button id="v51OutcomeNext">Продолжить</button></div>');
     var retryButton = document.getElementById('v51OutcomeRetry'); if (retryButton) retryButton.onclick = function () { closeModal(); var body = document.getElementById('uMaterialBody'); if (body) { body.innerHTML = renderTakeTest(test); document.querySelectorAll('[data-take-test]').forEach(function (row) { row.onsubmit = takeTestSubmit; }); } };
-    document.getElementById('v51OutcomeNext').onclick = function () { closeModal(); if (autoPassed || !meta.required) adjacentMat(1); else openUserMaterial(test); };
-    toast('Ответы сохранены');renderProfile(); renderUserCourses();
-    }catch(error){delete form.dataset.submitting;if(submitButton){submitButton.disabled=false;submitButton.textContent=submitButton.dataset.label||'Отправить ответы';}alert('Не удалось отправить ответы. Ваш выбор сохранён на экране. '+(error&&error.message||error));}
+    var nextButton=document.getElementById('v51OutcomeNext');if(nextButton)nextButton.onclick=function(){closeModal();if(autoPassed||!meta.required)adjacentMat(1);else openUserMaterial(test);};
+    toast('Ответы сохранены');try{renderProfile();renderUserCourses();}catch(renderError){console.warn('Post-submit refresh failed',renderError);}
+    }catch(error){delete form.dataset.submitting;if(submitButton&&submitButton.isConnected){submitButton.disabled=false;submitButton.textContent=submitButton.dataset.label||'Отправить ответы';}if(persisted){console.error('Post-submit UI failed',error);toast('Ответы сохранены. Обновите экран, чтобы увидеть результат.');}else alert('Не удалось отправить ответы. Ваш выбор сохранён на экране. '+(error&&error.message||error));}
   };
 
   function reviewVisible(attempt) {
@@ -826,8 +827,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     };
     if (back) back.textContent = 'Назад к Базе знаний';
   }
-  var stableSwitchAdmin=window.switchAdmin||switchAdmin;
-  window.switchAdmin=switchAdmin=function(view){if(state.knowledgeEditorReturn&&view!=='database')restoreKnowledgeTestEditor();return stableSwitchAdmin.apply(this,arguments);};
+  window.RTMRestoreKnowledgeTestEditor=restoreKnowledgeTestEditor;
   window.renderInlineTestEditor = function (item) {
     return '<div class="inline-full-editor v51-inline-test-launch"><div class="inline-title">' + esc(item.NAME) + '</div><p>Тест редактируется в едином визуальном редакторе: сцена слева, параметры вопросов справа.</p><button type="button" class="primary" data-v51-open-inline-test="' + item.ID + '">Открыть визуальный редактор</button></div>';
   };
@@ -849,7 +849,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   function localId(prefix) { return (prefix || 'v52') + '_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now().toString(36); }
   function freeQuestion(question) { return ['freeText', 'mediaFreeText'].includes(String(question && question.type || '')); }
   function templateIndex(type) { return type === 'freeText' ? 1 : type === 'imageChoice' ? 2 : type === 'imageTextChoice' ? 3 : type === 'mediaFreeText' ? 4 : 0; }
-  function structureSignature(meta) { return (meta.questions || []).map(function (question) { return [question.id, question.type, (question.options || []).map(function (option) { return option.id; }).join(',')].join(':'); }).join('|'); }
+  function structureSignature(meta) { return (meta.questions || []).map(function (question) { return [question.id, question.type, question.text||'', question.media&&question.media.url||'', (question.options || []).map(function (option) { return [option.id,option.text||'',option.image||''].join('~'); }).join(',')].join(':'); }).join('|'); }
   function wrapText(value, limit) {
     return String(value || '').split('\n').map(function(line){
       var words=line.split(/\s+/), rows=[], current='';
@@ -901,7 +901,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
       var element = remapElementReferences(clone(sourceElement), idMap, frameId), data = element.customData = Object.assign({}, element.customData || {}, {rtmTemplateQuestionIndex: questionIndex, rtmTestQuestionId: String(question.id)});
       element.y = Number(element.y || 0) + dy;
       if (data.rtmTestText) {
-        var textBinding = data.rtmTestText, text = textBinding.kind === 'question' ? ((questionIndex + 1) + '. ' + (question.text || 'Вопрос')) : ((options[textBinding.optionIndex] || {}).text || ('Вариант ответа ' + (Number(textBinding.optionIndex) + 1)));
+        var textBinding = data.rtmTestText, text = textBinding.kind === 'question' ? ((questionIndex + 1) + '. ' + String(question.text || 'Вопрос').replace(/^\s*\d+[.)]\s*/,'')) : ((options[textBinding.optionIndex] || {}).text || ('Вариант ответа ' + (Number(textBinding.optionIndex) + 1)));
         if(textBinding.kind === 'question'){
           var limit=Math.max(26,Math.floor(Number(element.width||480)/(Number(element.fontSize||18)*.56)));
           text=wrapText(text,limit);element.autoResize=false;element.height=Math.max(Number(element.height||0),text.split('\n').length*Number(element.fontSize||18)*Number(element.lineHeight||1.25));
