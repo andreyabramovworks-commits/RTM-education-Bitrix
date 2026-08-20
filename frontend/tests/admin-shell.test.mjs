@@ -36,8 +36,9 @@ test("classic test edition and its persisted switch are removed", () => {
 test("new admin shell suspends the complete classic shell and mounts only page content", () => {
   assert.match(runtime, /root\.hidden=true;root\.inert=true;root\.style\.display='none';root\.setAttribute\('aria-hidden','true'\)/);
   assert.match(runtime, /rtmAdminRoot\.style\.display=rtmAdminRootState\.display/);
+  assert.match(runtime, /host\.appendChild\(projects\)/);
   assert.match(runtime, /host\.appendChild\(main\)/);
-  assert.doesNotMatch(runtime, /host\.appendChild\(projects\)/);
+  assert.match(runtime, /rtmAdminProjectsHome\.parent\.insertBefore\(projects,rtmAdminProjectsHome\.next\)/);
   assert.doesNotMatch(styles, /\.adm-workspace #projectsPanel/);
   assert.match(host, /mount\?\.querySelectorAll\("\.admin-view"\)/);
 });

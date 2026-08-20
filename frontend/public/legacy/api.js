@@ -234,14 +234,23 @@
   // v47 scene storage: PostgreSQL is authoritative. IndexedDB remains only a
   // short-lived unsent-draft safety net; application data is no longer merged
   // from localStorage or written to Bitrix.Disk.
+  var sceneReads = new Map();
   async function serverScene(articleId, pageId) {
-    try {
-      var result = await request('/api/v47/scenes/' + encodeURIComponent(articleId) + '/' + encodeURIComponent(pageId));
-      return result.scene || null;
-    } catch (error) {
-      if (error.status === 404) return null;
-      throw error;
-    }
+    var key = String(articleId) + ':' + String(pageId);
+    if (sceneReads.has(key)) return sceneReads.get(key);
+    var pending = (async function () {
+      try {
+        var result = await request('/api/v47/scenes/' + encodeURIComponent(articleId) + '/' + encodeURIComponent(pageId));
+        return result.scene || null;
+      } catch (error) {
+        if (error.status === 404) return null;
+        throw error;
+      } finally {
+        sceneReads.delete(key);
+      }
+    })();
+    sceneReads.set(key, pending);
+    return pending;
   }
 
   function visibleSceneElements(scene) {
