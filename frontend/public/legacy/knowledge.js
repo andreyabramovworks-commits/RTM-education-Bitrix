@@ -288,7 +288,7 @@
     modal('<div class="v542-test-preview"><header><div><h2>'+html(projection.NAME)+'</h2><p>Предпросмотр как у ученика · правильные ответы отмечены</p></div><button type="button" data-v542-close-preview>Закрыть</button></header>'+renderTakeTest(projection)+'</div>');
     var close=document.querySelector("[data-v542-close-preview]");if(close)close.onclick=closeModal;
   }
-  window.openTestEditor=openTestEditor=async function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);})||await api("/api/v47/knowledge/documents/"+meta.knowledgeDocumentId);return previewLinkedTest(doc,meta.knowledgeKind,item);};
+  window.openTestEditor=openTestEditor=async function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta||state.mode==='admin')return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);})||await api("/api/v47/knowledge/documents/"+meta.knowledgeDocumentId);return previewLinkedTest(doc,meta.knowledgeKind,item);};
 
   var baseInlineTestEditor=window.renderInlineTestEditor;
   window.renderInlineTestEditor=function(item){
@@ -304,12 +304,6 @@
     modal('<div class="v538-assignments"><h2>Проверяющие и редакторы только для этого курса</h2><p>'+html(item.NAME)+'</p><div class="v538-role-grid"><section><h3>Проверяющие</h3><div class="v538-choice-list">'+choices(reviewers,"reviewer")+'</div></section><section><h3>Редакторы</h3><div class="v538-choice-list">'+choices(editors,"editor")+'</div></section></div><div class="inline-actions right"><button onclick="closeModal()">Отмена</button><button class="primary" id="v538SaveLocalRoles">Сохранить для курса</button></div></div>');
     document.getElementById("v538SaveLocalRoles").onclick=async function(){meta.knowledgeReviewers=reviewerBase.concat(Array.from(document.querySelectorAll("[data-v538-local-reviewer]:checked")).map(function(x){return {type:"user",id:x.dataset.v538LocalReviewer};}));meta.knowledgeEditors=editorBase.concat(Array.from(document.querySelectorAll("[data-v538-local-editor]:checked")).map(function(x){return {type:"user",id:x.dataset.v538LocalEditor};}));await saveItemMeta(item.ID,meta);closeModal();toast("Настройки изменены только для этого курса");renderCourseEditor();};
   }
-  var baseRenderCourseEditor=window.renderCourseEditor;
-  window.renderCourseEditor=renderCourseEditor=function(){
-    var result=baseRenderCourseEditor.apply(this,arguments);
-    document.querySelectorAll("#courseSectionsEditor [data-open-child]").forEach(function(line){var item=findItem(line.dataset.openChild),meta=linkedMeta(item),actions=line.querySelector(".item-actions");if(!meta||!actions||actions.querySelector("[data-v538-course-roles]"))return;var button=document.createElement("button");button.dataset.v538CourseRoles=item.ID;button.title="Проверяющие и редакторы в этом курсе";button.textContent="Роли";actions.insertBefore(button,actions.firstChild);button.onclick=function(event){event.stopPropagation();courseRoleEditor(item);};});
-    return result;
-  };
 
   var baseRenderProjectList=window.renderProjectList;
   window.renderProjectList=function(){

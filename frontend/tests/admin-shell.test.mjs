@@ -7,6 +7,9 @@ const styles = await readFile(new URL("../src/admin.css", import.meta.url), "utf
 const host = await readFile(new URL("../src/LegacyReactHost.jsx", import.meta.url), "utf8");
 const runtime = await readFile(new URL("../public/legacy/runtime-core.js", import.meta.url), "utf8");
 const learning = await readFile(new URL("../public/legacy/learning.js", import.meta.url), "utf8");
+const knowledge = await readFile(new URL("../public/legacy/knowledge.js", import.meta.url), "utf8");
+const releaseStyles = await readFile(new URL("../public/legacy/release-53-0-18.css", import.meta.url), "utf8");
+const releaseRuntime = await readFile(new URL("../public/legacy/release-53-0-18.js", import.meta.url), "utf8");
 
 test("v53 admin shell owns navigation and exposes every approved route", () => {
   for (const route of ["dashboard", "materials", "users", "database", "reviews", "analytics", "events", "settings", "info"]) {
@@ -101,6 +104,19 @@ test("course editor survives route teardown and uses one responsive control per 
 test("all-active recipient mode can hide detailed recipient groups", async () => {
   const acknowledgementStyles = await readFile(new URL("../public/legacy/acknowledgements.css", import.meta.url), "utf8");
   assert.match(acknowledgementStyles, /\[hidden\]\s*\{\s*display:\s*none\s*!important\s*\}/);
+});
+
+test("v53.0.18 removes linked course roles and permits admin test editing", () => {
+  assert.doesNotMatch(knowledge, /button\.textContent="Роли"/);
+  assert.match(knowledge, /!meta\|\|state\.mode==='admin'/);
+});
+
+test("v53.0.18 owns the final responsive course and material-loading surfaces", () => {
+  assert.match(releaseStyles, /#courseSectionsEditor \.material-line/);
+  assert.match(releaseStyles, /\[data-v538-course-roles\]\{display:none!important\}/);
+  assert.match(releaseStyles, /#userMaterialView\.rtm-material-pending/);
+  assert.match(releaseRuntime, /MutationObserver\(stabilizeMaterialView\)/);
+  assert.match(releaseRuntime, /\[data-toggle-required\]/);
 });
 
 test("legacy render hooks cannot remount the React shell", () => {

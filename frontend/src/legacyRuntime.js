@@ -1,10 +1,11 @@
-export const RELEASE_VERSION = "53.0.17";
-export const RELEASE_ASSET_REVISION = "53.0.17-r1";
+export const RELEASE_VERSION = "53.0.18";
+export const RELEASE_ASSET_REVISION = "53.0.18-r1";
 
 export const LEGACY_STYLES = [
   "/legacy/runtime-core.css",
   "/legacy/knowledge.css",
   "/legacy/acknowledgements.css",
+  "/legacy/release-53-0-18.css",
 ];
 
 export const LEGACY_SCRIPTS = [
@@ -13,6 +14,7 @@ export const LEGACY_SCRIPTS = [
   ["/legacy/learning.js", false],
   ["/legacy/knowledge.js", false],
   ["/legacy/acknowledgements.js", false],
+  ["/legacy/release-53-0-18.js", false],
 ];
 
 export const CANVAS_STYLES = ["/legacy/excalidraw-dist/rtm-canvas.css"];

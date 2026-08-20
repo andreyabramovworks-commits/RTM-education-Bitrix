@@ -1,0 +1,84 @@
+/* v53.0.18: final ownership layer for course, assignment, article and test surfaces. */
+:root{color-scheme:only light}
+[hidden]{display:none!important}
+
+#courseSectionsEditor{display:grid;gap:18px;min-width:0}
+#courseSectionsEditor .section-editor{overflow:hidden!important;border:1px solid #d9e2ee!important;border-radius:16px!important;background:#fff!important;box-shadow:0 10px 28px rgba(31,42,61,.055)!important}
+#courseSectionsEditor .section-editor-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:16px!important;min-height:64px!important;padding:13px 16px!important;background:#f8fafc!important}
+#courseSectionsEditor .section-actions{display:flex!important;align-items:center!important;gap:6px!important}
+#courseSectionsEditor .section-actions button,#courseSectionsEditor .item-actions button{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:38px!important;border:1px solid #d6e0ec!important;border-radius:10px!important;background:#fff!important;color:#263246!important;box-shadow:0 2px 5px rgba(31,42,61,.04)!important;transition:transform 140ms cubic-bezier(.23,1,.32,1),border-color 140ms ease,background-color 140ms ease!important}
+#courseSectionsEditor .section-actions button:hover,#courseSectionsEditor .item-actions button:hover{border-color:color-mix(in srgb,var(--rtm-primary) 45%,#d6e0ec)!important;background:color-mix(in srgb,var(--rtm-primary) 5%,#fff)!important}
+#courseSectionsEditor .section-actions button:active,#courseSectionsEditor .item-actions button:active{transform:scale(.97)!important}
+#courseSectionsEditor .material-line{display:grid!important;grid-template-columns:22px 32px minmax(180px,1fr) minmax(170px,210px) minmax(170px,230px) auto!important;align-items:center!important;gap:12px!important;min-width:0!important;padding:14px 16px!important;border-top:1px solid #e4eaf2!important;background:#fff!important}
+#courseSectionsEditor .material-identity{display:grid!important;gap:3px!important;min-width:0!important}
+#courseSectionsEditor .material-identity b,#courseSectionsEditor .material-identity small{overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+#courseSectionsEditor .course-control{display:grid!important;gap:4px!important;min-width:0!important;padding:8px 10px!important;border:1px solid #d9e2ee!important;border-radius:12px!important;background:#f9fbfd!important}
+#courseSectionsEditor .course-control>span{font-size:10px!important;font-weight:800!important;letter-spacing:.07em!important;text-transform:uppercase!important;color:#748197!important}
+#courseSectionsEditor .course-control select{width:100%!important;min-width:0!important;height:28px!important;padding:0 25px 0 0!important;border:0!important;background-color:transparent!important;font-weight:700!important;color:#172033!important}
+#courseSectionsEditor .course-status-toggle{width:100%!important;min-height:30px!important;padding:3px 9px!important;border:0!important;border-radius:8px!important;background:#eef2f7!important;color:#526176!important;font-weight:800!important;text-align:left!important}
+#courseSectionsEditor .course-status-toggle.is-required{background:#e6f7ee!important;color:#087a45!important}
+#courseSectionsEditor .required-toggle select[hidden]{display:none!important}
+#courseSectionsEditor .item-actions{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:6px!important;min-width:max-content!important}
+#courseSectionsEditor .item-actions .icon-action{width:38px!important;min-width:38px!important;padding:0!important}
+#courseSectionsEditor .item-actions .action-dots{font-size:13px!important;letter-spacing:1px!important}
+#courseSectionsEditor .item-actions .expand-action{min-width:118px!important;padding-inline:12px!important;font-weight:700!important}
+#courseSectionsEditor [data-v538-course-roles]{display:none!important}
+
+.assignment-card,.assign-modal{border:1px solid #dbe3ed!important;border-radius:18px!important;background:#fff!important;box-shadow:0 14px 36px rgba(31,42,61,.07)!important}
+.assignment-card{display:grid!important;gap:14px!important;padding:20px!important}
+.assignment-head{padding-bottom:14px!important;border-bottom:1px solid #e5eaf1!important}
+.assignment-head button{min-height:40px!important;border-radius:10px!important;background:var(--rtm-primary)!important;color:#fff!important;font-weight:750!important}
+.assign-info{border:0!important;border-radius:12px!important;background:#f1f6ff!important;color:#31517d!important}
+.assignment-table-wrap{border-radius:14px!important;border-color:#dbe3ed!important}
+.assignment-table th{background:#f8fafc!important;font-size:11px!important;letter-spacing:.05em!important;text-transform:uppercase!important}
+.assign-modal{gap:16px!important;padding:2px!important;box-shadow:none!important}
+.assign-modal-search{grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important}
+.assign-modal-search input,.assign-modal>select{min-height:42px!important;border-radius:11px!important}
+.assign-user-list{display:grid!important;gap:0!important;overflow:auto!important;border:1px solid #dbe3ed!important;border-radius:14px!important}
+.assign-user-row{grid-template-columns:auto 40px minmax(0,1fr)!important;min-height:62px!important;padding:10px 14px!important}
+.assign-user-row:has(input:checked){background:color-mix(in srgb,var(--rtm-primary) 7%,#fff)!important}
+.assign-options{border-radius:14px!important;background:#f8fafc!important}
+.assign-toggle{min-height:64px!important;border-radius:12px!important}
+.assign-modal>footer{z-index:2!important}
+
+.v38-project-menu{width:min(420px,calc(100vw - 48px))!important}
+.v38-project-menu .mini-list{display:grid!important;gap:6px!important;margin-top:14px!important}
+.v38-project-menu .mini-list button{min-height:42px!important;padding:9px 12px!important;border-radius:10px!important;text-align:left!important;font-weight:700!important}
+.round-plus{min-width:126px!important;min-height:38px!important;border-radius:10px!important;font-size:13px!important;font-weight:800!important}
+
+.v51-test-settings{padding:20px!important;border-radius:18px!important;box-shadow:0 10px 28px rgba(31,42,61,.055)!important}
+.v51-settings-grid{grid-template-columns:repeat(4,minmax(170px,1fr))!important;gap:12px!important}
+.v51-metric-card{min-height:132px!important;padding:14px!important;border:1px solid #dbe3ed!important;border-radius:14px!important;background:#f9fbfd!important}
+.v51-checks{display:grid!important;grid-template-columns:repeat(4,minmax(170px,1fr))!important;gap:12px!important}
+.v51-toggle-card{position:relative!important;display:grid!important;grid-template-columns:42px minmax(0,1fr)!important;align-items:start!important;gap:10px!important;min-height:104px!important;padding:14px!important;border:1px solid #dbe3ed!important;border-radius:14px!important;background:#fff!important;cursor:pointer!important}
+.v51-toggle-card input{position:absolute!important;opacity:0!important;pointer-events:none!important}
+.v51-toggle{position:relative!important;width:40px!important;height:24px!important;border-radius:999px!important;background:#c9d3df!important;transition:background-color 150ms ease!important}
+.v51-toggle:after{content:""!important;position:absolute!important;top:4px!important;left:4px!important;width:16px!important;height:16px!important;border-radius:50%!important;background:#fff!important;box-shadow:0 1px 4px rgba(15,23,42,.25)!important;transition:transform 150ms cubic-bezier(.23,1,.32,1)!important}
+.v51-toggle-card input:checked+.v51-toggle{background:var(--rtm-primary)!important}
+.v51-toggle-card input:checked+.v51-toggle:after{transform:translateX(16px)!important}
+.v51-builder{grid-template-columns:minmax(0,1.45fr) minmax(360px,.8fr)!important;gap:16px!important}
+.v51-question-list{padding:0 6px 0 0!important;scrollbar-gutter:stable!important}
+.v51-question-editor{padding:16px!important;border-radius:15px!important;box-shadow:0 6px 18px rgba(31,42,61,.045)!important}
+
+#userMaterialView.rtm-material-pending #uMaterialBody{visibility:hidden!important}
+#userMaterialView.rtm-material-pending:after{content:"Загрузка статьи…";display:grid;place-items:center;min-height:420px;color:#65758b;font-weight:750}
+#userMaterialView.rtm-material-ready #uMaterialBody{visibility:visible!important}
+#userMaterialView.is-excalidraw-article #uMarkMaterialDone{display:none!important}
+
+@media(max-width:1280px){
+  #courseSectionsEditor .material-line{grid-template-columns:22px 32px minmax(180px,1fr) minmax(170px,220px)!important}
+  #courseSectionsEditor .section-control,#courseSectionsEditor .item-actions{grid-column:3/-1!important}
+  #courseSectionsEditor .item-actions{justify-content:flex-start!important}
+  .v51-settings-grid,.v51-checks{grid-template-columns:repeat(2,minmax(170px,1fr))!important}
+  .v51-builder{grid-template-columns:minmax(0,1fr) minmax(330px,.75fr)!important}
+}
+@media(max-width:800px){
+  #courseSectionsEditor .section-editor-head{align-items:flex-start!important}
+  #courseSectionsEditor .section-actions{flex-wrap:wrap!important;justify-content:flex-end!important}
+  #courseSectionsEditor .material-line{grid-template-columns:22px 32px minmax(0,1fr)!important;padding:13px!important}
+  #courseSectionsEditor .course-control,#courseSectionsEditor .item-actions{grid-column:2/-1!important;width:100%!important}
+  #courseSectionsEditor .item-actions{display:grid!important;grid-template-columns:38px 38px 38px minmax(120px,1fr)!important}
+  .assign-modal-search{grid-template-columns:1fr!important}
+  .v51-settings-grid,.v51-checks,.v51-builder{grid-template-columns:1fr!important}
+  .v51-question-list{max-height:none!important;overflow:visible!important}
+}
