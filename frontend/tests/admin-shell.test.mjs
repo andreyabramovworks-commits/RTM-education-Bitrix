@@ -6,6 +6,7 @@ const admin = await readFile(new URL("../src/AdminApp.jsx", import.meta.url), "u
 const styles = await readFile(new URL("../src/admin.css", import.meta.url), "utf8");
 const host = await readFile(new URL("../src/LegacyReactHost.jsx", import.meta.url), "utf8");
 const runtime = await readFile(new URL("../public/legacy/runtime-core.js", import.meta.url), "utf8");
+const learning = await readFile(new URL("../public/legacy/learning.js", import.meta.url), "utf8");
 
 test("v53 admin shell owns navigation and exposes every approved route", () => {
   for (const route of ["dashboard", "materials", "users", "database", "reviews", "analytics", "events", "settings", "info"]) {
@@ -26,6 +27,10 @@ test("classic admin is unreachable and the compatibility DOM always stays hidden
   assert.doesNotMatch(host, /rtm_admin_ui|classicAdmin|openClassic/);
   assert.doesNotMatch(admin, /Классическая версия|openClassic/);
   assert.doesNotMatch(runtime, /rtm_admin_ui|openClassic:function/);
+});
+
+test("classic test edition and its persisted switch are removed", () => {
+  assert.doesNotMatch(learning, /classicTest|testSwitch|bindTestSwitch|applyTestUiChoice|data-v492-test-ui/);
 });
 
 test("new admin shell suspends the complete classic shell and mounts only page content", () => {

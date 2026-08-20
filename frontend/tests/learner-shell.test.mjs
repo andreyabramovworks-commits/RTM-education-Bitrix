@@ -55,3 +55,11 @@ test("learner bridge keeps synchronization single-flight and refreshes Bitrix id
   assert.match(runtime, /if\(loadAllPromise\)return loadAllPromise/);
   assert.doesNotMatch(runtime, /setTimeout\(function\(\)\{loadAll\(false\)/);
 });
+
+test("materials expose deterministic loading, failure and retry states", () => {
+  assert.match(learner, /setMaterialOpen\(\{ loading: true, error: "" \}\)/);
+  assert.match(learner, /await bridge\.openMaterial\(material\.ID\)/);
+  assert.match(learner, /Promise\.resolve\(\)\.then\(\(\) => bridge\.renderMaterial\(material\.ID\)\)\.catch/);
+  assert.match(learner, /setRenderKey\(\(value\) => value \+ 1\)/);
+  assert.match(styles, /body\.rtm-material-loading::after/);
+});

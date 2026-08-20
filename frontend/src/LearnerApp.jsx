@@ -49,19 +49,25 @@ function ResourceState({ state, retry, emptyTitle = "Данных пока не�
 
 function MaterialSurface({ bridge, material, course, onBack }) {
   const slot = useRef(null);
+  const [renderError, setRenderError] = useState("");
+  const [renderKey, setRenderKey] = useState(0);
   useEffect(() => {
     const node = document.getElementById("userMaterialView");
     if (!node || !slot.current) return;
     const parent = node.parentNode, next = node.nextSibling;
     slot.current.appendChild(node); node.classList.remove("hidden");
-    bridge.renderMaterial(material.ID);
+    let active = true;
+    setRenderError("");
+    Promise.resolve().then(() => bridge.renderMaterial(material.ID)).catch((error) => {
+      if (active) setRenderError(error?.message || "Не удалось открыть материал");
+    });
     const back = node.querySelector("#uBackToCourse"); if (back) back.onclick = onBack;
     const done = node.querySelector("#uMarkMaterialDone"); if (done) done.onclick = async () => { await bridge.completeMaterial(material.ID); onBack(); };
     const observer = new MutationObserver(() => { if (node.classList.contains("hidden")) onBack(); });
     observer.observe(node, { attributes: true, attributeFilter: ["class"] });
-    return () => { observer.disconnect(); if (parent) parent.insertBefore(node, next); };
-  }, [bridge, material.ID, onBack]);
-  return <main className="lr-material-shell"><button className="lr-back lr-material-back" onClick={onBack}><Icon name="back" />Назад</button><div className="lr-material-context"><span>{course?.NAME || "Материал"}</span><span aria-hidden="true">/</span><strong>{material.NAME}</strong></div><div ref={slot} className="lr-legacy-material" /></main>;
+    return () => { active = false; observer.disconnect(); if (parent) parent.insertBefore(node, next); };
+  }, [bridge, material.ID, onBack, renderKey]);
+  return <main className="lr-material-shell"><button className="lr-back lr-material-back" onClick={onBack}><Icon name="back" />Назад</button><div className="lr-material-context"><span>{course?.NAME || "Материал"}</span><span aria-hidden="true">/</span><strong>{material.NAME}</strong></div>{renderError && <section className="lr-material-error" role="alert"><b>Не удалось открыть материал</b><span>{renderError}</span><button className="lr-secondary" onClick={() => setRenderKey((value) => value + 1)}>Повторить</button></section>}<div ref={slot} className="lr-legacy-material" /></main>;
 }
 
 function Revisions({ bridge, hintsEnabled }) {
@@ -131,7 +137,13 @@ function Profile({ snapshot, bridge }) {
 export function LearnerApp({ bridge, onSetMode }) {
   const [snapshot, setSnapshot] = useState(() => bridge.getSnapshot()), [view, setView] = useState("learn"), [menu, setMenu] = useState(false), [selectedCourse, setSelectedCourse] = useState(null), [materialContext, setMaterialContext] = useState(null);
   const [history, setHistory] = useState([]);
+  const [materialOpen, setMaterialOpen] = useState({ loading: false, error: "" });
   const menuWasOpen = useRef(false);
+  useEffect(() => {
+    document.body.classList.toggle("rtm-material-loading", materialOpen.loading);
+    if (materialOpen.error) window.alert(`Не удалось открыть материал: ${materialOpen.error}`);
+    return () => document.body.classList.remove("rtm-material-loading");
+  }, [materialOpen]);
   useEffect(() => bridge.subscribe(() => setSnapshot(bridge.getSnapshot())), [bridge]);
   useEffect(() => { const update = () => setSnapshot(bridge.getSnapshot()); window.addEventListener("rtm:help-change", update); return () => window.removeEventListener("rtm:help-change", update); }, [bridge]);
   useEffect(() => { const learner = snapshot.mode === "user"; document.body.classList.toggle("rtm-learner-active", learner); document.body.classList.toggle("rtm-admin-active", !learner); return () => { document.body.classList.remove("rtm-learner-active"); document.body.classList.remove("rtm-admin-active"); }; }, [snapshot.mode]);
@@ -161,7 +173,7 @@ export function LearnerApp({ bridge, onSetMode }) {
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [menu]);
-  const openMaterial = async (material, course) => { const hydrated = await bridge.openMaterial(material.ID); if (hydrated) { setHistory((old) => [...old.slice(-8), { view, selectedCourse, materialContext: null }]); setMaterialContext({ material: hydrated, course }); } };
+  const openMaterial = async (material, course) => { setMaterialOpen({ loading: true, error: "" }); try { const hydrated = await bridge.openMaterial(material.ID); if (!hydrated) throw new Error("Материал не найден"); setHistory((old) => [...old.slice(-8), { view, selectedCourse, materialContext: null }]); setMaterialContext({ material: hydrated, course }); setMaterialOpen({ loading: false, error: "" }); } catch (error) { setMaterialOpen({ loading: false, error: error?.message || "Не удалось загрузить материал" }); } };
   const setHints = () => bridge.setHintsEnabled(!snapshot.hintsEnabled);
   if (snapshot.mode !== "user") return null;
   const appearance = { ...(snapshot.appearance || {}) }, style = { "--lr-primary": appearance.primaryColor || "#3157d5" };

@@ -72,7 +72,7 @@ function loadRuntime() {
   if (runtimePromise) return runtimePromise;
   runtimePromise = (async () => {
     document.querySelectorAll("[data-rtm-runtime]").forEach((node) => node.remove());
-    try { localStorage.setItem("rtm_v492_test_ui", "modern"); } catch (_) {}
+    try { localStorage.removeItem("rtm_v492_test_ui"); } catch (_) {}
     window.__RTM_V48__ = true;
     window.__RTM_V49__ = true;
     window.__RTM_VERSION__ = RELEASE_VERSION;

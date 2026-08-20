@@ -96,11 +96,7 @@
 (function () {
   'use strict';
 
-  var TEST_UI_KEY = 'rtm_v492_test_ui';
-  var classicTestEditor = window.renderTestEditor;
-  var classicTestIntro = window.renderUserTestIntro;
-  var classicTakeTest = window.renderTakeTest;
-  var workspaceTimer = 0, workspaceScene = null, workspaceRevision = 0, workspaceMounted = false, workspaceRestoring = false, workspaceGeneration = 0, workspaceMountTimer = 0, workspaceSavePromise = null, workspaceSaveQueued = false, developerPreviewRole = null, testUiChoice = 'modern';
+  var workspaceTimer = 0, workspaceScene = null, workspaceRevision = 0, workspaceMounted = false, workspaceRestoring = false, workspaceGeneration = 0, workspaceMountTimer = 0, workspaceSavePromise = null, workspaceSaveQueued = false, developerPreviewRole = null;
   function visibleWorkspace(scene) {
     var next = JSON.parse(JSON.stringify(scene || {})), app = next.appState || {}, zoom = Number(app.zoom && app.zoom.value || app.zoom || 0.1);
     next.appState = Object.assign({}, app, {isLoading: false, zoom: {value: Math.max(0.1, Math.min(4, isFinite(zoom) ? zoom : 0.1))}});
@@ -133,11 +129,6 @@
     }
   }
 
-  try { testUiChoice = localStorage.getItem(TEST_UI_KEY) === 'classic' ? 'classic' : 'modern'; } catch (_) { var savedTestUi = String(document.cookie || '').match(/(?:^|;\s*)rtm_v492_test_ui=(classic|modern)/); if (savedTestUi) testUiChoice = savedTestUi[1]; }
-  function testUi() { return testUiChoice; }
-  function testSwitch() { return '<div class="v492-test-switch"><button type="button" data-v492-test-ui="modern" class="' + (testUi() === 'modern' ? 'active' : '') + '">Новый вид</button><button type="button" data-v492-test-ui="classic" class="' + (testUi() === 'classic' ? 'active' : '') + '">Классический</button></div>'; }
-  function applyTestUiChoice(value) { testUiChoice = value === 'classic' ? 'classic' : 'modern'; try { localStorage.setItem(TEST_UI_KEY, testUiChoice); } catch (_) { try { document.cookie = 'rtm_v492_test_ui=' + testUiChoice + '; Path=/; SameSite=Lax; Max-Age=31536000'; } catch (_) {} } if (state.testId && document.getElementById('testQuestionsEditor') && !document.getElementById('testQuestionsEditor').closest('.hidden')) window.renderTestEditor(); else { var item = findItem(document.getElementById('userMaterialView') && document.getElementById('userMaterialView').dataset.id); if (item) window.openUserMaterial(item); } }
-  function bindTestSwitch() { document.querySelectorAll('[data-v492-test-ui]').forEach(function (button) { button.onclick = function () { applyTestUiChoice(button.dataset.v492TestUi); }; }); }
   function currentRole() { return String(state.currentRole || 'employee'); }
   function canAdmin() { return ['developer', 'admin', 'moderator', 'teacher'].includes(currentRole()); }
   function canEditContent() { return ['developer', 'admin', 'moderator'].includes(currentRole()); }
@@ -178,7 +169,7 @@
   window.canEdit = function () { return state.mode === 'admin' && canEditContent(); };
   window.canOpenCourseMaterial = function (material) { var parent = material && material.PROPERTY_VALUES && material.PROPERTY_VALUES.parentId; if (!parent) return true; var list = courseMaterials(parent), index = list.findIndex(function (item) { return String(item.ID) === String(material.ID); }); if (index <= 0) return true; return list.slice(0, index).filter(function (item) { var meta = j(item.PROPERTY_VALUES.meta); return meta.required === true || meta.required === 'Y'; }).every(function (item) { return isDone(item.ID, materialKind(item)); }); };
   var baseOpenUserMaterial = window.openUserMaterial;
-  window.openUserMaterial = function (material) { if (material && !canOpenCourseMaterial(material)) { alert('Сначала завершите предыдущий обязательный материал.'); return; } var result = baseOpenUserMaterial.apply(this, arguments); setTimeout(bindTestSwitch, 0); return result; };
+  window.openUserMaterial = function (material) { if (material && !canOpenCourseMaterial(material)) { alert('Сначала завершите предыдущий обязательный материал.'); return; } return baseOpenUserMaterial.apply(this, arguments); };
   var courseScopedOpenUserMaterial = window.openUserMaterial;
   window.openUserMaterial = function (material) { var result = courseScopedOpenUserMaterial.apply(this, arguments); if (material && typeof materialCourseId === 'function' && !materialCourseId(material)) state.courseId = null; return result; };
 
@@ -225,10 +216,9 @@
   }
 
   window.renderTestEditor = function () {
-    if (testUi() === 'classic') { classicTestEditor(); var root = document.getElementById('testQuestionsEditor'); if (root) root.insertAdjacentHTML('afterbegin', testSwitch()); bindTestSwitch(); return; }
     var item = findItem(state.testId), meta = testDefaults(j(item.PROPERTY_VALUES.meta)), root = document.getElementById('testQuestionsEditor');
-    root.innerHTML = testSwitch() + renderTestSettings(meta) + ((meta.questions || []).map(function (q, i) { return questionEditor(q, i, false); }).join('') || '<div class="panel">Вопросов пока нет</div>');
-    renderAssignmentPanel('test'); bindTestEditor(); bindTestTabs(); bindTestSwitch(); bindQuestionMedia();
+    root.innerHTML = renderTestSettings(meta) + ((meta.questions || []).map(function (q, i) { return questionEditor(q, i, false); }).join('') || '<div class="panel">Вопросов пока нет</div>');
+    renderAssignmentPanel('test'); bindTestEditor(); bindTestTabs(); bindQuestionMedia();
   };
   window.renderInlineQuestion = function (q, i) { return questionEditor(q, i, true); };
   var baseBindCourse = window.bindCourseEditorBtns;
@@ -241,15 +231,13 @@
     return answers.map(function (x) { return '<label class="answer"><input type="' + (question.type === 'multiple' ? 'checkbox' : 'radio') + '" name="t' + test.ID + 'q' + originalIndex + '" value="' + x.ai + '"><span>' + esc(x.a) + '</span></label>'; }).join('');
   }
   window.renderTakeTest = function (test) {
-    if (testUi() === 'classic') return testSwitch() + classicTakeTest(test);
-    var meta = testDefaults(j(test.PROPERTY_VALUES.meta)), attempts = testAttemptsUsed(test.ID), left = Math.max(0, meta.attemptsLimit - attempts); if (left <= 0) return testSwitch() + '<div class="test-intro-card"><h3>' + esc(test.NAME) + '</h3><p>Попытки закончились</p></div>';
+    var meta = testDefaults(j(test.PROPERTY_VALUES.meta)), attempts = testAttemptsUsed(test.ID), left = Math.max(0, meta.attemptsLimit - attempts); if (left <= 0) return '<div class="test-intro-card"><h3>' + esc(test.NAME) + '</h3><p>Попытки закончились</p></div>';
     var questions = meta.shuffleQuestions ? shuffleCopy(meta.questions || []).map(function (x) { return {q: x.v, orig: x.i}; }) : (meta.questions || []).map(function (q, i) { return {q: q, orig: i}; });
-    return testSwitch() + '<form class="take-test-card v492-take-test" data-take-test="' + test.ID + '" data-test-start="' + Date.now() + '"><div class="v492-test-head"><h2>' + esc(test.NAME) + '</h2><span>' + questions.length + ' вопросов</span></div>' + questions.map(function (row, i) { return '<section class="test-question"><b>' + (i + 1) + '. ' + esc(row.q.text) + '</b>' + mediaHtml(row.q.media) + answerControl(test, row.q, row.orig, i) + '</section>'; }).join('') + '<button class="primary v492-test-submit">Отправить ответы</button></form>';
+    return '<form class="take-test-card v492-take-test" data-take-test="' + test.ID + '" data-test-start="' + Date.now() + '"><div class="v492-test-head"><h2>' + esc(test.NAME) + '</h2><span>' + questions.length + ' вопросов</span></div>' + questions.map(function (row, i) { return '<section class="test-question"><b>' + (i + 1) + '. ' + esc(row.q.text) + '</b>' + mediaHtml(row.q.media) + answerControl(test, row.q, row.orig, i) + '</section>'; }).join('') + '<button class="primary v492-test-submit">Отправить ответы</button></form>';
   };
   window.renderUserTestIntro = function (test) {
-    if (testUi() === 'classic') return testSwitch() + classicTestIntro(test);
     var meta = testDefaults(j(test.PROPERTY_VALUES.meta)), used = testAttemptsUsed(test.ID), left = Math.max(0, meta.attemptsLimit - used);
-    return testSwitch() + '<div class="test-intro-card v492-test-intro"><h2>' + esc(test.NAME) + '</h2><div class="test-info-grid"><span><i>◷</i><small>Доступное время на прохождение</small><b>' + (meta.timeLimit ? meta.timeLimit + ' мин' : 'Без ограничения') + '</b></span><span><i>↻</i><small>Доступное количество попыток</small><b>' + left + ' шт</b></span><span><i>✓</i><small>Порог прохождения теста</small><b>' + meta.passScore + '%</b></span><span><i>☆</i><small>Баллов за прохождение</small><b>' + meta.points + ' шт</b></span></div><button class="primary" data-start-user-test="' + test.ID + '" ' + (left <= 0 ? 'disabled' : '') + '>Приступить</button></div>';
+    return '<div class="test-intro-card v492-test-intro"><h2>' + esc(test.NAME) + '</h2><div class="test-info-grid"><span><i>◷</i><small>Доступное время на прохождение</small><b>' + (meta.timeLimit ? meta.timeLimit + ' мин' : 'Без ограничения') + '</b></span><span><i>↻</i><small>Доступное количество попыток</small><b>' + left + ' шт</b></span><span><i>✓</i><small>Порог прохождения теста</small><b>' + meta.passScore + '%</b></span><span><i>☆</i><small>Баллов за прохождение</small><b>' + meta.points + ' шт</b></span></div><button class="primary" data-start-user-test="' + test.ID + '" ' + (left <= 0 ? 'disabled' : '') + '>Приступить</button></div>';
   };
   window.takeTestSubmit = async function (event) {
     event.preventDefault(); var form = event.currentTarget, id = form.dataset.takeTest, test = findItem(id); if (!test) return;
@@ -259,7 +247,7 @@
     var attemptId = await add(E.attempts, 'Попытка теста', props); state.attempts.unshift({ID: String(attemptId), NAME: 'Попытка теста', PROPERTY_VALUES: props, DATE_CREATE: props.createdAt}); if (passed) await complete(id, 'test');
     if (pending) modal('<div class="test-outcome pending"><h2>Ответ отправлен</h2><p>Свободный ответ сохранён и ожидает проверки преподавателя.</p><button class="primary" id="testOutcomeClose">Продолжить</button></div>'); else if (passed) modal('<div class="test-outcome ok"><h2>Тест пройден</h2><p>Правильных ответов: <b>' + good + ' из ' + automatic + '</b></p><p>Результат: <b>' + score + '%</b></p><button class="primary" id="testOutcomeClose">Продолжить</button></div>'); else modal('<div class="test-outcome bad"><h2>Тест не пройден</h2><p>Правильных ответов: <b>' + good + ' из ' + automatic + '</b></p><p>Результат: <b>' + score + '%</b></p><div class="inline-actions"><button class="primary" id="testOutcomeRetry">Начать заново</button><button id="testOutcomeClose">Закрыть</button></div></div>');
     var close = document.getElementById('testOutcomeClose'); if (close) close.onclick = function () { closeModal(); var list = typeof courseChildren === 'function' ? courseChildren(state.courseId) : [], position = list.findIndex(function (item) { return String(item.ID) === String(test.ID); }), next = position >= 0 ? list[position + 1] : null; if (next) openUserMaterial(next); else if (test.PROPERTY_VALUES.parentId) openUserCourse(findItem(test.PROPERTY_VALUES.parentId)); };
-    var retry = document.getElementById('testOutcomeRetry'); if (retry) retry.onclick = function () { closeModal(); document.getElementById('uMaterialBody').innerHTML = renderTakeTest(test); bindTestSwitch(); document.querySelectorAll('[data-take-test]').forEach(function (f) { f.onsubmit = takeTestSubmit; }); };
+    var retry = document.getElementById('testOutcomeRetry'); if (retry) retry.onclick = function () { closeModal(); document.getElementById('uMaterialBody').innerHTML = renderTakeTest(test); document.querySelectorAll('[data-take-test]').forEach(function (f) { f.onsubmit = takeTestSubmit; }); };
     renderProfile();
   };
 
@@ -291,13 +279,13 @@
   }
   window.RTMUI = window.RTMUI || {afterRender: [], adminView: []};
   window.RTMUI.adminView.push(function (view) { if (view === 'info' && isDeveloper()) scheduleWorkspaceMount(); });
-  window.RTMUI.afterRender.push(function () { applyAccess(); document.querySelectorAll('[data-v492-test-ui]').forEach(function () {}); if (state.aview === 'info') scheduleWorkspaceMount(); if (currentRole() === 'teacher') document.querySelectorAll('[data-add-project],#addProjectBtn,[data-edit-child],[data-child-menu],#addQuestionBtn,.rtm-canvas-save').forEach(function (node) { node.hidden = true; }); });
+  window.RTMUI.afterRender.push(function () { applyAccess(); if (state.aview === 'info') scheduleWorkspaceMount(); if (currentRole() === 'teacher') document.querySelectorAll('[data-add-project],#addProjectBtn,[data-edit-child],[data-child-menu],#addQuestionBtn,.rtm-canvas-save').forEach(function (node) { node.hidden = true; }); });
   var baseMobileMenu = window.v38RenderMobileMenu;
   if (typeof baseMobileMenu === 'function') window.v38RenderMobileMenu = function () { var result = baseMobileMenu.apply(this, arguments); renderDeveloperMobilePreview(); return result; };
 
-  document.addEventListener('click', function (event) { var testUiButton = event.target.closest('[data-v492-test-ui]'); if (testUiButton) { event.preventDefault(); event.stopPropagation(); applyTestUiChoice(testUiButton.dataset.v492TestUi); return; } var start = event.target.closest('[data-start-user-test]'); if (start) setTimeout(function () { bindTestSwitch(); document.querySelectorAll('[data-take-test]').forEach(function (form) { form.onsubmit = takeTestSubmit; }); }, 0); var mobileMenu = event.target.closest('#v38MobileMenuBtn'); if (mobileMenu) setTimeout(renderDeveloperMobilePreview, 0); setTimeout(bindTestSwitch, 30); }, true);
+  document.addEventListener('click', function (event) { var start = event.target.closest('[data-start-user-test]'); if (start) setTimeout(function () { document.querySelectorAll('[data-take-test]').forEach(function (form) { form.onsubmit = takeTestSubmit; }); }, 0); var mobileMenu = event.target.closest('#v38MobileMenuBtn'); if (mobileMenu) setTimeout(renderDeveloperMobilePreview, 0); }, true);
   document.addEventListener('DOMContentLoaded', function () { applyAccess(); if (state.aview === 'info') scheduleWorkspaceMount(); });
-  window.RTMV492 = {mountWorkspace: mountWorkspace, restoreWorkspace: restoreWorkspace, bindTestSwitch: bindTestSwitch, testSwitch: testSwitch, applyTestUiChoice: applyTestUiChoice, previewRole: function (role) { if (!isActualDeveloper()) return; applyDeveloperPreview(role); }};
+  window.RTMV492 = {mountWorkspace: mountWorkspace, restoreWorkspace: restoreWorkspace, previewRole: function (role) { if (!isActualDeveloper()) return; applyDeveloperPreview(role); }};
 })();
 
 
@@ -630,7 +618,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   function remainingAttempts(test, meta) { var returned = userAttempt(test.ID, ['returned']); return returned ? Math.max(1, Number(meta.attemptsLimit || 1) - testAttemptsUsed(test.ID) + 1) : Math.max(0, Number(meta.attemptsLimit || 1) - testAttemptsUsed(test.ID)); }
   window.renderUserTestIntro = function (test) {
     var meta = normalizeMeta(j(test.PROPERTY_VALUES.meta)), left = remainingAttempts(test, meta), pending = userAttempt(test.ID, ['pending_review']), returned = userAttempt(test.ID, ['returned']);
-    return (window.RTMV492 && window.RTMV492.testSwitch ? window.RTMV492.testSwitch() : '') + '<div class="test-intro-card v492-test-intro v51-test-intro"><h2>' + esc(test.NAME) + '</h2>' + (pending ? '<div class="v51-status pending">Свободный ответ ожидает проверки. Можно пройти тест ещё раз; проверяющий увидит последнюю отправку.</div>' : '') + (returned ? '<div class="v51-status returned">Ответ возвращён на доработку' + (returned.PROPERTY_VALUES.reviewComment ? ': ' + esc(returned.PROPERTY_VALUES.reviewComment) : '') + '</div>' : '') + '<div class="test-info-grid"><span><small>Доступное время</small><b>' + (meta.timeLimit ? meta.timeLimit + ' мин' : 'Без ограничения') + '</b></span><span><small>Попыток доступно</small><b>' + left + '</b></span><span><small>Порог прохождения</small><b>' + meta.passRequired + ' из ' + meta.questions.filter(function (question) { return !isFree(question); }).length + '</b></span><span><small>Очки</small><b>' + meta.points + '</b></span><span><small>Показывать результат</small><b>' + (meta.showCorrect ? 'Да' : 'Нет') + '</b></span><span><small>Сертификат</small><b>' + (meta.certificate ? 'Да' : 'Нет') + '</b></span></div><button class="primary" data-start-user-test="' + test.ID + '" ' + (left <= 0 ? 'disabled' : '') + '>' + (returned ? 'Исправить ответы' : pending ? 'Пройти ещё раз' : 'Приступить') + '</button></div>';
+    return '<div class="test-intro-card v492-test-intro v51-test-intro"><h2>' + esc(test.NAME) + '</h2>' + (pending ? '<div class="v51-status pending">Свободный ответ ожидает проверки. Можно пройти тест ещё раз; проверяющий увидит последнюю отправку.</div>' : '') + (returned ? '<div class="v51-status returned">Ответ возвращён на доработку' + (returned.PROPERTY_VALUES.reviewComment ? ': ' + esc(returned.PROPERTY_VALUES.reviewComment) : '') + '</div>' : '') + '<div class="test-info-grid"><span><small>Доступное время</small><b>' + (meta.timeLimit ? meta.timeLimit + ' мин' : 'Без ограничения') + '</b></span><span><small>Попыток доступно</small><b>' + left + '</b></span><span><small>Порог прохождения</small><b>' + meta.passRequired + ' из ' + meta.questions.filter(function (question) { return !isFree(question); }).length + '</b></span><span><small>Очки</small><b>' + meta.points + '</b></span><span><small>Показывать результат</small><b>' + (meta.showCorrect ? 'Да' : 'Нет') + '</b></span><span><small>Сертификат</small><b>' + (meta.certificate ? 'Да' : 'Нет') + '</b></span></div><button class="primary" data-start-user-test="' + test.ID + '" ' + (left <= 0 ? 'disabled' : '') + '>' + (returned ? 'Исправить ответы' : pending ? 'Пройти ещё раз' : 'Приступить') + '</button></div>';
   };
   window.renderTakeTest = function (test) {
     var meta = normalizeMeta(j(test.PROPERTY_VALUES.meta));
@@ -822,7 +810,6 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     if (projectsPanel) projectsPanel.style.display = 'none';
     document.querySelectorAll('.rail-btn').forEach(function (button) { button.classList.toggle('active', button.dataset.adminView === 'database'); });
     var heading = document.getElementById('testEditorTitle'); if (heading) heading.textContent = source.title;
-    if (window.RTMV492 && window.RTMV492.applyTestUiChoice) window.RTMV492.applyTestUiChoice('modern');
     else window.renderTestEditor();
     bindTestTabs();
     var back = document.getElementById('backFromTestEditor');
