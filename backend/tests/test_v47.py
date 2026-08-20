@@ -54,7 +54,7 @@ def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app", follow_redirects=False)
     assert response.status_code == 303
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.16"
+    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.17"
 
 
 def test_bitrix_shell_preserves_only_safe_application_routes() -> None:
@@ -63,7 +63,7 @@ def test_bitrix_shell_preserves_only_safe_application_routes() -> None:
         follow_redirects=False,
     )
     assert response.status_code == 303
-    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.16&rtm_assignment=17&rtm_view=acknowledgements"
+    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.17&rtm_assignment=17&rtm_view=acknowledgements"
     assert "AUTH_ID" not in response.headers["location"]
 
 

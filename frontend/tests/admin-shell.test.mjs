@@ -89,6 +89,20 @@ test("wide admin workspace uses the available iframe width", () => {
   assert.doesNotMatch(styles, /max-width:1600px/);
 });
 
+test("course editor survives route teardown and uses one responsive control per setting", () => {
+  const childLine = runtime.slice(runtime.indexOf("function renderCourseChildLine"), runtime.indexOf("function addMaterialModalForCourse"));
+  assert.match(runtime, /if\(!c\|\|!ready\|\|!editor\|\|!editor\.isConnected\)return/);
+  assert.match(childLine, /class="material-identity"/);
+  assert.match(childLine, /class="course-control required-toggle"/);
+  assert.match(childLine, /class="course-control section-control"/);
+  assert.doesNotMatch(childLine, /class="pill '\+\(req\?/);
+});
+
+test("all-active recipient mode can hide detailed recipient groups", async () => {
+  const acknowledgementStyles = await readFile(new URL("../public/legacy/acknowledgements.css", import.meta.url), "utf8");
+  assert.match(acknowledgementStyles, /\[hidden\]\s*\{\s*display:\s*none\s*!important\s*\}/);
+});
+
 test("legacy render hooks cannot remount the React shell", () => {
   assert.match(host, /const LegacyMarkupHost = React\.memo/);
   assert.match(host, /window\.addEventListener\("rtm:learner-change", refreshShell\)/);

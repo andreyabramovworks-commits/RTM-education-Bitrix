@@ -1,4 +1,5 @@
 /* source: v5100.css */
+[hidden]{display:none!important}
 :root{--v51-accent:var(--rtm-primary,#315cf6);--v51-accent-soft:var(--rtm-primary-soft,#eaf0ff);--v51-ink:#13213a;--v51-muted:#66758d;--v51-line:#dbe4f0;--v51-soft:#f5f8fc;--v51-good:#16834b;--v51-warn:#b66a00;--v51-bad:#bd2638}
 .modal-backdrop{background:rgba(15,23,42,.52)!important}.modal-box,.rtm-canvas-dialog,.v51-sheet,.v51-help-card{background:#fff!important;opacity:1!important;color:var(--v51-ink)!important}.modal-box *,.v51-sheet *,.v51-help-card *{opacity:1}
 .v5100-tabs{display:flex;gap:6px;overflow:auto;border-bottom:1px solid var(--v51-line);margin:18px 0;padding:0 2px}.v5100-tabs button{flex:0 0 auto;border:0;border-bottom:3px solid transparent;border-radius:9px 9px 0 0;background:transparent;padding:11px 14px;color:#52627a;font-weight:700}.v5100-tabs button.active{border-color:var(--v51-accent);color:var(--v51-ink);background:#fff}

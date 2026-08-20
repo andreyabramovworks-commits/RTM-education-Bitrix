@@ -27,8 +27,8 @@ test("v51.5 runtime uses one canonical manifest", () => {
   assert.match(host, /from "\.\/legacyRuntime"/);
   assert.match(host, /if \(runtimePromise\) return runtimePromise/);
   assert.doesNotMatch(host, /const LEGACY_(?:STYLES|SCRIPTS)/);
-  assert.match(manifest, /RELEASE_VERSION = "53\.0\.16"/);
-  assert.match(index, /bitrix-loader\.js\?v=53\.0\.16-r1/);
+  assert.match(manifest, /RELEASE_VERSION = "53\.0\.17"/);
+  assert.match(index, /bitrix-loader\.js\?v=53\.0\.17-r1/);
   assert.match(host, /await Promise\.all\(LEGACY_STYLES\.map\(loadStyle\)\)/);
   assert.match(host, /rtm-pending/);
   assert.match(app, /window\.__RTM_SHELL_INIT__=init/);
