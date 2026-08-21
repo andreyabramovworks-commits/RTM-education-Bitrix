@@ -1,32 +1,73 @@
-# Proprietary Software License
+PROPRIETARY SOFTWARE LICENSE
 
-Copyright © 2026 Konstantin. All Rights Reserved.
+Copyright (c) 2026 Abramov Andrey Denisovich. All Rights Reserved.  Email: [andreyabramovworks@gmail.com](mailto:andreyabramovworks@gmail.com). 
 
-This software and its source code are proprietary and protected by applicable copyright laws.
+NOTICE: THIS SOFTWARE IS NOT OPEN SOURCE.
 
-Permission is granted to view the source code for informational, educational, and evaluation purposes only.
+This repository and the original source code, software, documentation, designs, logic, structure, and other original materials contained in it (collectively, the "Software") are proprietary works of the copyright holder, except for third-party materials expressly identified as such.
 
-Unless prior written permission is obtained from the copyright holder, you may not:
+The source code is made publicly accessible for viewing, technical access, and repository-hosting purposes only. Public availability of the source code does not constitute a grant of an open-source license or a general permission to use the Software.
 
-* use this software or its source code, in whole or in part, in your own projects, products, or services;
-* copy or reproduce substantial portions of the source code, except as technically necessary to view the repository through the hosting platform;
-* modify, adapt, translate, or create derivative works based on this software;
-* distribute, publish, sublicense, sell, rent, lease, or otherwise make this software or its source code available to third parties;
-* use this software or its source code for commercial purposes;
-* remove or alter copyright, authorship, or proprietary notices.
+1. OWNERSHIP
 
-Any use beyond the permissions expressly granted above requires prior written permission from the copyright holder.
+Except for third-party materials identified below or in accompanying notices, all rights, title, and interest in and to the Software are reserved by the copyright holder.
 
-## Third-Party Software
+No ownership rights are transferred or assigned by making the Software publicly accessible.
 
-This repository may contain or depend upon third-party software, libraries, components, or portions of source code that are distributed under separate licenses.
+2. PERMITTED USE
 
-Such third-party materials remain subject to their respective licenses and copyright notices. Nothing in this license is intended to restrict any rights granted under those third-party licenses.
+You may view the source code through the repository hosting service.
 
-Where a third-party component is licensed under the MIT License or another open-source license, that component remains available under the terms of its original license.
+You may also exercise any rights that the repository hosting service requires the copyright holder to grant to its users as a condition of making the repository public, including functionality provided by that service such as viewing and forking, but only to the extent provided by the applicable terms of that service.
 
-## No Warranty
+No additional rights are granted under this License.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+3. RESTRICTIONS
 
-IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE SOFTWARE OR THE USE OF THE SOFTWARE.
+Except where expressly permitted by applicable law, an applicable third-party license, the terms of the repository hosting service, or prior written permission from the copyright holder, you may not:
+
+(a) use or execute the Software, in whole or in substantial part, for your own projects, products, services, business processes, or other purposes;
+
+(b) copy or reproduce the Software outside the permissions expressly granted above;
+
+(c) modify, adapt, translate, transform, or create derivative works based on the Software;
+
+(d) distribute, publish, transmit, sublicense, sell, rent, lease, license, provide, or otherwise make the Software or derivative works available to any third party;
+
+(e) incorporate the Software or substantial portions of it into another application, product, service, repository, or codebase;
+
+(f) use the Software or substantial portions of it for commercial purposes;
+
+(g) remove, obscure, or alter copyright notices, proprietary notices, attribution notices, or license information contained in the Software.
+
+4. WRITTEN PERMISSION
+
+Any use of the Software not expressly permitted by this License requires prior written permission from the copyright holder.
+
+Permission may be granted subject to separate terms, conditions, restrictions, or fees determined by the copyright holder.
+
+5. THIRD-PARTY SOFTWARE
+
+The Software may contain, incorporate, interact with, or depend upon third-party software and other materials distributed under separate licenses.
+
+This License applies only to materials for which the copyright holder has the authority to grant rights.
+
+Third-party materials remain subject exclusively to their respective copyright notices and license terms. Nothing in this License limits, supersedes, modifies, or revokes rights granted by the applicable licenses of such third-party materials.
+
+Third-party notices applicable to materials included in this repository are provided in the THIRD_PARTY_NOTICES.md file and/or accompanying license files.
+
+6. NO IMPLIED LICENSE
+
+No license or other right is granted by implication, estoppel, exhaustion, or otherwise, except for rights expressly granted by this License, applicable third-party licenses, applicable law, or the applicable terms of the repository hosting service.
+
+7. NO WARRANTY
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+8. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, LOSS, LIABILITY, DAMAGE, COST, OR OTHER CONSEQUENCE ARISING FROM OR RELATED TO THE SOFTWARE OR ITS USE, WHETHER IN CONTRACT, TORT, OR OTHERWISE.
+
+9. RESERVATION OF RIGHTS
+
+All rights not expressly granted under this License are reserved by the copyright holder.
