@@ -138,6 +138,20 @@ function Profile({ snapshot, bridge }) {
 
 export function LearnerApp({ bridge, onSetMode }) {
   const [snapshot, setSnapshot] = useState(() => bridge.getSnapshot()), [view, setView] = useState("learn"), [menu, setMenu] = useState(false), [selectedCourse, setSelectedCourse] = useState(null), [materialContext, setMaterialContext] = useState(null);
+  useEffect(() => {
+    const handleLegacyMaterial = (event) => {
+      const next = event.detail?.material;
+      if (!next) return;
+      setMaterialContext((current) => {
+        if (String(current?.material?.ID) === String(next.ID)) return current;
+        const courseId = String(next.PROPERTY_VALUES?.parentId || event.detail?.courseId || "");
+        const course = (snapshot.courses || []).find((item) => String(item.ID) === courseId) || current?.course || null;
+        return { material: next, course };
+      });
+    };
+    window.addEventListener("rtm:material-opened", handleLegacyMaterial);
+    return () => window.removeEventListener("rtm:material-opened", handleLegacyMaterial);
+  }, [snapshot.courses]);
   const [history, setHistory] = useState([]);
   const [materialOpen, setMaterialOpen] = useState({ loading: false, error: "" });
   const menuWasOpen = useRef(false);

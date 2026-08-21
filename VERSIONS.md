@@ -575,6 +575,12 @@ Rollback: тег создаётся перед production-deploy. Миграци
 
 - Recreate the visual test runtime on every material opening so sequential articles and tests do not reuse a stale canvas mount.
 - Keep assignment dialogs content-sized and remove the empty stretched modal area.
+# v53.0.26 — 2026-08-21
+
+- Синхронизирован переход между материалами legacy-рендера с React: следующий тест или статья получает новый жизненный цикл вместо пустого экрана после первого открытия.
+- Добавлены безопасные проверки наличия поверхности материала перед legacy-рендером.
+- Убрано глобальное принудительное обнуление прокрутки модальных окон и устранено растягивание мастера назначений пустым пространством.
+
 # v53.0.25 — 2026-08-21
 
 - Ignore stale asynchronous test mounts when users switch between course materials.
