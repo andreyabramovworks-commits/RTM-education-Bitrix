@@ -575,3 +575,7 @@ Rollback: тег создаётся перед production-deploy. Миграци
 
 - Recreate the visual test runtime on every material opening so sequential articles and tests do not reuse a stale canvas mount.
 - Keep assignment dialogs content-sized and remove the empty stretched modal area.
+# v53.0.25 — 2026-08-21
+
+- Ignore stale asynchronous test mounts when users switch between course materials.
+- Reset the shared modal scroll position whenever new assignment content opens.

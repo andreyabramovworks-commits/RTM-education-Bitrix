@@ -1334,3 +1334,4 @@ setTimeout(function(){v39RepairMedia();v39EnsureVersionLabels()},0);
 window.process=window.process||{env:{NODE_ENV:'production'}};
 /* RTM v043 local Excalidraw assets. */
 window.EXCALIDRAW_ASSET_PATH = new URL('./excalidraw-dist/', window.location.href).href;
+new MutationObserver(function(records){if(!records.some(function(record){return record.addedNodes&&record.addedNodes.length}))return;var box=document.getElementById('modalBox'),backdrop=document.getElementById('modalBackdrop');if(box&&backdrop&&!backdrop.classList.contains('hidden'))box.scrollTop=0;}).observe(document.getElementById('modalBox')||document.documentElement,{childList:true});

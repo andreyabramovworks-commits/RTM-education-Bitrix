@@ -312,7 +312,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   var saveTimer = 0, saveChain = Promise.resolve(), publishing = false;
   var testScene = null;
   var takeAnswers = {};
-  var mountedTestHost = null;
+  var mountedTestHost = null, testMountGeneration = 0;
 
   function id(prefix) { return (prefix || 'rtm') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9); }
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -626,7 +626,8 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     // Legacy resume/retry paths replace the markup directly and bypass the
     // start-button click handler. Always schedule the visual scene here so a
     // reopened attempt cannot leave a zero-height canvas.
-    setTimeout(function () { mountTakeCanvas(findItem(test.ID) || test); }, 0);
+    var mountGeneration=++testMountGeneration;
+    setTimeout(function () { mountTakeCanvas(findItem(test.ID) || test,mountGeneration); }, 0);
     var preview=Boolean(normalizeMeta(j(test.PROPERTY_VALUES.meta)).knowledgePreviewAnswers);
     return '<form class="v51-take-test'+(preview?' is-knowledge-preview':'')+'" data-take-test="' + test.ID + '" data-test-start="' + Date.now() + '">'+(preview?'<div class="v51-status preview">Предпросмотр как у ученика. Правильные ответы отмечены; прохождение не сохраняется.</div>':'')+'<div class="v51-test-clock" data-v51-test-clock hidden></div><div id="v51TakeCanvas" class="v51-take-canvas"></div>'+(preview?'':'<div class="v51-test-submit-bar"><button class="primary" type="submit">Отправить ответы</button></div>')+'</form>';
   };
@@ -641,8 +642,10 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     var next = clone(meta); next.questions = saved.questions.map(function (qid) { var q = byId.get(String(qid)); if (!q) return null; var ids = (q.options || []).map(function (o) { return String(o.id); }); if (!Array.isArray(saved.answers[qid]) || saved.answers[qid].slice().sort().join('|') !== ids.slice().sort().join('|')) saved.answers[qid] = meta.shuffleAnswers ? shuffleRows(ids) : ids.slice(); var options = new Map((q.options || []).map(function (o) { return [String(o.id), o]; })); q.options = saved.answers[qid].map(function (id) { return options.get(String(id)); }).filter(Boolean); return q; }).filter(Boolean);
     localStorage.setItem(key, JSON.stringify(saved)); return next;
   }
-  async function mountTakeCanvas(test) {
-    var host = document.getElementById('v51TakeCanvas'), form = host && host.closest('form'); if (!host || !form || !window.RTMCanvas) return setTimeout(function () { mountTakeCanvas(test); }, 120);
+  async function mountTakeCanvas(test,mountGeneration) {
+    if(mountGeneration!==testMountGeneration)return;
+    var host = document.getElementById('v51TakeCanvas'), form = host && host.closest('form'); if (!host || !form || !window.RTMCanvas) return setTimeout(function () { mountTakeCanvas(test,mountGeneration); }, 120);
+    if(mountGeneration!==testMountGeneration||String(form.dataset.takeTest)!==String(test.ID))return;
     if (mountedTestHost && mountedTestHost !== host && window.RTMCanvas) try { window.RTMCanvas.unmount(mountedTestHost); } catch (_) {}
     if (host.dataset.rtmMountedTest === String(test.ID) && host.childElementCount) { if (window.RTMCanvas) try { window.RTMCanvas.unmount(host); } catch (_) {} }
     host.dataset.rtmMountedTest = String(test.ID);
