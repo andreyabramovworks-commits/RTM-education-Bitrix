@@ -1,0 +1,32 @@
+# Proprietary Software License
+
+Copyright © 2026 Konstantin. All Rights Reserved.
+
+This software and its source code are proprietary and protected by applicable copyright laws.
+
+Permission is granted to view the source code for informational, educational, and evaluation purposes only.
+
+Unless prior written permission is obtained from the copyright holder, you may not:
+
+* use this software or its source code, in whole or in part, in your own projects, products, or services;
+* copy or reproduce substantial portions of the source code, except as technically necessary to view the repository through the hosting platform;
+* modify, adapt, translate, or create derivative works based on this software;
+* distribute, publish, sublicense, sell, rent, lease, or otherwise make this software or its source code available to third parties;
+* use this software or its source code for commercial purposes;
+* remove or alter copyright, authorship, or proprietary notices.
+
+Any use beyond the permissions expressly granted above requires prior written permission from the copyright holder.
+
+## Third-Party Software
+
+This repository may contain or depend upon third-party software, libraries, components, or portions of source code that are distributed under separate licenses.
+
+Such third-party materials remain subject to their respective licenses and copyright notices. Nothing in this license is intended to restrict any rights granted under those third-party licenses.
+
+Where a third-party component is licensed under the MIT License or another open-source license, that component remains available under the terms of its original license.
+
+## No Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE SOFTWARE OR THE USE OF THE SOFTWARE.
