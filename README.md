@@ -1,4 +1,35 @@
-# RTM Education Bitrix
+<p align="center">
+  <img src="docs/assets/rtm-education-logo.png" alt="Логотип RTM Education" width="320">
+</p>
+
+<h1 align="center">RTM Education Bitrix</h1>
+
+<p align="center">
+  Корпоративное обучение, база знаний и контроль ознакомления сотрудников внутри Bitrix24.
+</p>
+
+<p align="center">
+  <a href="https://github.com/andreyabramovworks-commits/RTM-education-Bitrix/actions/workflows/ci.yml"><img src="https://github.com/andreyabramovworks-commits/RTM-education-Bitrix/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://rtmgroupdocs.fvds.ru/api/health"><img src="https://img.shields.io/website?url=https%3A%2F%2Frtmgroupdocs.fvds.ru%2Fapi%2Fhealth&label=production&up_message=online&down_message=offline" alt="Production status"></a>
+  <img src="https://img.shields.io/badge/frontend-React%2019-61dafb" alt="React 19">
+  <img src="https://img.shields.io/badge/API-FastAPI-009688" alt="FastAPI">
+  <img src="https://img.shields.io/badge/database-PostgreSQL%2017-4169e1" alt="PostgreSQL 17">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-proprietary-f59e0b" alt="Proprietary license"></a>
+</p>
+
+> Production: [приложение](https://rtmgroupdocs.fvds.ru/bitrix/app) · [health](https://rtmgroupdocs.fvds.ru/api/health) · [readiness](https://rtmgroupdocs.fvds.ru/api/ready)
+
+## Навигация
+
+- [Возможности](#для-чего-нужен-проект-и-что-он-умеет)
+- [Архитектура](#архитектура-проекта)
+- [Роли и доступы](#роли-и-доступы)
+- [Локальный запуск](#локальный-запуск)
+- [Разработка и проверки](#разработка-и-миграции)
+- [Production и эксплуатация](#production-и-эксплуатация)
+- [История версий](VERSIONS.md)
+- [Интеграция с Bitrix24](deploy/BITRIX24.md)
+- [Лицензия](#лицензия-и-сторонние-компоненты)
 
 ## Для чего нужен проект и что он умеет
 
@@ -25,17 +56,17 @@ RTM Education Bitrix — обучающая платформа для созда
 
 ## Архитектура проекта
 
-```text
-Пользователь / Bitrix24
-          |
-          v
-      Caddy  ───────── HTTPS, раздача frontend, маршрутизация /api/*
-       /   \
-      v     v
-  React/Vite  FastAPI ───── авторизация, роли, учебная логика, API
-                  |
-                  v
-             PostgreSQL ─── нормализованные данные и JSON-сцены
+```mermaid
+flowchart LR
+    user["Сотрудник"] --> portal["Bitrix24"]
+    user --> caddy["Caddy · HTTPS"]
+    portal -->|"iframe + SDK context"| caddy
+    caddy -->|"/bitrix/* и статика"| ui["React 19 + Vite"]
+    caddy -->|"/api/*"| api["FastAPI"]
+    ui -->|"JSON API + session"| api
+    api -->|"SQLModel / SQLAlchemy"| db[("PostgreSQL 17")]
+    api -->|"разрешённые REST-методы"| bitrix["Bitrix24 REST API"]
+    deploy["GitHub main"] -->|"systemd timer · fast-forward deploy"| caddy
 ```
 
 ### Компоненты
@@ -75,18 +106,20 @@ RTM Education Bitrix — обучающая платформа для созда
 
 Основные связи предметной области выглядят так:
 
-```text
-AppUser
-  ├── Assignment ──> Course / учебная цель
-  ├── LearningProgress ──> Course, Article или Test
-  ├── TestAttempt ──> KnowledgeTest
-  └── DeveloperWorkspace ──> DeveloperWorkspaceRevision
-
-Project
-  └── Course
-       └── CourseSection
-            ├── Article ──> ExcalidrawScene / ArticleDraft
-            └── KnowledgeTest
+```mermaid
+erDiagram
+    APP_USER ||--o{ ASSIGNMENT : получает
+    APP_USER ||--o{ LEARNING_PROGRESS : сохраняет
+    APP_USER ||--o{ TEST_ATTEMPT : выполняет
+    PROJECT ||--o{ COURSE : содержит
+    COURSE ||--o{ COURSE_SECTION : состоит_из
+    COURSE_SECTION ||--o{ ARTICLE : содержит
+    COURSE_SECTION ||--o{ KNOWLEDGE_TEST : содержит
+    ARTICLE ||--o{ ARTICLE_DRAFT : редактируется_как
+    ARTICLE ||--o{ EXCALIDRAW_SCENE : публикует
+    KNOWLEDGE_TEST ||--o{ TEST_ATTEMPT : проверяет
+    APP_USER ||--o| DEVELOPER_WORKSPACE : владеет
+    DEVELOPER_WORKSPACE ||--o{ DEVELOPER_WORKSPACE_REVISION : версионируется
 ```
 
 Legacy-идентификаторы сохраняются в нормализованных сущностях и в таблице `legacy_records`. Это позволяет поддерживать старый формат данных и одновременно использовать новую серверную модель.
@@ -124,7 +157,18 @@ Legacy API сохраняет совместимые сущности `rtm_prj`,
 
 ## Статус и версии
 
-Проект находится в активной разработке. Текущие версии frontend и backend поставляются из ветки `main`; production получает изменения через автоматизированный deploy-процесс. Подробная история изменений, совместимости и важных исправлений находится в [`VERSIONS.md`](VERSIONS.md).
+Проект находится в активной разработке. Ветка `main` — единственный источник production-развёртывания. Версия работающего backend возвращается в поле `version` endpoint `/api/health`; готовность приложения и PostgreSQL проверяется через `/api/ready`. Подробная история изменений, совместимости и важных исправлений находится в [`VERSIONS.md`](VERSIONS.md).
+
+### Что уже работает
+
+| Контур | Состояние |
+| --- | --- |
+| Учебная оболочка и административный интерфейс | Работают на React-host поверх совместимого legacy-runtime |
+| Проекты, курсы, разделы, статьи и тесты | Реализованы в API, PostgreSQL и интерфейсе |
+| Назначения, прогресс, попытки и проверки | Реализованы с ролевыми ограничениями |
+| Bitrix24 | Поддерживаются iframe-контекст, серверная авторизация и разрешённые REST-вызовы |
+| Excalidraw | Черновики, опубликованные сцены, ревизии и developer workspace |
+| Доставка | Docker Compose, Caddy, Alembic, systemd deploy/backup timers |
 
 ## Требования
 
@@ -180,6 +224,19 @@ cd backend
 pytest
 ```
 
+Полный локальный набор проверок, совпадающий с основными шагами CI:
+
+```bash
+cd frontend
+pnpm install --frozen-lockfile
+pnpm test
+pnpm build
+
+cd ../backend
+python -m pip install -r requirements.txt
+pytest
+```
+
 После изменения SQLModel-моделей создайте и примените миграцию:
 
 ```bash
@@ -204,12 +261,21 @@ deploy/        Caddy, bootstrap, systemd timers и production-документа
 compose.yaml   описание контейнеров и сетей
 .env.example   шаблон конфигурации окружения
 VERSIONS.md    история версий и изменений
+LICENSE        условия использования авторского кода
+THIRD_PARTY_NOTICES  уведомления о сторонних компонентах
 ```
+
+## Безопасность и вклад в проект
+
+- Не публикуйте `.env`, OAuth-токены Bitrix24, пароли PostgreSQL, приватные ключи, дампы и production-данные.
+- Изменения базы оформляются только Alembic-миграциями; ручная правка production-схемы не является поддерживаемым процессом.
+- Перед отправкой изменений выполните frontend-тесты и сборку, backend-тесты, затем проверьте diff на секреты и случайно добавленные артефакты.
+- Ошибки, способные раскрыть данные или обойти роли, не следует описывать в публичном issue: передайте детали владельцу репозитория приватно.
 
 ## Лицензия и сторонние компоненты
 
-В репозитории нет отдельного файла открытой лицензии для авторского кода RTM Education Bitrix. Исходный код, конфигурация, документация и созданные в рамках проекта доработки принадлежат автору проекта — Андрею Абрамову. Их копирование, распространение, публикация, коммерческое использование и включение в другие продукты разрешены только с предварительного письменного разрешения автора, если иное отдельно не согласовано.
+Условия использования авторского кода RTM Education Bitrix зафиксированы в файле [`LICENSE`](LICENSE). Исходный код, конфигурация, документация и созданные в рамках проекта доработки принадлежат автору проекта — Андрею Абрамову. Их копирование, распространение, публикация, коммерческое использование и включение в другие продукты разрешены только с предварительного письменного разрешения автора, если иное отдельно не согласовано.
 
-Проект использует Excalidraw и связанные frontend-ресурсы. Основной Excalidraw распространяется по лицензии MIT, которая разрешает использование, изменение и распространение при сохранении уведомления об авторских правах и текста лицензии. Уведомления о сторонних компонентах находятся в [`frontend/public/legacy/THIRD_PARTY_NOTICES.txt`](frontend/public/legacy/THIRD_PARTY_NOTICES.txt), а исходный текст лицензии Excalidraw доступен в [официальном репозитории Excalidraw](https://github.com/excalidraw/excalidraw/blob/master/LICENSE).
+Проект использует Excalidraw и связанные frontend-ресурсы. Основной Excalidraw распространяется по лицензии MIT, которая разрешает использование, изменение и распространение при сохранении уведомления об авторских правах и текста лицензии. Сводные уведомления находятся в [`THIRD_PARTY_NOTICES`](THIRD_PARTY_NOTICES), а runtime-копия — в [`frontend/public/legacy/THIRD_PARTY_NOTICES.txt`](frontend/public/legacy/THIRD_PARTY_NOTICES.txt). Исходный текст лицензии Excalidraw доступен в [официальном репозитории Excalidraw](https://github.com/excalidraw/excalidraw/blob/master/LICENSE).
 
 Лицензия MIT распространяется только на соответствующий сторонний компонент и не означает, что авторский код RTM Education Bitrix становится свободным для использования.

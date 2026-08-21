@@ -1,0 +1,34 @@
+name: Ошибка
+description: Сообщить о воспроизводимой проблеме без публикации секретов
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Не публикуйте токены, пароли, персональные данные и детали эксплуатации уязвимостей.
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Сценарий
+      description: Действия, ожидаемый и фактический результат.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Версия
+      description: Версия из профиля или `/api/health`.
+    validations:
+      required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Роль
+      options: [Пользователь, Преподаватель, Редактор, Администратор, Разработчик, Неизвестно]
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Дополнительные данные
+      description: Обезличенные логи, скриншоты и сведения об окружении.

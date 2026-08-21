@@ -1,0 +1,25 @@
+name: Предложение
+description: Предложить улучшение продукта
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Проблема
+      description: Какую задачу пользователя сейчас трудно решить?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Желаемый результат
+      description: Опишите результат без привязки к конкретной реализации.
+    validations:
+      required: true
+  - type: textarea
+    id: roles
+    attributes:
+      label: Затронутые роли и сценарии
+    validations:
+      required: true

@@ -24,11 +24,14 @@ test("v51.5 has one initial synchronization path", () => {
 });
 
 test("v51.5 runtime uses one canonical manifest", () => {
+  const releaseVersion = manifest.match(/RELEASE_VERSION = "([^"]+)"/)?.[1];
+  const assetRevision = manifest.match(/RELEASE_ASSET_REVISION = "([^"]+)"/)?.[1];
   assert.match(host, /from "\.\/legacyRuntime"/);
   assert.match(host, /if \(runtimePromise\) return runtimePromise/);
   assert.doesNotMatch(host, /const LEGACY_(?:STYLES|SCRIPTS)/);
-  assert.match(manifest, /RELEASE_VERSION = "53\.0\.25"/);
-  assert.match(index, /bitrix-loader\.js\?v=53\.0\.25-r1/);
+  assert.match(releaseVersion, /^\d+\.\d+\.\d+$/);
+  assert.equal(assetRevision, `${releaseVersion}-r1`);
+  assert.ok(index.includes(`bitrix-loader.js?v=${assetRevision}`));
   assert.match(host, /await Promise\.all\(LEGACY_STYLES\.map\(loadStyle\)\)/);
   assert.match(host, /rtm-pending/);
   assert.match(app, /window\.__RTM_SHELL_INIT__=init/);

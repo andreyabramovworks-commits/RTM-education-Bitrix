@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Сообщить об уязвимости
+    url: https://github.com/andreyabramovworks-commits/RTM-education-Bitrix/security
+    about: Не публикуйте чувствительные детали в обычном issue; сначала прочитайте SECURITY.md.
