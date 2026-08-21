@@ -643,7 +643,8 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   }
   async function mountTakeCanvas(test) {
     var host = document.getElementById('v51TakeCanvas'), form = host && host.closest('form'); if (!host || !form || !window.RTMCanvas) return setTimeout(function () { mountTakeCanvas(test); }, 120);
-    if (host.dataset.rtmMountedTest === String(test.ID)) return;
+    if (mountedTestHost && mountedTestHost !== host && window.RTMCanvas) try { window.RTMCanvas.unmount(mountedTestHost); } catch (_) {}
+    if (host.dataset.rtmMountedTest === String(test.ID) && host.childElementCount) { if (window.RTMCanvas) try { window.RTMCanvas.unmount(host); } catch (_) {} }
     host.dataset.rtmMountedTest = String(test.ID);
     var originalMeta = normalizeMeta(j(test.PROPERTY_VALUES.meta)), meta = await hydrateMetaMedia(orderedMeta(test, originalMeta)), latest = userAttempt(test.ID), existing = latest && latest.PROPERTY_VALUES && latest.PROPERTY_VALUES.answers, previous = {};
     try { previous = existing ? JSON.parse(existing) : {}; } catch (_) { previous = {}; }

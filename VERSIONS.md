@@ -571,3 +571,7 @@ Rollback: тег создаётся перед production-deploy. Миграци
 - Article completion proceeds to the next available course material and activity telemetry cannot block it.
 - Removed automatic native `title` generation that produced oversized concatenated browser tooltips; contextual help is attached only to mapped controls.
 - Hardened legacy/react view transitions and made mobile acknowledgement sheets use the full available height.
+# v53.0.24 — 2026-08-21
+
+- Recreate the visual test runtime on every material opening so sequential articles and tests do not reuse a stale canvas mount.
+- Keep assignment dialogs content-sized and remove the empty stretched modal area.
