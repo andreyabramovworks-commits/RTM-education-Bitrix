@@ -313,6 +313,11 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   var testScene = null;
   var takeAnswers = {};
   var mountedTestHost = null, testMountGeneration = 0;
+  window.RTMDisposeTestMaterial = function () {
+    testMountGeneration += 1;
+    if (mountedTestHost && window.RTMCanvas) try { window.RTMCanvas.unmount(mountedTestHost); } catch (_) {}
+    mountedTestHost = null;
+  };
 
   function id(prefix) { return (prefix || 'rtm') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9); }
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
@@ -449,8 +454,16 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   function pullSceneLabels(scene, meta) {
     if (!scene || !Array.isArray(scene.elements)) return;
     var questions = new Map((meta.questions || []).map(function (question) { return [String(question.id), question]; }));
+    var latest = new Map();
     scene.elements.forEach(function (element) {
       if (element.isDeleted || element.type !== 'text') return;
+      var binding = element.customData && element.customData.rtmTestText;
+      if (!binding) return;
+      var key = [binding.kind, binding.questionId, binding.optionId || ''].join(':');
+      var previous = latest.get(key);
+      if (!previous || Number(element.version || 0) >= Number(previous.version || 0)) latest.set(key, element);
+    });
+    latest.forEach(function (element) {
       var binding = element.customData && element.customData.rtmTestText, question = binding && questions.get(String(binding.questionId));
       if (!question) return;
       if (binding.kind === 'question') question.text = String(element.text || '').replace(/^\s*\d+\.\s*/, '');
@@ -523,6 +536,14 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     meta.shuffleAnswers = Boolean(document.getElementById('v51ShuffleAnswers') && document.getElementById('v51ShuffleAnswers').checked);
     meta.showCorrect = Boolean(document.getElementById('v51ShowCorrect') && document.getElementById('v51ShowCorrect').checked);
     meta.certificate = Boolean(document.getElementById('v51Certificate') && document.getElementById('v51Certificate').checked);
+    meta.questions.forEach(function (question) {
+      var questionInput = document.querySelector('[data-v51-question-text="' + question.id + '"]');
+      if (questionInput) question.text = questionInput.value;
+      (question.options || []).forEach(function (option) {
+        var optionInput = document.querySelector('[data-v51-option="' + question.id + ':' + option.id + '"]');
+        if (optionInput) option.text = optionInput.value;
+      });
+    });
     pullSceneLabels(snapshotScene || testScene || meta.testScene, meta);
     meta.questions.forEach(function (question) {
       (question.options || []).forEach(function (option) { var correct = document.querySelector('[data-v51-correct="' + question.id + ':' + option.id + '"]'); option.correct = Boolean(correct && correct.checked); });
@@ -626,8 +647,9 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     // Legacy resume/retry paths replace the markup directly and bypass the
     // start-button click handler. Always schedule the visual scene here so a
     // reopened attempt cannot leave a zero-height canvas.
-    var mountGeneration=++testMountGeneration;
-    setTimeout(function () { mountTakeCanvas(findItem(test.ID) || test,mountGeneration); }, 0);
+    var mountGeneration=++testMountGeneration, materialToken=window.RTMMaterialSession&&window.RTMMaterialSession.current();
+    if(window.RTMMaterialSession)window.RTMMaterialSession.schedule(function(){mountTakeCanvas(findItem(test.ID)||test,mountGeneration,materialToken,0)},0,materialToken);
+    else setTimeout(function () { mountTakeCanvas(findItem(test.ID) || test,mountGeneration,null,0); }, 0);
     var preview=Boolean(normalizeMeta(j(test.PROPERTY_VALUES.meta)).knowledgePreviewAnswers);
     return '<form class="v51-take-test'+(preview?' is-knowledge-preview':'')+'" data-take-test="' + test.ID + '" data-test-start="' + Date.now() + '">'+(preview?'<div class="v51-status preview">Предпросмотр как у ученика. Правильные ответы отмечены; прохождение не сохраняется.</div>':'')+'<div class="v51-test-clock" data-v51-test-clock hidden></div><div id="v51TakeCanvas" class="v51-take-canvas"></div>'+(preview?'':'<div class="v51-test-submit-bar"><button class="primary" type="submit">Отправить ответы</button></div>')+'</form>';
   };
@@ -642,9 +664,15 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     var next = clone(meta); next.questions = saved.questions.map(function (qid) { var q = byId.get(String(qid)); if (!q) return null; var ids = (q.options || []).map(function (o) { return String(o.id); }); if (!Array.isArray(saved.answers[qid]) || saved.answers[qid].slice().sort().join('|') !== ids.slice().sort().join('|')) saved.answers[qid] = meta.shuffleAnswers ? shuffleRows(ids) : ids.slice(); var options = new Map((q.options || []).map(function (o) { return [String(o.id), o]; })); q.options = saved.answers[qid].map(function (id) { return options.get(String(id)); }).filter(Boolean); return q; }).filter(Boolean);
     localStorage.setItem(key, JSON.stringify(saved)); return next;
   }
-  async function mountTakeCanvas(test,mountGeneration) {
-    if(mountGeneration!==testMountGeneration)return;
-    var host = document.getElementById('v51TakeCanvas'), form = host && host.closest('form'); if (!host || !form || !window.RTMCanvas) return setTimeout(function () { mountTakeCanvas(test,mountGeneration); }, 120);
+  async function mountTakeCanvas(test,mountGeneration,materialToken,retryCount) {
+    var session=window.RTMMaterialSession;
+    if(mountGeneration!==testMountGeneration||(session&&materialToken&&!session.isCurrent(materialToken,test.ID)))return;
+    var host = document.getElementById('v51TakeCanvas'), form = host && host.closest('form');
+    if (!host || !form || !window.RTMCanvas) {
+      if((retryCount||0)>=25)return;
+      if(session)return session.schedule(function(){mountTakeCanvas(test,mountGeneration,materialToken,(retryCount||0)+1)},120,materialToken);
+      return setTimeout(function () { mountTakeCanvas(test,mountGeneration,null,(retryCount||0)+1); }, 120);
+    }
     if(mountGeneration!==testMountGeneration||String(form.dataset.takeTest)!==String(test.ID))return;
     if (mountedTestHost && mountedTestHost !== host && window.RTMCanvas) try { window.RTMCanvas.unmount(mountedTestHost); } catch (_) {}
     if (host.dataset.rtmMountedTest === String(test.ID) && host.childElementCount) { if (window.RTMCanvas) try { window.RTMCanvas.unmount(host); } catch (_) {} }
@@ -658,7 +686,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     });
     mountedTestHost = host;
     var scene = (meta.shuffleQuestions || meta.shuffleAnswers) && window.RTMV52 && window.RTMV52.createScene ? await window.RTMV52.createScene(meta, test.NAME) : meta.testScene || buildScene(meta, test.NAME);
-    function remount() { if (!host.isConnected) return; window.RTMCanvas.mount(host, {pageKey: 'test-take:' + test.ID, scene: scene, readOnly: true, fitToContent: true, completionRequired: false, testMode: 'take', testDefinition: meta, testAnswers: takeAnswers, brandColor: '#ef174c', onTestAnswer: preview?function(){}:function (questionId, value) { takeAnswers[questionId] = value; setTimeout(remount,0); }}); }
+    function remount() { if (!host.isConnected||(session&&materialToken&&!session.isCurrent(materialToken,test.ID))) return; window.RTMCanvas.mount(host, {pageKey: 'test-take:' + test.ID, scene: scene, readOnly: true, fitToContent: true, completionRequired: false, testMode: 'take', testDefinition: meta, testAnswers: takeAnswers, brandColor: '#ef174c', onTestAnswer: preview?function(){}:function (questionId, value) { takeAnswers[questionId] = value; if(session)session.schedule(remount,0,materialToken);else setTimeout(remount,0); }}); }
     remount(); if(!preview)form.onsubmit = window.takeTestSubmit;else form.onsubmit=function(event){event.preventDefault();};
     clearTimeout(form._v51timer); var clock = form.querySelector('[data-v51-test-clock]');
     if (meta.timeLimit && clock) { clock.hidden = false; (function tick() { var left = Number(form.dataset.testStart) + Number(meta.timeLimit) * 60000 - Date.now(); clock.textContent = 'Осталось ' + Math.max(0, Math.floor(left / 60000)) + ':' + String(Math.max(0, Math.ceil(left / 1000) % 60)).padStart(2, '0'); if (left <= 0) { if (!form.dataset.submitting) { form.dataset.timedOut = '1'; form.requestSubmit(); } return; } form._v51timer = setTimeout(tick, 500); })(); }
@@ -674,6 +702,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   function courseReviewer(test) { var course = findItem(materialCourseId(test) || test.PROPERTY_VALUES.parentId), meta = course && j(course.PROPERTY_VALUES.meta); return String(meta && meta.reviewerId || ''); }
   window.takeTestSubmit = takeTestSubmit = async function (event) {
     event.preventDefault(); var form = event.currentTarget, test = findItem(form.dataset.takeTest); if (!test) return;
+    var materialSession=window.RTMMaterialSession,materialToken=materialSession&&materialSession.current();
     if (form.dataset.submitting) return; form.dataset.submitting = '1'; clearTimeout(form._v51timer);
     var submitButton=form.querySelector('button[type="submit"]');if(submitButton){submitButton.disabled=true;submitButton.dataset.label=submitButton.textContent;submitButton.textContent='Отправляем ответы…';}
     var meta = normalizeMeta(j(test.PROPERTY_VALUES.meta)), timedOut = form.dataset.timedOut === '1' || meta.timeLimit && (Date.now() - Number(form.dataset.testStart || Date.now())) > meta.timeLimit * 60000;
@@ -689,6 +718,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     if (autoPassed) await complete(test.ID, 'test');
     persisted=true;
     if (hasFree) { var destination = reviewerId || ((state.users || []).find(function (user) { return ['admin', 'developer'].includes(getAppRole(user)); }) || {}).ID; await notifyUser(destination, 'В RTM Education новый свободный ответ по тесту «' + test.NAME + '» ожидает проверки.'); }
+    if(materialSession&&materialToken&&!materialSession.isCurrent(materialToken,test.ID))return;
     var title = timedOut ? 'Время истекло — тест не пройден' : hasFree ? (autoPassed ? 'Автоматическая часть пройдена' : 'Автоматическая часть не пройдена') : autoPassed ? 'Тест пройден' : 'Тест не пройден';
     var message = hasFree ? '<p>Свободный ответ отправлен проверяющему.</p>' + (autoPassed ? '<p>Следующий материал доступен.</p>' : '<p>Для открытия следующего материала сначала пройдите автоматическую часть.</p>') : '';
     var left = remainingAttempts(test, meta);
@@ -776,10 +806,20 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     var article = findItem(state.articleId); if (!article) return; await saveCurrentArticlePage(); article = findItem(state.articleId); var meta = j(article.PROPERTY_VALUES.meta); meta.pages = meta.pages && meta.pages.length ? meta.pages : []; meta.pages.push({id: id('page'), title: 'Страница ' + (meta.pages.length + 1), html: '', canvasRef: null}); var props = Object.assign({}, article.PROPERTY_VALUES, {meta: json(meta), content: meta.pages.map(function (page) { return page.html || ''; }).join('<hr>'), updatedAt: now()}); updateLocalItem(article.ID, article.NAME, props); await upd(E.items, article.ID, article.NAME, props); state.articlePage = meta.pages.length - 1; renderArticlePages(); toast('Пустая страница добавлена');
   };
 
+  var articleCompletionInFlight = false;
   window.finishCurrentArticle = async function () {
-    var material = findItem(document.getElementById('userMaterialView') && document.getElementById('userMaterialView').dataset.id); if (!material) return; await complete(material.ID, materialKind(material)); document.body.classList.remove('is-reading-article');
+    if (articleCompletionInFlight) return;
+    var material = findItem(document.getElementById('userMaterialView') && document.getElementById('userMaterialView').dataset.id); if (!material) return;
+    articleCompletionInFlight = true;
+    var token = window.RTMMaterialSession && window.RTMMaterialSession.current();
+    try {
+      if (typeof flushActivity === 'function') await flushActivity();
+      await complete(material.ID, materialKind(material));
+      if (window.RTMMaterialSession && !window.RTMMaterialSession.isCurrent(token, material.ID)) return;
+      document.body.classList.remove('is-reading-article');
     var courseId = materialCourseId(material), list = courseId ? courseChildren(courseId) : [], position = list.findIndex(function (row) { return String(row.ID) === String(material.ID); }), next = position >= 0 ? list[position + 1] : null;
-    if (next && canOpenCourseMaterial(next)) openUserMaterial(next); else if (courseId) openUserCourse(findItem(courseId)); else backFromUserMaterial();
+      if (next && canOpenCourseMaterial(next)) await openUserMaterial(next); else if (courseId) openUserCourse(findItem(courseId)); else backFromUserMaterial();
+    } finally { articleCompletionInFlight = false; }
   };
   var rawIsDoneV51 = window.isDone;
   window.isDone = isDone = function (targetId, type) {
@@ -1099,8 +1139,10 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   }
   var baseOpenMaterial = window.openUserMaterial;
   window.openUserMaterial = openUserMaterial = function (material) {
-    if (material && materialKind(material) === 'test') { try { var sessions = JSON.parse(localStorage.getItem('rtm_v035_test_sessions') || '{}'), key = String(effectiveUserId()) + ':' + String(material.ID); delete sessions[key]; localStorage.setItem('rtm_v035_test_sessions', JSON.stringify(sessions)); } catch (_) {} }
-    var result = baseOpenMaterial.apply(this, arguments); setTimeout(function () { updateMaterialNavigation(material); }, 0); return result;
+    var result = baseOpenMaterial.apply(this, arguments), materialSession=window.RTMMaterialSession, materialToken=materialSession&&materialSession.current();
+    if(materialSession)materialSession.schedule(function(){updateMaterialNavigation(material)},0,materialToken);
+    else setTimeout(function () { updateMaterialNavigation(material); }, 0);
+    return result;
   };
 
   function activeTableRows() { return Array.from(document.querySelectorAll('#analyticsContent table tbody tr')); }

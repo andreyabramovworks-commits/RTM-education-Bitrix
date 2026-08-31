@@ -41,13 +41,10 @@ function useAdminSnapshot(bridge) {
   return snapshot;
 }
 
-export function AdminApp({ bridge, onSetMode }) {
+export function AdminApp({ active, bridge, onSetMode }) {
   const snapshot = useAdminSnapshot(bridge);
   const mountRef = useRef(null);
   const [route, setRoute] = useState(() => bridge.getSnapshot().route || "dashboard");
-  const [hints, setHints] = useState(() => {
-    try { return localStorage.getItem("rtm_admin_hints") !== "0"; } catch { return true; }
-  });
   const [menuOpen, setMenuOpen] = useState(false);
   const [routeError, setRouteError] = useState("");
   const isDeveloper = snapshot.role === "developer";
@@ -82,13 +79,11 @@ export function AdminApp({ bridge, onSetMode }) {
   };
 
   const toggleHints = () => {
-    const next = !hints;
-    setHints(next);
-    try { localStorage.setItem("rtm_admin_hints", next ? "1" : "0"); } catch {}
+    bridge.setHintsEnabled?.(!snapshot.hintsEnabled);
   };
 
   const primary = snapshot.appearance?.primaryColor || "#16845b";
-  return <div className={`rtm-admin-v53 ${hints ? "has-guidance" : ""}`} style={{ "--adm-accent": primary }}>
+  return <div className={`rtm-admin-v53 ${snapshot.hintsEnabled ? "has-guidance" : ""}`} hidden={!active} style={{ "--adm-accent": primary }}>
     <header className="adm-topbar">
       <button className="adm-mobile-menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Открыть меню" aria-expanded={menuOpen}>☰</button>
       <button className="adm-brand" onClick={() => selectRoute("dashboard")} data-tip="Перейти на дашборд">
@@ -97,7 +92,7 @@ export function AdminApp({ bridge, onSetMode }) {
         <em>Администрирование</em>
       </button>
       <div className="adm-top-actions">
-        <button className={hints ? "is-active" : ""} onClick={toggleHints} aria-pressed={hints} data-tip="Показывать пояснения после наведения на элементы"><Icon name="help" /><span>Подсказки</span></button>
+        <button className={snapshot.hintsEnabled ? "is-active" : ""} onClick={toggleHints} aria-pressed={snapshot.hintsEnabled} data-tip="Показывать пояснения после наведения на элементы"><Icon name="help" /><span>Подсказки</span></button>
         <button onClick={() => bridge.refresh()} disabled={snapshot.syncing} data-tip="Получить актуальные данные из Bitrix24"><Icon name="sync" /><span>{snapshot.syncing ? "Обновляем…" : "Синхронизировать"}</span></button>
         <button className="adm-user-mode" onClick={() => onSetMode("user")} data-tip="Вернуться в интерфейс ученика"><span>Перейти в интерфейс пользователя</span></button>
       </div>

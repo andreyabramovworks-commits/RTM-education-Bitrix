@@ -47,8 +47,9 @@ test("new admin shell suspends the complete classic shell and mounts only page c
 });
 
 test("admin guidance and accessibility contracts are present", () => {
-  assert.match(admin, /rtm_admin_hints/);
-  assert.match(admin, /aria-pressed=\{hints\}/);
+  assert.match(admin, /bridge\.setHintsEnabled\?\.\(!snapshot\.hintsEnabled\)/);
+  assert.match(admin, /aria-pressed=\{snapshot\.hintsEnabled\}/);
+  assert.match(runtime, /hintsEnabled:learner\.hintsEnabled/);
   assert.match(styles, /\.has-guidance \[data-tip\]/);
   assert.match(styles, /prefers-reduced-motion:reduce/);
 });
@@ -124,8 +125,8 @@ test("legacy render hooks cannot remount the React shell", () => {
   assert.match(host, /window\.addEventListener\("rtm:learner-change", refreshShell\)/);
   assert.match(host, /learnerBridge\?\.setMode\?\.\(mode\)/);
   assert.match(host, /finally \{\s*setBridgeTick/);
-  assert.match(host, /<LearnerApp bridge=\{learnerBridge\} onSetMode=\{setShellMode\}/);
-  assert.match(host, /<AdminApp bridge=\{window\.__RTM_ADMIN__\} onSetMode=\{setShellMode\}/);
+  assert.match(host, /<LearnerApp active=\{learnerBridge\.getSnapshot\(\)\.mode === "user"\}/);
+  assert.match(host, /<AdminApp active=\{learnerBridge\.getSnapshot\(\)\.mode === "admin"\}/);
   assert.match(runtime, /subscribeShell:function\(handler\)\{window\.addEventListener\('rtm:learner-change',handler\)/);
   assert.match(runtime, /typeof v38EnsureMobileUi==='function'/);
   assert.doesNotMatch(admin, /<i>›<\/i>/);

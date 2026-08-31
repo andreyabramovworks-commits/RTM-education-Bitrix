@@ -47,8 +47,10 @@ function ResourceState({ state, retry, emptyTitle = "Данных пока не�
   return children(state.data);
 }
 
-function MaterialSurface({ bridge, material, course, onBack }) {
+function MaterialSurface({ active, bridge, material, course, onBack }) {
+  active = active !== false;
   const slot = useRef(null);
+  const legacyNode = useRef(null);
   const onBackRef = useRef(onBack);
   onBackRef.current = onBack;
   const [renderError, setRenderError] = useState("");
@@ -56,20 +58,42 @@ function MaterialSurface({ bridge, material, course, onBack }) {
   useEffect(() => {
     const node = document.getElementById("userMaterialView");
     if (!node || !slot.current) return;
-    const parent = node.parentNode, next = node.nextSibling;
-    slot.current.appendChild(node); node.classList.remove("hidden");
-    let active = true;
+    let parking = document.getElementById("rtm-material-parking");
+    if (!parking) {
+      parking = document.createElement("div");
+      parking.id = "rtm-material-parking";
+      parking.hidden = true;
+      document.body.appendChild(parking);
+    }
+    legacyNode.current = node;
+    slot.current.appendChild(node);
+    return () => {
+      bridge.disposeMaterial?.();
+      legacyNode.current = null;
+      if (node.parentNode === slot.current) parking.appendChild(node);
+    };
+  }, [bridge]);
+  useEffect(() => {
+    const node = legacyNode.current;
+    if (!node) return;
+    if (!active || !material) {
+      node.classList.add("hidden");
+      bridge.disposeMaterial?.();
+      return;
+    }
+    node.classList.remove("hidden");
+    let alive = true;
     setRenderError("");
-    Promise.resolve().then(() => bridge.renderMaterial(material.ID)).catch((error) => {
-      if (active) setRenderError(error?.message || "Не удалось открыть материал");
+    const alreadyRendered = String(window.__RTM_LEGACY_RENDERED_MATERIAL__ || "") === String(material.ID);
+    if (alreadyRendered) window.__RTM_LEGACY_RENDERED_MATERIAL__ = "";
+    else Promise.resolve().then(() => bridge.renderMaterial(material.ID)).catch((error) => {
+      if (alive) setRenderError(error?.message || "Не удалось открыть материал");
     });
     const back = node.querySelector("#uBackToCourse"); if (back) back.onclick = () => onBackRef.current();
     const done = node.querySelector("#uMarkMaterialDone"); if (done && kindOf(material) !== "article") done.onclick = async () => { await bridge.completeMaterial(material.ID); onBackRef.current(); };
-    const observer = new MutationObserver(() => { if (node.classList.contains("hidden")) onBackRef.current(); });
-    observer.observe(node, { attributes: true, attributeFilter: ["class"] });
-    return () => { active = false; observer.disconnect(); if (node.parentNode === slot.current && parent?.isConnected) { if (next?.parentNode === parent) parent.insertBefore(node, next); else parent.appendChild(node); } };
-  }, [bridge, material.ID, renderKey]);
-  return <main className="lr-material-shell"><button className="lr-back lr-material-back" onClick={onBack}><Icon name="back" />Назад</button><div className="lr-material-context"><span>{course?.NAME || "Материал"}</span><span aria-hidden="true">/</span><strong>{material.NAME}</strong></div>{renderError && <section className="lr-material-error" role="alert"><b>Не удалось открыть материал</b><span>{renderError}</span><button className="lr-secondary" onClick={() => setRenderKey((value) => value + 1)}>Повторить</button></section>}<div ref={slot} className="lr-legacy-material" /></main>;
+    return () => { alive = false; };
+  }, [active, bridge, material?.ID, renderKey]);
+  return <main className="lr-material-shell" hidden={!active}><button className="lr-back lr-material-back" onClick={onBack}><Icon name="back" />Назад</button>{material && <div className="lr-material-context"><span>{course?.NAME || "Материал"}</span><span aria-hidden="true">/</span><strong>{material.NAME}</strong></div>}{renderError && <section className="lr-material-error" role="alert"><b>Не удалось открыть материал</b><span>{renderError}</span><button className="lr-secondary" onClick={() => setRenderKey((value) => value + 1)}>Повторить</button></section>}<div ref={slot} className="lr-legacy-material" /></main>;
 }
 
 function Revisions({ bridge, hintsEnabled }) {
@@ -108,6 +132,10 @@ function Knowledge({ bridge, hintsEnabled }) {
   const [expandedEditions, setExpandedEditions] = useState(() => new Set());
   const [state, setState] = useState({ loading: true, data: null, error: "" });
   const load = useCallback((force = false) => { setState((old) => ({ ...old, loading: true, error: "" })); bridge.loadKnowledge(force).then((data) => setState({ loading: false, data, error: "" })).catch((error) => setState({ loading: false, data: null, error: error.message || String(error) })); }, [bridge]);
+  const openKnowledgeMaterial = useCallback(async (document, kind) => {
+    try { await bridge.openKnowledge(document.id, kind); }
+    catch (error) { window.alert(`Не удалось открыть материал: ${error?.message || error}`); }
+  }, [bridge]);
   useEffect(() => load(false), [load]);
   useEffect(() => { if (!selected) { setEditionsState({ loading: false, data: [], error: "" }); return; } setEditionsState({ loading: true, data: [], error: "" }); bridge.loadEditions(selected.id, false).then((data) => setEditionsState({ loading: false, data, error: "" })).catch((error) => setEditionsState({ loading: false, data: [], error: error.message || String(error) })); }, [bridge, selected]);
   return <main className="lr-page lr-kb-page"><header className="lr-page-head lr-kb-head"><div className="lr-kb-title-row">{(path.length > 0 || selected) && <button className="lr-kb-inline-back" onClick={() => selected ? setSelected(null) : setPath(path.slice(0, -1))} aria-label="Вернуться назад"><Icon name="back" /></button>}<h1>База знаний {hintsEnabled && <Hint bridge={bridge} hintKey="knowledge-base" label="База знаний" />}</h1></div>{!selected && <label className="lr-search"><input aria-label="Поиск" value={query} onChange={(event) => { setQuery(event.target.value); setSelected(null); }} placeholder="Поиск" /><Icon name="search" /></label>}</header><ResourceState state={state} retry={() => load(true)}>{({ tree, documents }) => {
@@ -118,7 +146,12 @@ function Knowledge({ bridge, hintsEnabled }) {
     if (selected) return <section className="lr-kb-detail">
       <h2>{selected.title}</h2>
       {selected.description && <p>{selected.description}</p>}
-      <div className="lr-kb-actions">{selected.documentUrl && <a className="lr-primary lr-original-action" href={selected.documentUrl} target="_blank" rel="noreferrer">Открыть оригинал</a>}</div>
+      <div className="lr-kb-actions">
+        <button className="lr-primary" onClick={() => openKnowledgeMaterial(selected, "article")}>Предпросмотр статьи</button>
+        {selected.lightTest?.created && <button className="lr-secondary" onClick={() => openKnowledgeMaterial(selected, "light")}>Предпросмотр теста лайт</button>}
+        {selected.fullTest?.created && <button className="lr-secondary" onClick={() => openKnowledgeMaterial(selected, "full")}>Предпросмотр полного теста</button>}
+        {selected.documentUrl && <a className="lr-secondary lr-original-action" href={selected.documentUrl} target="_blank" rel="noreferrer">Открыть в базе знаний</a>}
+      </div>
       <details className="lr-edition-history"><summary><span>История редакций</span><small>{editionsState.data.length || 0}</small></summary><div className="lr-edition-list">{editionsState.loading ? <div className="lr-resource-state">Загружаем историю…</div> : editionsState.error ? <p className="lr-inline-error">{editionsState.error}</p> : editionsState.data.length ? editionsState.data.map((edition) => { const expanded = expandedEditions.has(edition.id), text = edition.changeLog || "Изменения не описаны", long = text.length > 150; return <article key={edition.id} className={expanded ? "is-expanded" : ""}><header><b>Редакция от {formatDate(edition.editionDate)}</b>{edition.googleVersionName && <small>{edition.googleVersionName}</small>}</header><p>{text}</p>{long && <button className="lr-text-action" aria-expanded={expanded} onClick={() => setExpandedEditions((old) => { const next = new Set(old); expanded ? next.delete(edition.id) : next.add(edition.id); return next; })}>{expanded ? "Свернуть" : "Показать полностью"}</button>}</article>; }) : <p className="lr-muted">История редакций пока пуста.</p>}</div></details>
     </section>;
     const rootLevel = !q && path.length === 0;
@@ -136,7 +169,7 @@ function Profile({ snapshot, bridge }) {
   return <main className="lr-page lr-profile-page"><header className="lr-page-head"><div><span className="lr-eyebrow">Личный кабинет</span><h1>Профиль {snapshot.hintsEnabled && <Hint bridge={bridge} hintKey="learner-profile" label="Профиль" />}</h1><p>Ваш прогресс, очки и место среди участников обучения.</p></div></header><section className="lr-profile"><div className="lr-profile-person"><span>{photo ? <img src={photo} alt={`Фотография ${name}`} /> : initials}</span><div><h2>{name}</h2>{snapshot.user.EMAIL && <p>{snapshot.user.EMAIL}</p>}</div></div><div className="lr-stats"><div><strong>{courses.length - completedCourses}</strong><span>курсов в работе</span></div><div><strong>{completedCourses}</strong><span>курсов завершено</span></div><div><strong>{doneMaterials}</strong><span>материалов пройдено</span></div><div><strong>{snapshot.points || 0}</strong><span>очков набрано</span></div></div></section><section className="lr-leaderboard"><div className="lr-section-heading"><div><span className="lr-eyebrow">Рейтинг</span><h2>Топ пользователей по очкам</h2></div><Icon name="trophy" /></div>{(snapshot.leaderboard || []).length ? <ol>{snapshot.leaderboard.map((row, index) => <li key={row.uid} className={String(row.uid) === String(snapshot.progressUserId || snapshot.userId) ? "is-current" : ""}><span>{index + 1}</span><strong>{row.name}</strong><small>{row.done} завершено</small><b>{row.points} очков</b></li>)}</ol> : <EmptyState title="Рейтинг пока пуст">Он появится после первых завершённых материалов и тестов.</EmptyState>}</section><footer className="lr-version">Версия v{snapshot.releaseVersion || "—"}</footer></main>;
 }
 
-export function LearnerApp({ bridge, onSetMode }) {
+export function LearnerApp({ active, bridge, onSetMode }) {
   const [snapshot, setSnapshot] = useState(() => bridge.getSnapshot()), [view, setView] = useState("learn"), [menu, setMenu] = useState(false), [selectedCourse, setSelectedCourse] = useState(null), [materialContext, setMaterialContext] = useState(null);
   useEffect(() => {
     const handleLegacyMaterial = (event) => {
@@ -144,6 +177,7 @@ export function LearnerApp({ bridge, onSetMode }) {
       if (!next) return;
       setMaterialContext((current) => {
         if (String(current?.material?.ID) === String(next.ID)) return current;
+        window.__RTM_LEGACY_RENDERED_MATERIAL__ = String(next.ID);
         const courseId = String(next.PROPERTY_VALUES?.parentId || event.detail?.courseId || "");
         const course = (snapshot.courses || []).find((item) => String(item.ID) === courseId) || current?.course || null;
         return { material: next, course };
@@ -162,7 +196,6 @@ export function LearnerApp({ bridge, onSetMode }) {
   }, [materialOpen]);
   useEffect(() => bridge.subscribe(() => setSnapshot(bridge.getSnapshot())), [bridge]);
   useEffect(() => { const update = () => setSnapshot(bridge.getSnapshot()); window.addEventListener("rtm:help-change", update); return () => window.removeEventListener("rtm:help-change", update); }, [bridge]);
-  useEffect(() => { const learner = snapshot.mode === "user"; document.body.classList.toggle("rtm-learner-active", learner); document.body.classList.toggle("rtm-admin-active", !learner); return () => { document.body.classList.remove("rtm-learner-active"); document.body.classList.remove("rtm-admin-active"); }; }, [snapshot.mode]);
   const go = (next) => { if (next !== view || selectedCourse || materialContext) setHistory((old) => [...old.slice(-8), { view, selectedCourse, materialContext }]); setView(next); setSelectedCourse(null); setMaterialContext(null); setMenu(false); };
   const goBack = () => setHistory((old) => { const next = old[old.length - 1]; if (!next) return old; setView(next.view); setSelectedCourse(next.selectedCourse); setMaterialContext(next.materialContext); return old.slice(0, -1); });
   useEffect(() => {
@@ -191,7 +224,6 @@ export function LearnerApp({ bridge, onSetMode }) {
   }, [menu]);
   const openMaterial = async (material, course) => { setMaterialOpen({ loading: true, error: "" }); try { const hydrated = await bridge.openMaterial(material.ID); if (!hydrated) throw new Error("Материал не найден"); setHistory((old) => [...old.slice(-8), { view, selectedCourse, materialContext: null }]); setMaterialContext({ material: hydrated, course }); setMaterialOpen({ loading: false, error: "" }); } catch (error) { setMaterialOpen({ loading: false, error: error?.message || "Не удалось загрузить материал" }); } };
   const setHints = () => bridge.setHintsEnabled(!snapshot.hintsEnabled);
-  if (snapshot.mode !== "user") return null;
-  const appearance = { ...(snapshot.appearance || {}) }, style = { "--lr-primary": appearance.primaryColor || "#3157d5" };
-  return <div className="learner-app" style={style}><header className="lr-header"><button className="lr-brand" onClick={() => go("learn")} aria-label={`${appearance.brandName || "RTM Обучение"}, на главную`}>{appearance.logo && <img src={appearance.logo} alt={`Логотип ${appearance.brandName || "RTM обучение"}`} />}<span className="lr-brand-name">{appearance.brandName || "RTM обучение"}</span></button><nav className="lr-nav" aria-label="Основная навигация">{NAV.map(([id, label]) => <button key={id} className={view === id ? "active" : ""} aria-current={view === id ? "page" : undefined} onClick={() => go(id)}><Icon name={id} />{label}</button>)}</nav><div className="lr-header-actions"><button className={`lr-hints ${snapshot.hintsEnabled ? "is-active" : ""}`} aria-label="Подсказки" aria-pressed={snapshot.hintsEnabled} onClick={setHints}><Icon name="help" /><span>Подсказки</span></button><button className="lr-sync" disabled={snapshot.syncing} onClick={() => bridge.refresh()}><Icon name="sync" />{snapshot.syncing ? "Обновляем…" : "Синхронизировать"}</button>{snapshot.canOpenAdmin && <button className="lr-admin-mode" onClick={() => onSetMode("admin")}><Icon name="admin" />Администрирование</button>}<button className="lr-menu-button" aria-label={menu ? "Закрыть меню" : "Открыть меню"} aria-expanded={menu} onClick={() => setMenu(!menu)}><Icon name={menu ? "close" : "menu"} /></button></div></header>{menu && <nav className="lr-mobile-nav" aria-label="Мобильная навигация">{NAV.map(([id, label]) => <button key={id} className={view === id ? "active" : ""} onClick={() => go(id)}><Icon name={id} />{label}</button>)}<button disabled={snapshot.syncing} onClick={() => { setMenu(false); bridge.refresh(); }}><Icon name="sync" />Синхронизировать</button>{snapshot.canOpenAdmin && <button onClick={() => { setMenu(false); onSetMode("admin"); }}><Icon name="admin" />Перейти в админку</button>}</nav>}{snapshot.syncError && <div className="lr-alert" role="alert"><span>{snapshot.syncError}</span><button onClick={() => bridge.refresh()}>Повторить</button></div>}{snapshot.userId === "0" ? <main className="lr-page"><header className="lr-page-head"><div><span className="lr-eyebrow">Подключение</span><h1>Не удалось определить пользователя</h1><p>Для защиты учебных данных требуется действующая сессия Bitrix24.</p></div></header><EmptyState title="Откройте приложение из Bitrix24">Вернитесь в портал, откройте RTM Обучение и нажмите «Синхронизировать».</EmptyState></main> : materialContext ? <MaterialSurface bridge={bridge} material={materialContext.material} course={materialContext.course} onBack={() => setMaterialContext(null)} /> : view === "learn" ? <Courses snapshot={snapshot} bridge={bridge} selectedCourse={selectedCourse} setSelectedCourse={setSelectedCourse} openMaterial={openMaterial} /> : view === "kb" ? <Knowledge bridge={bridge} hintsEnabled={snapshot.hintsEnabled} /> : <Profile snapshot={snapshot} bridge={bridge} />}{history.length > 0 && !materialContext && <button className="lr-floating-back" onClick={goBack} aria-label="Вернуться к предыдущему экрану"><Icon name="back" /><span>Назад</span></button>}</div>;
+  const appearance = { ...(snapshot.appearance || {}) }, style = { "--lr-primary": appearance.primaryColor || "#3157d5", display: active ? undefined : "none" };
+  return <div className="learner-app" style={style}><header className="lr-header"><button className="lr-brand" onClick={() => go("learn")} aria-label={`${appearance.brandName || "RTM Обучение"}, на главную`}>{appearance.logo && <img src={appearance.logo} alt={`Логотип ${appearance.brandName || "RTM обучение"}`} />}<span className="lr-brand-name">{appearance.brandName || "RTM обучение"}</span></button><nav className="lr-nav" aria-label="Основная навигация">{NAV.map(([id, label]) => <button key={id} className={view === id ? "active" : ""} aria-current={view === id ? "page" : undefined} onClick={() => go(id)}><Icon name={id} />{label}</button>)}</nav><div className="lr-header-actions"><button className={`lr-hints ${snapshot.hintsEnabled ? "is-active" : ""}`} aria-label="Подсказки" aria-pressed={snapshot.hintsEnabled} onClick={setHints}><Icon name="help" /><span>Подсказки</span></button><button className="lr-sync" disabled={snapshot.syncing} onClick={() => bridge.refresh()}><Icon name="sync" />{snapshot.syncing ? "Обновляем…" : "Синхронизировать"}</button>{snapshot.canOpenAdmin && <button className="lr-admin-mode" onClick={() => onSetMode("admin")}><Icon name="admin" />Администрирование</button>}<button className="lr-menu-button" aria-label={menu ? "Закрыть меню" : "Открыть меню"} aria-expanded={menu} onClick={() => setMenu(!menu)}><Icon name={menu ? "close" : "menu"} /></button></div></header>{menu && <nav className="lr-mobile-nav" aria-label="Мобильная навигация">{NAV.map(([id, label]) => <button key={id} className={view === id ? "active" : ""} onClick={() => go(id)}><Icon name={id} />{label}</button>)}<button disabled={snapshot.syncing} onClick={() => { setMenu(false); bridge.refresh(); }}><Icon name="sync" />Синхронизировать</button>{snapshot.canOpenAdmin && <button onClick={() => { setMenu(false); onSetMode("admin"); }}><Icon name="admin" />Перейти в админку</button>}</nav>}{snapshot.syncError && <div className="lr-alert" role="alert"><span>{snapshot.syncError}</span><button onClick={() => bridge.refresh()}>Повторить</button></div>}{snapshot.userId === "0" ? <main className="lr-page"><header className="lr-page-head"><div><span className="lr-eyebrow">Подключение</span><h1>Не удалось определить пользователя</h1><p>Для защиты учебных данных требуется действующая сессия Bitrix24.</p></div></header><EmptyState title="Откройте приложение из Bitrix24">Вернитесь в портал, откройте RTM Обучение и нажмите «Синхронизировать».</EmptyState></main> : materialContext ? <MaterialSurface active={active} bridge={bridge} material={materialContext.material} course={materialContext.course} onBack={() => setMaterialContext(null)} /> : view === "learn" ? <Courses snapshot={snapshot} bridge={bridge} selectedCourse={selectedCourse} setSelectedCourse={setSelectedCourse} openMaterial={openMaterial} /> : view === "kb" ? <Knowledge bridge={bridge} hintsEnabled={snapshot.hintsEnabled} /> : <Profile snapshot={snapshot} bridge={bridge} />}{history.length > 0 && !materialContext && <button className="lr-floating-back" onClick={goBack} aria-label="Вернуться к предыдущему экрану"><Icon name="back" /><span>Назад</span></button>}</div>;
 }

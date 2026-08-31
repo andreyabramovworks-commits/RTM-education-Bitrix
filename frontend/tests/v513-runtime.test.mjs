@@ -89,9 +89,9 @@ test("v52.1 owns one modal root and keeps mode changes synchronized", () => {
   assert.match(app, /new MutationObserver\(bindPersistentShellControls\)/);
 });
 
-test("v52.1 loads the heavy article renderer only for articles", () => {
-  assert.match(app, /if\(materialKind\(item\)==='article'&&window\.__RTM_LOAD_CANVAS__\)await window\.__RTM_LOAD_CANVAS__\(\)/);
-  assert.match(app, /if\(kind==='article'&&window\.__RTM_LOAD_CANVAS__\)await window\.__RTM_LOAD_CANVAS__\(\)/);
+test("v53 loads the canvas renderer before opening articles and tests", () => {
+  assert.match(app, /if\(\['article','test'\]\.includes\(materialKind\(item\)\)&&window\.__RTM_LOAD_CANVAS__\)await window\.__RTM_LOAD_CANVAS__\(\)/);
+  assert.match(app, /if\(\['article','light','full'\]\.includes\(kind\)&&window\.__RTM_LOAD_CANVAS__\)await window\.__RTM_LOAD_CANVAS__\(\)/);
   assert.doesNotMatch(manifest.match(/export const LEGACY_SCRIPTS[\s\S]*?\];/)[0], /rtm-canvas/);
 });
 

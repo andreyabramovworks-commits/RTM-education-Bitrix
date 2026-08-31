@@ -91,6 +91,10 @@
 
   var baseOpenUserMaterial=window.openUserMaterial;
   async function openCentralForUser(doc, kind, item, previewAnswers) {
+    var session=window.RTMMaterialSession;
+    var expectedId=item?String(item.ID):"kb_"+(kind==="article"?"article":"test")+"_"+(doc&&doc.id||"")+(kind==="article"?"":"_"+kind);
+    var current=session&&session.current();
+    var token=session&&(current&&current.materialId===expectedId?current:session.begin(expectedId));
     try {
       if(!doc&&item){
         var itemMeta=linkedMeta(item);
@@ -99,6 +103,7 @@
       if(!doc)throw new Error("Материал Базы знаний не найден. Обновите список и повторите.");
       state.materialBackView=item?"learn":"kb";
       var payload=await api("/api/v47/knowledge/documents/"+doc.id+"/linked/"+kind+(item?"?course_item_id="+encodeURIComponent(item.ID):""));
+      if(session&&!session.isCurrent(token,expectedId))return null;
       var full=Object.assign({},doc, payload);
       if(kind==="article")full.scene=payload.scene;
       var projection=kind==="article"?articleProjection(full,item):testProjection(Object.assign({},doc,{lightTest:kind==="light"?payload.test:doc.lightTest,fullTest:kind==="full"?payload.test:doc.fullTest}),kind,item,previewAnswers);
@@ -107,7 +112,7 @@
         var index=state.items.findIndex(function(row){return String(row.ID)===String(item.ID);});
         if(index>=0)state.items[index]=projection;
       }
-      baseOpenUserMaterial.call(window,projection);
+      await baseOpenUserMaterial.call(window,projection);
       var back=document.getElementById("uBackToCourse");
       if(back){
         back.textContent=item?"Назад к курсу":"Назад в Базу знаний";
@@ -117,7 +122,11 @@
       /* The reader already exposes the material context.  A second service
          banner was covering the article header on desktop and mobile. */
       return projection;
-    } catch(error) { toast(error.message||String(error)); }
+    } catch(error) {
+      if(session&&!session.isCurrent(token,expectedId))return null;
+      toast(error.message||String(error));
+      throw error;
+    }
   }
   var baseBackFromUserMaterial=window.backFromUserMaterial;
   window.backFromUserMaterial=backFromUserMaterial=function(){

@@ -13,6 +13,7 @@ from fastapi import Cookie, Depends, Header, HTTPException
 from sqlmodel import Session, select
 
 from app.config import get_settings
+from app.company_policy import PRIMARY_DEVELOPER_BITRIX_ID
 from app.database import get_session
 from app.models import AppUser, utcnow
 
@@ -152,7 +153,7 @@ def require_bitrix_identity(
     user.last_name = str(profile.get("LAST_NAME") or "")
     user.is_bitrix_admin = is_admin
     user.active = str(profile.get("ACTIVE", "Y")).upper() not in {"N", "FALSE", "0"}
-    if bitrix_id == "36":
+    if bitrix_id == PRIMARY_DEVELOPER_BITRIX_ID:
         user.manual_role = "developer"
         user.role = "developer"
     elif user.manual_role == "developer":

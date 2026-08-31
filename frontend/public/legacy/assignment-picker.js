@@ -30,6 +30,8 @@
 
   function mount(host, options) {
     if (!host) return null;
+    var modalBox = host.closest && host.closest('.modal-box');
+    if (modalBox) modalBox.classList.add('modal-box-assignment');
     options = options || {};
     var users = (options.users || []).filter(Boolean);
     var departments = (options.departments || []).filter(Boolean);

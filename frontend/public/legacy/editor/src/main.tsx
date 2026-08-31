@@ -191,7 +191,7 @@ const repairCompletionCard = (elements: readonly any[]) => {
 };
 
 const ensureRequiredCompletion = (elements: readonly any[]) => {
-  const normalized = [...repairCompletionCard(normalizeCompletion(elements))] as any[];
+  const normalized = [...repairCompletionCard(dedupeCompletion(normalizeCompletion(elements)))] as any[];
   const direct = normalized.find(isCompleteMarker);
   if (direct) {
     const groups = new Set(direct.groupIds || []);

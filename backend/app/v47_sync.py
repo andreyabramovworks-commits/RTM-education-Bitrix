@@ -9,6 +9,7 @@ from app.models import (
     AppUser, Article, Assignment, Course, CourseSection, ExcalidrawScene,
     KnowledgeTest, LearningProgress, LegacyRecord, Project, TestAttempt, utcnow,
 )
+from app.company_policy import PRIMARY_DEVELOPER_BITRIX_ID
 
 
 def _json(value: Any) -> dict[str, Any]:
@@ -320,7 +321,7 @@ def sync_normalized(session: Session) -> None:
 
     for source in by_entity.get("rtm_roles", []):
         user = users.get(str(source.properties.get("userId") or ""))
-        if not user or user.is_bitrix_admin or user.bitrix_user_id == "36":
+        if not user or user.is_bitrix_admin or user.bitrix_user_id == PRIMARY_DEVELOPER_BITRIX_ID:
             continue
         legacy_role = str(source.properties.get("role") or "employee")
         mapped_role = {

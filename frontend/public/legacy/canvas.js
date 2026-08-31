@@ -3,6 +3,7 @@
 'use strict';
 
 var LOCAL_PREFIX='rtm_v45_canvas_',LEGACY_LOCAL_PREFIX='rtm_v43_canvas_',pending=new Map(),timers=new Map(),locks=new Map(),readerHost=null,canvasReady=false,diskStorageId=null,diskReadTaskId=null,diskSceneCache=new Map(),dbPromise=null,pendingDbCount=0,draftWrites=new Map(),readerGeneration=0,adminGeneration=0;
+window.RTMDisposeArticleMaterial=function(){readerGeneration+=1;if(readerHost&&window.RTMCanvas)try{window.RTMCanvas.unmount(readerHost)}catch(_){}readerHost=null};
 
 function pid(page,index){if(!page.id)page.id='canvas_'+Date.now().toString(36)+'_'+index+'_'+Math.random().toString(36).slice(2,8);return String(page.id)}
 function key(articleId,page,index){return String(articleId)+'::'+pid(page,index)}

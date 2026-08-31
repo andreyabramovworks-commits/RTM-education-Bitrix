@@ -67,7 +67,7 @@ test("materials expose deterministic loading, failure and retry states", () => {
 test("material rendering is stable across parent callback rerenders", () => {
   assert.match(learner, /const onBackRef = useRef\(onBack\)/);
   assert.match(learner, /onBackRef\.current = onBack/);
-  assert.match(learner, /\[bridge, material\.ID, renderKey\]/);
+  assert.match(learner, /\[active, bridge, material\?\.ID, renderKey\]/);
   assert.doesNotMatch(learner, /\[bridge, material\.ID, onBack, renderKey\]/);
   assert.match(runtime, /const pendingEvents=new Map\(\)/);
 });

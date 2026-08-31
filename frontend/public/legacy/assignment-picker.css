@@ -12,9 +12,10 @@
 .rtm-picker-department{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding-left:calc(var(--picker-depth)*20px)}
 .rtm-picker-children{font-size:12px;color:var(--muted,#6b7b91)}
 .rtm-picker-choice input[type="checkbox"]{appearance:none;position:absolute!important;width:1px!important;height:1px!important;min-width:1px!important;min-height:1px!important;margin:0!important;padding:0!important;opacity:0!important;clip-path:inset(50%);pointer-events:none}
-.rtm-picker-check{position:relative;display:grid;place-items:center;flex:0 0 20px;width:20px;height:20px;border:1.5px solid #afbed1;border-radius:7px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.05);transition:border-color 160ms ease-out,background-color 160ms ease-out,box-shadow 160ms ease-out,transform 120ms ease-out}
-.rtm-picker-choice input:checked+.rtm-picker-check{border-color:var(--rtm-primary,#d97706);background:var(--rtm-primary,#d97706);box-shadow:0 0 0 3px color-mix(in srgb,var(--rtm-primary,#d97706) 15%,transparent)}
-.rtm-picker-choice input:checked+.rtm-picker-check:after{content:"";width:8px;height:4px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:translateY(-1px) rotate(-45deg)}
+.rtm-picker-check{position:relative;display:block;flex:0 0 34px;width:34px;height:20px;border:0;border-radius:999px;background:#d5dee8;box-shadow:inset 0 0 0 1px rgba(15,23,42,.06);transition:background-color 160ms ease-out,box-shadow 160ms ease-out,transform 120ms ease-out}
+.rtm-picker-check:after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(15,23,42,.24);transition:transform 180ms cubic-bezier(.2,.8,.2,1)}
+.rtm-picker-choice input:checked+.rtm-picker-check{background:var(--rtm-primary,#d97706);box-shadow:0 0 0 3px color-mix(in srgb,var(--rtm-primary,#d97706) 14%,transparent)}
+.rtm-picker-choice input:checked+.rtm-picker-check:after{transform:translateX(14px)}
 .rtm-picker-choice input:focus-visible+.rtm-picker-check,.rtm-picker-children input[type="checkbox"]:focus-visible+.rtm-picker-switch{outline:3px solid color-mix(in srgb,var(--rtm-primary,#d97706) 24%,transparent);outline-offset:2px}
 .rtm-picker-choice:active .rtm-picker-check{transform:scale(.92)}
 .rtm-picker-children input[type="checkbox"]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
@@ -28,5 +29,19 @@
 @media(hover:none){.rtm-picker-choice:hover{background:transparent;border-color:transparent}.rtm-picker-choice:has(input:checked):hover{background:color-mix(in srgb,var(--rtm-primary,#d97706) 8%,#fff);border-color:color-mix(in srgb,var(--rtm-primary,#d97706) 32%,#d9e2ee)}}
 @media(prefers-reduced-motion:reduce){.rtm-picker-choice input[type="checkbox"],.rtm-picker-switch,.rtm-picker-switch:after{transition-duration:0ms}}
 .v540-page .rtm-assignment-picker{width:100%;max-width:1120px}.v540-page{overflow-x:hidden}
+.adm-workspace .v51-checks .rtm-assignment-picker{display:grid;grid-template-columns:1fr;align-items:stretch;gap:12px}
+.adm-workspace .v51-checks .rtm-assignment-picker label{min-height:42px;padding:7px 9px;border-color:transparent;background:transparent}
+.adm-workspace .v51-checks .rtm-assignment-picker input[type="checkbox"]{position:absolute!important;width:1px!important;height:1px!important;min-width:1px!important;min-height:1px!important;margin:0!important;padding:0!important;opacity:0!important;border:0!important;background:transparent!important;clip-path:inset(50%);pointer-events:none}
+.adm-workspace .v51-checks .rtm-assignment-picker .rtm-picker-check{position:relative!important;display:block!important;flex:0 0 34px!important;width:34px!important;height:20px!important;min-width:34px!important;min-height:20px!important;margin:0!important;padding:0!important;border-radius:999px!important;background:#d5dee8!important}
+.adm-workspace .v51-checks .rtm-assignment-picker input:checked+.rtm-picker-check{background:var(--rtm-primary,#d97706)!important}
+.adm-workspace .v51-checks .rtm-assignment-picker .rtm-picker-children{display:flex;min-height:36px;padding:4px 6px;border:0;background:transparent}
 .v540-page-actions{display:flex;align-items:center;gap:10px;flex:0 0 auto}.v540-page .v539-page-head{align-items:center}
 @media(max-width:720px){.rtm-picker-people{grid-template-columns:1fr}.rtm-picker-department{grid-template-columns:1fr;padding-left:calc(var(--picker-depth)*12px)}.rtm-picker-children{padding-left:26px}}
+
+/* Explicit modal ownership avoids :has-dependent sizing in the Bitrix iframe. */
+.modal-box.modal-box-assignment{width:min(920px,calc(100vw - 32px));max-width:920px;min-height:0!important;max-height:calc(100dvh - 32px);padding:22px;overflow:auto;overscroll-behavior:contain;background:radial-gradient(circle at 100% 0%,color-mix(in srgb,var(--rtm-primary,#d97706) 8%,transparent),transparent 26rem),#fff}
+.modal-box-assignment .rtm-assignment-picker{align-content:start}
+.modal-box-assignment .rtm-picker-group{min-height:0}
+.modal-box-assignment .rtm-picker-list{min-height:0;max-height:min(260px,30dvh)}
+.modal-box-assignment .assign-modal>footer{z-index:2;margin:0 -6px -6px;padding:14px 6px 6px;border-top:1px solid var(--border,#d9e2ee);background:rgba(255,255,255,.96);backdrop-filter:blur(12px)}
+@media(max-width:720px){.modal-box.modal-box-assignment{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:16px;border-radius:18px}.modal-box-assignment .rtm-picker-list{max-height:32dvh}}

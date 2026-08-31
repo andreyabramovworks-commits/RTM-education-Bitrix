@@ -84,8 +84,8 @@ test("v51.4 exposes delivery templates and a complete role matrix", () => {
 
 test("recipient rules are explicit, searchable and all-active is exclusive", () => {
   assert.match(source, /recipientRules:savedCampaign&&savedCampaign\.recipientRules\|\|\[\]/);
-  assert.match(source, /data-search-text=/);
-  assert.match(source, /data-recipient-kind="responsible"/);
-  assert.match(source, /if\(all&&all\.checked\)return\[\{type:'all_active'\}\]/);
-  assert.match(source, /allChecked&&\(kind==='departments'\|\|kind==='users'\)/);
+  assert.match(source, /RTMAssignmentPicker\.mount/);
+  assert.match(source, /selectedDepartments:/);
+  assert.match(source, /selectedResponsibles:/);
+  assert.match(source, /value\.allActive\?\[\{type:'all_active'\}\]/);
 });

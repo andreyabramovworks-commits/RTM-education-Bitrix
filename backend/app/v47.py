@@ -13,6 +13,7 @@ from sqlalchemy import delete
 from sqlmodel import Session, select
 
 from app.bitrix_auth import BitrixIdentity, bitrix_call, create_browser_session, require_admin, require_bitrix_identity
+from app.company_policy import PRIMARY_DEVELOPER_BITRIX_ID
 from app.database import get_session
 from app.models import (
     AppUser,
@@ -627,11 +628,11 @@ def get_developer_workspace(
 ) -> dict[str, Any]:
     _assert_developer(identity)
     workspace = session.exec(select(DeveloperWorkspace).where(
-        DeveloperWorkspace.owner_bitrix_user_id == "36",
+        DeveloperWorkspace.owner_bitrix_user_id == PRIMARY_DEVELOPER_BITRIX_ID,
     )).first()
     if workspace is None:
         workspace = DeveloperWorkspace(
-            owner_bitrix_user_id="36",
+            owner_bitrix_user_id=PRIMARY_DEVELOPER_BITRIX_ID,
             updated_by=identity.user.id,
             scene={"type": "excalidraw", "version": 2, "elements": [], "appState": {}, "files": {}},
         )
@@ -649,10 +650,10 @@ def save_developer_workspace(
 ) -> dict[str, Any]:
     _assert_developer(identity)
     workspace = session.exec(select(DeveloperWorkspace).where(
-        DeveloperWorkspace.owner_bitrix_user_id == "36",
+        DeveloperWorkspace.owner_bitrix_user_id == PRIMARY_DEVELOPER_BITRIX_ID,
     )).first()
     if workspace is None:
-        workspace = DeveloperWorkspace(owner_bitrix_user_id="36", updated_by=identity.user.id)
+        workspace = DeveloperWorkspace(owner_bitrix_user_id=PRIMARY_DEVELOPER_BITRIX_ID, updated_by=identity.user.id)
         session.add(workspace)
         session.flush()
     elif workspace.scene:
@@ -680,7 +681,7 @@ def list_developer_workspace_revisions(
 ) -> list[dict[str, Any]]:
     _assert_developer(identity)
     workspace = session.exec(select(DeveloperWorkspace).where(
-        DeveloperWorkspace.owner_bitrix_user_id == "36",
+        DeveloperWorkspace.owner_bitrix_user_id == PRIMARY_DEVELOPER_BITRIX_ID,
     )).first()
     if workspace is None:
         return []
@@ -698,7 +699,7 @@ def get_developer_workspace_revision(
 ) -> dict[str, Any]:
     _assert_developer(identity)
     workspace = session.exec(select(DeveloperWorkspace).where(
-        DeveloperWorkspace.owner_bitrix_user_id == "36",
+        DeveloperWorkspace.owner_bitrix_user_id == PRIMARY_DEVELOPER_BITRIX_ID,
     )).first()
     if workspace is None:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -719,7 +720,7 @@ def restore_developer_workspace(
 ) -> dict[str, Any]:
     _assert_developer(identity)
     workspace = session.exec(select(DeveloperWorkspace).where(
-        DeveloperWorkspace.owner_bitrix_user_id == "36",
+        DeveloperWorkspace.owner_bitrix_user_id == PRIMARY_DEVELOPER_BITRIX_ID,
     )).first()
     if workspace is None:
         raise HTTPException(status_code=404, detail="Workspace not found")
@@ -1042,10 +1043,10 @@ def update_role(
     user = session.exec(select(AppUser).where(AppUser.bitrix_user_id == bitrix_user_id)).first()
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    if user.bitrix_user_id == "36":
+    if user.bitrix_user_id == PRIMARY_DEVELOPER_BITRIX_ID:
         raise HTTPException(status_code=409, detail="Primary developer role is protected")
     if payload.role == "developer" or user.role == "developer":
-        if identity.user.bitrix_user_id != "36":
+        if identity.user.bitrix_user_id != PRIMARY_DEVELOPER_BITRIX_ID:
             raise HTTPException(status_code=403, detail="Only the primary developer may manage developer roles")
     if user.is_bitrix_admin and payload.role != "developer":
         raise HTTPException(status_code=409, detail="Bitrix24 administrator role is managed automatically")
