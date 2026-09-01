@@ -192,7 +192,7 @@ export function LegacyReactHost() {
 
   if (error) return <div className="v48-load-error"><strong>Не удалось запустить RTM Обучение</strong><span>{error}</span><button onClick={() => window.location.reload()}>Повторить</button></div>;
   return <>
-    {!learnerBridge && <div className="v48-loading" role="status" aria-live="polite"><img className="v48-loading-logo" src={releaseAsset("/assets/rtm-education-logo.png")} alt="RTM Group Education" /><span className="v48-loading-line" aria-hidden="true" /><small>{markup ? "Загружаем ваши материалы…" : "Подготавливаем приложение…"}</small></div>}
+    {!learnerBridge && <div className="v48-loading" role="status" aria-live="polite"><div className="v48-loading-mark"><img className="v48-loading-logo" src={releaseAsset("/assets/rtm-education-logo-transparent.png")} alt="RTM Group Education" /><span className="v48-loading-progress" aria-hidden="true" /></div><small>{markup ? "Загружаем ваши материалы…" : "Подготавливаем приложение…"}</small></div>}
     {markup && <LegacyMarkupHost markup={markup} ready={Boolean(learnerBridge)} />}
     {markup && <div id="modalBackdrop" className="modal-backdrop hidden" role="presentation"><div id="modalBox" className="modal-box" role="dialog" aria-modal="true" /></div>}
     {learnerBridge && <LearnerApp active={learnerBridge.getSnapshot().mode === "user"} bridge={learnerBridge} onSetMode={setShellMode} />}

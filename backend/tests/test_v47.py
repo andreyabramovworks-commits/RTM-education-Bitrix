@@ -55,7 +55,7 @@ def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app", follow_redirects=False)
     assert response.status_code == 303
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.29"
+    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.30"
 
 
 def test_bitrix_shell_preserves_only_safe_application_routes() -> None:
@@ -64,7 +64,7 @@ def test_bitrix_shell_preserves_only_safe_application_routes() -> None:
         follow_redirects=False,
     )
     assert response.status_code == 303
-    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.29&rtm_assignment=17&rtm_view=acknowledgements"
+    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.30&rtm_assignment=17&rtm_view=acknowledgements"
     assert "AUTH_ID" not in response.headers["location"]
 
 
@@ -101,7 +101,7 @@ def test_appearance_rejects_unsafe_logo_urls() -> None:
     assert response.status_code == 422
 
 
-def test_appearance_preserves_empty_brand_and_accepts_logo_up_to_five_megabytes() -> None:
+def test_appearance_preserves_empty_brand_and_accepts_logo_up_to_ten_megabytes() -> None:
     logo = "data:image/png;base64," + base64.b64encode(b"x" * 800_000).decode()
     response = client.put("/api/v47/appearance", json={"brandName": "", "logo": logo})
     assert response.status_code == 200
@@ -109,8 +109,8 @@ def test_appearance_preserves_empty_brand_and_accepts_logo_up_to_five_megabytes(
     assert response.json()["logo"] == logo
 
 
-def test_appearance_rejects_logo_larger_than_five_megabytes() -> None:
-    logo = "data:image/png;base64," + base64.b64encode(b"x" * (5 * 1024 * 1024 + 1)).decode()
+def test_appearance_rejects_logo_larger_than_ten_megabytes() -> None:
+    logo = "data:image/png;base64," + base64.b64encode(b"x" * (10 * 1024 * 1024 + 1)).decode()
     response = client.put("/api/v47/appearance", json={"logo": logo})
     assert response.status_code == 422
 
@@ -355,6 +355,25 @@ def test_linked_knowledge_material_requires_course_assignment() -> None:
         assert client.get(url).status_code == 200
     finally:
         app.dependency_overrides[require_bitrix_identity] = admin_override
+
+
+def test_linked_knowledge_identity_and_content_are_protected_from_course_editor() -> None:
+    document_id = client.get("/api/v47/knowledge/documents").json()[0]["id"]
+    original_meta = {"linkedKnowledge": True, "knowledgeDocumentId": document_id, "knowledgeKind": "light", "sectionId": "old", "order": 100}
+    item_id = client.post("/api/v47/legacy/rtm_items", json={"name": "Canonical test", "properties": {"type": "test", "status": "published", "content": "", "meta": json.dumps(original_meta)}}).json()["id"]
+
+    corrupted = client.put(f"/api/v47/legacy/rtm_items/{item_id}", json={"name": "Changed", "properties": {"type": "test", "content": "course-local questions", "meta": json.dumps({"sectionId": "new"})}})
+    assert corrupted.status_code == 409
+
+    moved = client.put(f"/api/v47/legacy/rtm_items/{item_id}", json={"name": "Changed", "properties": {"type": "test", "status": "published", "meta": json.dumps({**original_meta, "sectionId": "new", "order": 200})}})
+    assert moved.status_code == 200
+    saved = client.get(f"/api/v47/legacy/rtm_items/{item_id}").json()
+    saved_meta = json.loads(saved["PROPERTY_VALUES"]["meta"])
+    assert saved["NAME"] == "Canonical test"
+    assert saved["PROPERTY_VALUES"]["content"] == ""
+    assert saved_meta["knowledgeDocumentId"] == document_id
+    assert saved_meta["knowledgeKind"] == "light"
+    assert saved_meta["sectionId"] == "new"
 
 
 def test_role_hierarchy_enforces_editor_and_teacher_boundaries() -> None:

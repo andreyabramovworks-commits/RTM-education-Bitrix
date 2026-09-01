@@ -129,7 +129,8 @@ class SceneWrite(BaseModel):
 
 class AppearanceWrite(BaseModel):
     brandName: str = PydanticField(default="", max_length=120)
-    logo: str = PydanticField(default="", max_length=7_100_000)
+    # A 10 MiB image expands to roughly 14 MiB when encoded as a data URL.
+    logo: str = PydanticField(default="", max_length=14_100_000)
     theme: str = PydanticField(default="indigo", max_length=30)
     customColor: str = PydanticField(default="#315cf6", max_length=7)
     defaultSection: str = PydanticField(default="learn", max_length=20)
@@ -158,7 +159,7 @@ def _validate_appearance(payload: AppearanceWrite | dict[str, Any]) -> dict[str,
     if logo.startswith("data:"):
         try:
             encoded = logo.split(",", 1)[1]
-            if len(base64.b64decode(encoded, validate=True)) > 5 * 1024 * 1024:
+            if len(base64.b64decode(encoded, validate=True)) > 10 * 1024 * 1024:
                 raise HTTPException(status_code=422, detail="Logo is too large")
         except (IndexError, binascii.Error, ValueError):
             raise HTTPException(status_code=422, detail="Logo data is invalid")
@@ -858,6 +859,20 @@ def update_legacy(
     if not _is_legacy_manager(identity) and str(record.properties.get("userId") or "") != identity.user.bitrix_user_id:
         raise HTTPException(status_code=403, detail="Students may only update their own progress")
     _assert_student_target(session, identity, entity, payload.properties)
+    if entity == "rtm_items":
+        old_meta = _json(record.properties.get("meta"))
+        new_meta = _json(payload.properties.get("meta"))
+        if old_meta.get("linkedKnowledge"):
+            identity_fields = ("linkedKnowledge", "knowledgeDocumentId", "knowledgeKind")
+            if any(new_meta.get(key) != old_meta.get(key) for key in identity_fields):
+                raise HTTPException(status_code=409, detail="Linked Knowledge Base identity cannot be changed from Materials and Courses")
+            allowed = {"sectionId", "required", "order", "knowledgeReviewers", "knowledgeEditors"}
+            protected = {key: value for key, value in old_meta.items() if key not in allowed}
+            merged_meta = {**protected, **{key: value for key, value in new_meta.items() if key in allowed}}
+            properties = dict(record.properties)
+            properties.update({key: value for key, value in payload.properties.items() if key in {"parentId", "projectId", "status"}})
+            properties["meta"] = json.dumps(merged_meta, ensure_ascii=False)
+            payload = LegacyWrite(name=record.name, properties=properties)
     record.name = payload.name
     record.properties = payload.properties
     record.updated_at = utcnow()

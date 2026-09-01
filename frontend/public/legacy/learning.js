@@ -30,10 +30,14 @@
   document.addEventListener('visibilitychange', function () { if (!document.hidden) scheduleRepair(); });
   new MutationObserver(scheduleRepair).observe(document.documentElement, {subtree: true, childList: true, attributes: true, attributeFilter: ['class']});
 
-  var activity = null;
+  var activity = null, activityDisposer = null;
   function beginActivity(item) {
     flushActivity();
-    if (item) activity = {item: item, started: Date.now()};
+    if (activityDisposer) { activityDisposer(); activityDisposer = null; }
+    if (item) {
+      activity = {item: item, started: Date.now()};
+      if (window.RTMMaterialSession) activityDisposer = window.RTMMaterialSession.register(function () { activity = null; activityDisposer = null; });
+    }
   }
   async function flushActivity() {
     if (!activity) return;
@@ -47,7 +51,7 @@
   var openMaterialBase = window.openUserMaterial;
   if (typeof openMaterialBase === 'function') window.openUserMaterial = function (item) { var result = openMaterialBase.apply(this, arguments); beginActivity(item); return result; };
   var finishArticleBase = window.finishCurrentArticle;
-  if (typeof finishArticleBase === 'function') window.finishCurrentArticle = async function () { try { await flushActivity(); } catch (error) { console.warn('Activity flush did not block article completion', error); } activity = null; return finishArticleBase.apply(this, arguments); };
+  if (typeof finishArticleBase === 'function') window.finishCurrentArticle = async function () { try { await flushActivity(); } catch (error) { console.warn('Activity flush did not block article completion', error); } activity = null; if(activityDisposer){activityDisposer();activityDisposer=null;} return finishArticleBase.apply(this, arguments); };
   document.addEventListener('visibilitychange', function () { if (document.hidden) flushActivity(); else if (visibleMaterial()) beginActivity(visibleMaterial()); });
   setInterval(function () { if (!document.hidden && activity) flushActivity(); }, 30000);
 

@@ -83,6 +83,17 @@ test("linked knowledge materials stay read only inside courses", () => {
   assert.match(knowledge, /Просмотр ↓/);
 });
 
+test("learner knowledge detail exposes the article without duplicate test previews", () => {
+  assert.match(learner, /Предпросмотр статьи/);
+  assert.doesNotMatch(learner, /Предпросмотр теста лайт/);
+  assert.doesNotMatch(learner, /Предпросмотр полного теста/);
+});
+
+test("activity belongs to the current material session", () => {
+  assert.match(learning, /RTMMaterialSession\.register/);
+  assert.match(learning, /activity = null/);
+});
+
 test("knowledge test editor is rebuilt for the selected document", () => {
   assert.match(learning, /restoreKnowledgeTestEditor\(\);/);
   assert.match(learning, /window\.renderTestEditor\(\);/);

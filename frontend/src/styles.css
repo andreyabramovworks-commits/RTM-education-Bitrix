@@ -65,28 +65,38 @@ body,
 }
 
 .v48-loading-logo {
-  width: min(176px, 42vw);
-  height: 122px;
+  width: min(560px, 82vw);
+  height: min(560px, 62vh);
   object-fit: contain;
-  filter: drop-shadow(0 12px 24px rgba(5, 32, 78, .12));
+  opacity: .9;
+  filter: drop-shadow(0 24px 56px rgba(5, 32, 78, .14));
+  animation: rtm-logo-breathe 1.8s cubic-bezier(.23,1,.32,1) infinite alternate;
 }
 
-.v48-loading-line {
-  width: min(240px, 70vw);
-  height: 5px;
+.v48-loading-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.v48-loading-progress {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 8.5%;
+  height: 6px;
   overflow: hidden;
   border-radius: 999px;
-  background: #dfe6ef;
+  background: rgb(9 52 121 / 14%);
 }
 
-.v48-loading-line::after {
+.v48-loading-progress::after {
   display: block;
-  width: 34%;
+  width: 40%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg,#ff9d00,#ffb51b);
-  box-shadow:0 0 14px rgba(255,157,0,.36);
-  animation: rtm-startup 1s cubic-bezier(.77,0,.175,1) infinite alternate;
+  background: linear-gradient(90deg,transparent,#ffad0a 25% 75%,transparent);
+  animation: rtm-startup 1.05s cubic-bezier(.77,0,.175,1) infinite alternate;
   content: "";
 }
 
@@ -123,8 +133,14 @@ body,
   to { transform: translateX(180%); }
 }
 
+@keyframes rtm-logo-breathe {
+  from { opacity: .72; transform: scale(.985); }
+  to { opacity: .96; transform: scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .v48-loading-line::after { animation: none; }
+  .v48-loading-logo,
+  .v48-loading-progress::after { animation: none; }
 }
 
 .api-indicator {
