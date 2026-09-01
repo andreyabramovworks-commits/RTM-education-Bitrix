@@ -1401,3 +1401,9 @@ body.rtm-material-loading::after {
   }
   .lr-kb-card { animation:none; }
 }
+
+.rtm-brand-name-empty .lr-brand-name { display:none; }
+.lr-standalone { margin-top:28px; }
+.lr-standalone .lr-lesson-list { overflow:hidden; border:1px solid var(--lr-border); border-radius:18px; background:rgba(255,255,255,.88); box-shadow:0 12px 34px rgba(25,39,58,.055); }
+.lr-standalone .lr-lesson { border-radius:0; border-width:0 0 1px; box-shadow:none; }
+.lr-standalone .lr-lesson:last-child { border-bottom:0; }

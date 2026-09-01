@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+import base64
+import binascii
 import json
 import re
 import time
@@ -126,8 +128,8 @@ class SceneWrite(BaseModel):
 
 
 class AppearanceWrite(BaseModel):
-    brandName: str = PydanticField(default="RTM обучение", min_length=1, max_length=120)
-    logo: str = PydanticField(default="", max_length=500_000)
+    brandName: str = PydanticField(default="", max_length=120)
+    logo: str = PydanticField(default="", max_length=7_100_000)
     theme: str = PydanticField(default="indigo", max_length=30)
     customColor: str = PydanticField(default="#315cf6", max_length=7)
     defaultSection: str = PydanticField(default="learn", max_length=20)
@@ -146,15 +148,20 @@ APPEARANCE_THEMES = {
 
 def _validate_appearance(payload: AppearanceWrite | dict[str, Any]) -> dict[str, Any]:
     data = payload.model_dump() if isinstance(payload, AppearanceWrite) else dict(payload or {})
-    brand_name = str(data.get("brandName") or "RTM обучение").strip()[:120]
+    brand_name = str(data.get("brandName") if data.get("brandName") is not None else "RTM обучение").strip()[:120]
     logo = str(data.get("logo") or "").strip()
     if logo and not (
         logo.startswith("https://")
         or re.match(r"^data:image/(?:png|jpeg|webp|svg\+xml);base64,", logo, re.IGNORECASE)
     ):
         raise HTTPException(status_code=422, detail="Logo must be an HTTPS URL or an uploaded image")
-    if len(logo) > 500_000:
-        raise HTTPException(status_code=422, detail="Logo is too large")
+    if logo.startswith("data:"):
+        try:
+            encoded = logo.split(",", 1)[1]
+            if len(base64.b64decode(encoded, validate=True)) > 5 * 1024 * 1024:
+                raise HTTPException(status_code=422, detail="Logo is too large")
+        except (IndexError, binascii.Error, ValueError):
+            raise HTTPException(status_code=422, detail="Logo data is invalid")
     theme = str(data.get("theme") or "indigo")
     custom_color = str(data.get("customColor") or "#315cf6").lower()
     if not re.fullmatch(r"#[0-9a-f]{6}", custom_color):

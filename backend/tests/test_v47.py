@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import base64
 import json
 
 from fastapi.testclient import TestClient
@@ -54,7 +55,7 @@ def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app", follow_redirects=False)
     assert response.status_code == 303
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.28"
+    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.29"
 
 
 def test_bitrix_shell_preserves_only_safe_application_routes() -> None:
@@ -63,7 +64,7 @@ def test_bitrix_shell_preserves_only_safe_application_routes() -> None:
         follow_redirects=False,
     )
     assert response.status_code == 303
-    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.28&rtm_assignment=17&rtm_view=acknowledgements"
+    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.0.29&rtm_assignment=17&rtm_view=acknowledgements"
     assert "AUTH_ID" not in response.headers["location"]
 
 
@@ -97,6 +98,20 @@ def test_appearance_is_central_and_keeps_uploaded_branding() -> None:
 
 def test_appearance_rejects_unsafe_logo_urls() -> None:
     response = client.put("/api/v47/appearance", json={"logo": "javascript:alert(1)"})
+    assert response.status_code == 422
+
+
+def test_appearance_preserves_empty_brand_and_accepts_logo_up_to_five_megabytes() -> None:
+    logo = "data:image/png;base64," + base64.b64encode(b"x" * 800_000).decode()
+    response = client.put("/api/v47/appearance", json={"brandName": "", "logo": logo})
+    assert response.status_code == 200
+    assert response.json()["brandName"] == ""
+    assert response.json()["logo"] == logo
+
+
+def test_appearance_rejects_logo_larger_than_five_megabytes() -> None:
+    logo = "data:image/png;base64," + base64.b64encode(b"x" * (5 * 1024 * 1024 + 1)).decode()
+    response = client.put("/api/v47/appearance", json={"logo": logo})
     assert response.status_code == 422
 
 

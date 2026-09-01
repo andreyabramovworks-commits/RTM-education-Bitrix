@@ -102,7 +102,14 @@ function moveModal(id){modal(`<h2>\u041f\u0435\u0440\u0435\u043c\u0435\u0441\u04
 function backFolder(){let f=findItem(state.folderId); state.folderId=f?.PROPERTY_VALUES?.parentId||'root'; renderMaterials();}
 function openCourseEditorEvents(){ /* placeholders */ }
 function bindLate(){ $('#backFromCourseEditor').onclick=backFromEditor; $('#backFromArticleEditor').onclick=backFromEditor; $('#backFromTestEditor').onclick=backFromEditor; $('#addToCourseBtn').onclick=courseAddModal; $('#coursePublishBtn').onclick=publishCourse; $('#deleteCourseDraft').onclick=async()=>{if(confirm('Удалить курс в корзину?')){let id=state.courseId; showMaterialsList(); await softDeleteItem(id);}}; $('#courseNameInput').oninput=()=>debounceSave('course',saveCourseSettings); $('#courseDescInput').oninput=()=>debounceSave('course',saveCourseSettings); $('#coursePointsInput').oninput=()=>debounceSave('course',saveCourseSettings); $('#courseCertificateInput').onchange=saveCourseSettings; $('#courseSequentialInput').onchange=saveCourseSettings; $('#showCourseLinkBtn').onclick=()=>{$('#courseLinkBox').classList.toggle('hidden'); $('#courseLinkBox').textContent=location.href.split('?')[0]+'?course='+state.courseId}; $('#assignCourseBtn').onclick=assignCourse; $$('.editor-tab[data-course-tab-editor]').forEach(b=>b.onclick=()=>{switchTab('course',b.dataset.courseTabEditor)}); $('#backFromArticleEditor').onclick=backFromEditor; $('#articleContentEditable').oninput=()=>debounceSave('articlePage',saveCurrentArticlePage,900); $('#articleContentEditable').onmouseup=saveRichSelection; $('#articleContentEditable').onkeyup=saveRichSelection; $('#addArticlePageBtn').onclick=addArticlePage; $('#articlePublishBtn').onclick=publishArticle; $('#articleNameInput').oninput=()=>debounceSave('articleSettings',saveArticleSettings); $('#articleDescInput').oninput=()=>debounceSave('articleSettings',saveArticleSettings); $('#articlePointsInput').oninput=()=>debounceSave('articleSettings',saveArticleSettings); $('#assignArticleBtn').onclick=assignArticle; $$('.editor-tab[data-article-editor-tab]').forEach(b=>b.onclick=()=>switchTab('article',b.dataset.articleEditorTab)); $$('.format-toolbar button[data-cmd]').forEach(b=>b.onclick=e=>{e.preventDefault(); runRichCommand(b.dataset.cmd)}); $('#formatBlock').onchange=()=>runRichCommand('formatBlock',$('#formatBlock').value); $('#fontName').onchange=()=>runRichCommand('fontName',$('#fontName').value); $('#fontColor').oninput=()=>runRichCommand('foreColor',$('#fontColor').value); $('#insertLinkBtn').onclick=()=>insertCustomLink(); $('#articleContentEditable').onpaste=handleRichPaste; $('#addQuestionBtn').onclick=addQuestion; $('#publishTestBtn').onclick=publishTest; $('#backFromTestEditor').onclick=backFromEditor;}
-setTimeout(function(){try{bindLate()}catch(error){console.warn('Deferred legacy bindings skipped because the view was remounted',error)}},1000);
+var bindLateUnsafe=bindLate;
+bindLate=function(){
+  var required=['backFromCourseEditor','backFromArticleEditor','backFromTestEditor','addToCourseBtn','coursePublishBtn','deleteCourseDraft','courseNameInput','courseDescInput','coursePointsInput','courseCertificateInput','courseSequentialInput','showCourseLinkBtn','assignCourseBtn','articleContentEditable','addArticlePageBtn','articlePublishBtn','articleNameInput','articleDescInput','articlePointsInput','assignArticleBtn','formatBlock','fontName','fontColor','insertLinkBtn','addQuestionBtn','publishTestBtn'];
+  if(required.some(function(id){return !document.getElementById(id)}))return false;
+  bindLateUnsafe();
+  return true;
+};
+setTimeout(function(){bindLate()},1000);
 function sectionNameDialog(options){options=options||{};modal('<div class="section-settings-dialog"><button class="modal-close" onclick="window.closeModal()" aria-label="Закрыть">×</button><span class="dialog-eyebrow">Структура курса</span><h2>'+esc(options.title||'Новая секция')+'</h2><label for="sectionSettingsName">Название секции</label><input id="sectionSettingsName" maxlength="120" value="'+esc(options.value||'')+'" autocomplete="off"><p class="field-error hidden" id="sectionSettingsError">Введите название секции.</p><div class="inline-actions right"><button type="button" onclick="window.closeModal()">Отмена</button><button type="button" class="primary" id="sectionSettingsSave">'+esc(options.action||'Создать')+'</button></div></div>');let box=document.querySelector('.modal-box');if(box)box.classList.add('modal-box-compact');let input=$('#sectionSettingsName'),save=$('#sectionSettingsSave'),error=$('#sectionSettingsError');let submit=async()=>{let value=input&&input.value.trim();if(error)error.classList.toggle('hidden',Boolean(value));if(!value){if(input)input.focus();return}save.disabled=true;save.textContent='Сохраняем…';try{await options.onSave(value);closeModal()}catch(err){save.disabled=false;save.textContent=options.action||'Создать';if(error){error.textContent=err&&err.message||'Не удалось сохранить секцию';error.classList.remove('hidden')}}};if(save)save.onclick=submit;if(input){input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();submit()}};input.focus();input.select()}}
 function courseAddModal(){modal(`<h2>Добавить в курс</h2><button class="modal-close" onclick="window.closeModal()">&times;</button><div class="add-material-grid course-add-grid"><button type="button" class="add-tile" id="addCourseMaterial">${svgIcon('article')}<div><h3>Материал</h3><p class="muted">Статья, тест, файл или База знаний</p></div></button><button type="button" class="add-tile" id="addCourseSection">${svgIcon('folder')}<div><h3>Секция</h3><p class="muted">Группа материалов внутри курса</p></div></button></div>`); $('#addCourseMaterial').onclick=()=>{closeModal(); addMaterialModalForCourse()}; $('#addCourseSection').onclick=()=>{closeModal();sectionNameDialog({title:'Новая секция',action:'Создать секцию',onSave:async n=>{await addSection(n);toast('Секция создана')}})}}
 async function addSection(n){let c=findItem(state.courseId), meta=j(c.PROPERTY_VALUES.meta); meta.sections=meta.sections||[{id:'nosection',title:'\u0411\u0435\u0437 \u0441\u0435\u043a\u0446\u0438\u0438',order:0}]; meta.sections.push({id:uid(),title:n,order:Date.now()}); await saveItemMeta(state.courseId,meta); renderCourseEditor();}
@@ -360,6 +367,8 @@ function routeDeepLink(){let p=new URLSearchParams(location.search), kind=p.get(
    rich article rendering and test persistence behind this narrow contract. */
 function learnerSnapshot(){
   let rows=activeRows(state.items), courses=assignedCourses(), uid=effectiveUserId();
+  let assignedIds=new Set(state.assigns.filter(function(row){return String(row.PROPERTY_VALUES&&row.PROPERTY_VALUES.userId)===String(uid)}).map(function(row){return String(row.PROPERTY_VALUES&&row.PROPERTY_VALUES.targetId)}));
+  let standaloneMaterials=rows.filter(function(item){return ['article','test'].includes(materialKind(item))&&String(item.PROPERTY_VALUES&&item.PROPERTY_VALUES.status||'published')==='published'&&assignedIds.has(String(item.ID));});
   let done={}; rows.forEach(function(item){done[String(item.ID)]=isDone(item.ID,materialKind(item))});
   let role=String(state.currentRole||'employee'), canOpenAdmin=['developer','admin','moderator','teacher'].includes(role);
   let appearance=window.RTMAppearance||window.__RTM_APPEARANCE__||{};
@@ -368,11 +377,11 @@ function learnerSnapshot(){
     mode:state.mode, role:role, canOpenAdmin:canOpenAdmin, syncing:state.syncing,
     syncError:state.syncError||'', lastSyncAt:state.lastSyncAt,
     user:Object.assign({},safeUser()), userId:String(currentUserId()||'0'), progressUserId:String(uid||'0'),
-    courses:courses.slice(), items:rows.slice(), projects:activeRows(state.projects).slice(),
+    courses:courses.slice(), standaloneMaterials:standaloneMaterials.slice(), items:rows.slice(), projects:activeRows(state.projects).slice(),
     assigns:state.assigns.slice(), attempts:state.attempts.slice(), progress:state.progress.slice(),
     leaderboard:typeof leaderboardRows==='function'?leaderboardRows().slice(0,10):[],
     points:typeof userPoints==='function'?userPoints(uid):0,
-    appearance:{brandName:appearance.brandName||'RTM обучение',logo:appearance.logo||'',primaryColor:appearance.primaryColor||primary},
+    appearance:{brandName:appearance.brandName==null?'RTM обучение':String(appearance.brandName),logo:appearance.logo||'',primaryColor:appearance.primaryColor||primary},
     releaseVersion:String(window.__RTM_VERSION__||''),
     hintsEnabled:window.RTMHelp?window.RTMHelp.enabled():false,
     done:done, activeCourseId:String(state.courseId||''),
@@ -397,6 +406,8 @@ function bindPersistentShellControls(){let mode=$('#modeSwitch');if(mode)mode.on
 new MutationObserver(bindPersistentShellControls).observe(document.documentElement,{childList:true,subtree:true});queueMicrotask(bindPersistentShellControls);
 let baseSetMode=setMode;
 window.setMode=setMode=function(mode){closeModal();applyShellMode(mode);baseSetMode(mode);emitLearnerSnapshot();};
+var synchronizedSetMode=window.setMode;
+window.setMode=setMode=function(mode){if(window.RTMHelp)window.RTMHelp.close();if(window.RTMMaterialSession)window.RTMMaterialSession.dispose();return synchronizedSetMode(mode);};
 window.__RTM_LEARNER__={
   getSnapshot:learnerSnapshot,
   subscribe:function(handler){window.addEventListener('rtm:learner-change',handler);let hook=function(){handler()};window.RTMUI.afterRender.push(hook);return function(){window.removeEventListener('rtm:learner-change',handler);let i=window.RTMUI.afterRender.indexOf(hook);if(i>=0)window.RTMUI.afterRender.splice(i,1)}},
@@ -1152,6 +1163,7 @@ function v37Mix(hex,amount){
   return '#'+[r,g,b].map(function(x){return x.toString(16).padStart(2,'0')}).join('')
 }
 function v37ApplyAppearance(){
+  document.documentElement.classList.toggle('rtm-brand-name-empty',v37Settings.brandName==='');
   var color=v37Settings.primaryColor||v37Palette()[v37Settings.theme]||v37Settings.customColor||'#315cf6',root=document.documentElement;
   root.style.colorScheme='only light';root.dataset.rtmTheme='light';
   if(document.body){document.body.style.colorScheme='only light';document.body.dataset.rtmTheme='light'}
@@ -1160,7 +1172,7 @@ function v37ApplyAppearance(){
   if(typeof emitLearnerSnapshot==='function')queueMicrotask(emitLearnerSnapshot);
   var brand=document.querySelector('.brand');if(brand){
     var logo=v37Settings.logo?'<img class="v37-brand-logo" src="'+esc(v37Settings.logo)+'" alt="Логотип">':'';
-    brand.innerHTML=logo+'<span class="v37-brand-name">'+esc(v37Settings.brandName||'RTM обучение')+'</span>';
+    brand.innerHTML=logo+(v37Settings.brandName?'<span class="v37-brand-name">'+esc(v37Settings.brandName)+'</span>':'');
   }
 }
 async function v37LoadSettingsOnce(){
@@ -1183,15 +1195,15 @@ function v37ThemeCards(){
 function v37RenderSettings(){
   var root=$('#adminSettings');if(!root)return;var stats=v37MediaStats();root.classList.remove('placeholder-view');root.classList.add('v37-settings-page');
   root.innerHTML='<div class="admin-page-head"><div><h1>Настройки портала</h1><p class="muted">Управление внешним видом и общими параметрами</p></div><button class="primary" id="v37SaveSettings">Сохранить</button></div>'+
-  '<section class="settings-card v37-setting-section"><h3>Логотип и название</h3><div class="v37-logo-row"><div class="v37-logo-preview">'+(v37Settings.logo?'<img src="'+esc(v37Settings.logo)+'" alt="Логотип">':'<b>'+esc(v37Settings.brandName||'RTM')+'</b>')+'</div><div class="v37-logo-actions"><label>Название в шапке<input id="v37BrandName" value="'+esc(v37Settings.brandName||'RTM обучение')+'"></label><div class="inline-actions"><label class="v37-file-button">Загрузить логотип<input id="v37LogoFile" type="file" accept="image/png,image/jpeg,image/svg+xml"></label><button class="danger" id="v37ClearLogo">Очистить</button></div></div></div><p class="muted">PNG, JPEG или SVG до 350 КБ. Логотип отображается в шапке приложения.</p></section>'+
+  '<section class="settings-card v37-setting-section"><h3>Логотип и название</h3><div class="v37-logo-row"><div class="v37-logo-preview">'+(v37Settings.logo?'<img src="'+esc(v37Settings.logo)+'" alt="Логотип">':'<b>'+esc(v37Settings.brandName||'RTM')+'</b>')+'</div><div class="v37-logo-actions"><label>Название в шапке<input id="v37BrandName" value="'+esc(v37Settings.brandName||'')+'"></label><div class="inline-actions"><label class="v37-file-button">Загрузить логотип<input id="v37LogoFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label><button class="danger" id="v37ClearLogo">Очистить</button></div></div></div><p class="muted">PNG, JPEG, WebP или SVG до 5 МБ. Логотип отображается в шапке приложения.</p></section>'+
   '<section class="settings-card v37-setting-section"><h3>Цветовая схема</h3><p class="muted">Выберите основной цвет интерфейса портала</p><div class="v37-theme-grid">'+v37ThemeCards()+'</div></section>'+
   '<section class="settings-card v37-setting-section"><h3>Хранилище и контент</h3><div class="v37-storage-grid"><div><span>Файлов Bitrix.Диска в статьях</span><b>'+stats.disk+'</b></div><div><span>Медиаблоков добавлено</span><b>'+stats.total+'</b></div><div><span>Материалов с медиа</span><b>'+stats.materials+'</b></div></div></section>'+
   '<section class="settings-card v37-setting-section"><h3>Раздел по умолчанию</h3><p class="muted">Этот раздел откроется при следующем входе пользователя</p><div class="v37-default-grid"><label class="v37-choice '+(v37Settings.defaultSection==='learn'?'selected':'')+'"><input type="radio" name="v37Default" value="learn" '+(v37Settings.defaultSection==='learn'?'checked':'')+'><span><b>Обучение</b><small>Назначенные материалы и курсы</small></span></label><label class="v37-choice '+(v37Settings.defaultSection==='kb'?'selected':'')+'"><input type="radio" name="v37Default" value="kb" '+(v37Settings.defaultSection==='kb'?'checked':'')+'><span><b>База знаний</b><small>Пространства и материалы</small></span></label></div></section>'+
   '<section class="settings-card v37-setting-section"><h3>Онбординг</h3><p class="muted">Состояние приветствия пользователей</p><div class="v37-onboarding"><div><span>Статус</span><b class="pill '+(v37Settings.onboarding==='completed'?'mint':'yellow')+'">'+(v37Settings.onboarding==='completed'?'Пройдено':'Будет показан при следующем входе')+'</b></div><button class="danger" id="v37ResetOnboarding">Сбросить онбординг</button></div></section>';
-  $('#v37SaveSettings').onclick=async function(){v37Settings.brandName=$('#v37BrandName').value.trim()||'RTM обучение';var theme=document.querySelector('input[name="v37Theme"]:checked'),def=document.querySelector('input[name="v37Default"]:checked');if(theme)v37Settings.theme=theme.value;if(def)v37Settings.defaultSection=def.value;var custom=$('#v37CustomColor');if(custom)v37Settings.customColor=custom.value;await v37SaveSettings();v37RenderSettings()};
+  $('#v37SaveSettings').onclick=async function(){v37Settings.brandName=$('#v37BrandName').value.trim();var theme=document.querySelector('input[name="v37Theme"]:checked'),def=document.querySelector('input[name="v37Default"]:checked');if(theme)v37Settings.theme=theme.value;if(def)v37Settings.defaultSection=def.value;var custom=$('#v37CustomColor');if(custom)v37Settings.customColor=custom.value;await v37SaveSettings();v37RenderSettings()};
   document.querySelectorAll('input[name="v37Theme"],input[name="v37Default"]').forEach(function(x){x.onchange=function(){var wrap=x.closest('.v37-theme-grid,.v37-default-grid');if(wrap)wrap.querySelectorAll('.selected').forEach(function(n){n.classList.remove('selected')});x.closest('label').classList.add('selected')}});
   $('#v37CustomColor')&&($('#v37CustomColor').oninput=function(){v37Settings.customColor=this.value;v37Settings.theme='custom';v37ApplyAppearance()});
-  $('#v37LogoFile').onchange=function(){var file=this.files&&this.files[0];if(!file)return;if(file.size>350*1024)return alert('Размер логотипа должен быть не больше 350 КБ.');var reader=new FileReader();reader.onload=function(){v37Settings.logo=String(reader.result||'');v37RenderSettings()};reader.readAsDataURL(file)};
+  $('#v37LogoFile').onchange=function(){var file=this.files&&this.files[0];if(!file)return;if(file.size>5*1024*1024)return alert('Размер логотипа должен быть не больше 5 МБ.');var reader=new FileReader();reader.onload=function(){v37Settings.logo=String(reader.result||'');v37RenderSettings()};reader.readAsDataURL(file)};
   $('#v37ClearLogo').onclick=function(){v37Settings.logo='';v37ApplyAppearance();v37RenderSettings()};
   $('#v37ResetOnboarding').onclick=function(){v37Settings.onboarding='pending';v37SaveSettings();v37RenderSettings()};
 }

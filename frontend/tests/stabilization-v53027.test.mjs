@@ -7,6 +7,8 @@ const host = await readFile(new URL("../src/LegacyReactHost.jsx", import.meta.ur
 const learner = await readFile(new URL("../src/LearnerApp.jsx", import.meta.url), "utf8");
 const learning = await readFile(new URL("../public/legacy/learning.js", import.meta.url), "utf8");
 const runtime = await readFile(new URL("../public/legacy/runtime-core.js", import.meta.url), "utf8");
+const acknowledgements = await readFile(new URL("../public/legacy/acknowledgements.js", import.meta.url), "utf8");
+const knowledge = await readFile(new URL("../public/legacy/knowledge.js", import.meta.url), "utf8");
 const sessionSource = await readFile(new URL("../public/legacy/material-session.js", import.meta.url), "utf8");
 const migrationSource = await readFile(new URL("../public/legacy/scene-migrations.js", import.meta.url), "utf8");
 const editor = await readFile(new URL("../public/legacy/editor/src/main.tsx", import.meta.url), "utf8");
@@ -61,4 +63,34 @@ test("scene migration preserves payloads and normalizes old scenes", () => {
 
 test("article completion cards are deduplicated before repair", () => {
   assert.match(editor, /repairCompletionCard\(dedupeCompletion\(normalizeCompletion\(elements\)\)\)/);
+});
+
+test("every learner material render owns a fresh legacy session", () => {
+  assert.doesNotMatch(learner, /__RTM_LEGACY_RENDERED_MATERIAL__/);
+  assert.match(learner, /bridge\.disposeMaterial\?\.\(\);/);
+  assert.match(learner, /bridge\.renderMaterial\(material\.ID\)/);
+});
+
+test("directly assigned articles and tests are exposed to the learner", () => {
+  assert.match(runtime, /standaloneMaterials/);
+  assert.match(learner, /snapshot\.standaloneMaterials/);
+  assert.match(learner, /Назначено отдельно/);
+});
+
+test("linked knowledge materials stay read only inside courses", () => {
+  assert.match(knowledge, /редактируется только через Управление Базой знаний/);
+  assert.match(knowledge, /v538-linked-preview/);
+  assert.match(knowledge, /Просмотр ↓/);
+});
+
+test("knowledge test editor is rebuilt for the selected document", () => {
+  assert.match(learning, /restoreKnowledgeTestEditor\(\);/);
+  assert.match(learning, /window\.renderTestEditor\(\);/);
+});
+
+test("review tests remain embedded and transient help is disposed", () => {
+  assert.match(acknowledgements, /data-v5100-test-host/);
+  assert.match(acknowledgements, /centerTab='tests';renderCenter\(\)/);
+  assert.match(acknowledgements, /window\.RTMHelp=.*close:function/);
+  assert.match(acknowledgements, /visibilitychange/);
 });

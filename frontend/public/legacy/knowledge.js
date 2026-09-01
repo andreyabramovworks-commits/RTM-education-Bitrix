@@ -306,6 +306,12 @@
     return '<div class="inline-full-editor v538-linked-preview"><div class="inline-title">'+html(item.NAME)+'</div><div class="v538-readonly-note">Это общий тест из Базы знаний. В курсе он доступен только для просмотра.</div><div class="inline-actions"><button type="button" class="primary" data-v51-open-inline-test="'+html(item.ID)+'">Предпросмотр</button><button type="button" data-v538-open-knowledge="'+html(meta.knowledgeDocumentId)+'">Открыть в базе знаний</button></div></div>';
   };
 
+  var baseCourseChildLine=window.renderCourseChildLine;
+  if(typeof baseCourseChildLine==='function')window.renderCourseChildLine=renderCourseChildLine=function(item,sections){
+    var markup=baseCourseChildLine.apply(this,arguments);
+    return linkedMeta(item)?markup.replace('Редактировать ↓','Просмотр ↓'):markup;
+  };
+
   async function courseRoleEditor(item) {
     await loadDirectory();
     var meta=linkedMeta(item),reviewerBase=(meta.knowledgeReviewers||[]).filter(function(r){return r.type!=="user";}),editorBase=(meta.knowledgeEditors||[]).filter(function(r){return r.type!=="user";}),reviewers=new Set((meta.knowledgeReviewers||[]).filter(function(r){return r.type==="user";}).map(function(r){return String(r.id);})),editors=new Set((meta.knowledgeEditors||[]).filter(function(r){return r.type==="user";}).map(function(r){return String(r.id);})),eligible=directory.users.filter(function(u){return u.reviewerAllowed;});

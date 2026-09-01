@@ -846,6 +846,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   var knowledgeTestEditorHome = null;
   function restoreKnowledgeTestEditor(){var testView=document.getElementById('testEditorView');if(testView&&knowledgeTestEditorHome&&knowledgeTestEditorHome.parent&&knowledgeTestEditorHome.parent.isConnected){knowledgeTestEditorHome.parent.insertBefore(testView,knowledgeTestEditorHome.next&&knowledgeTestEditorHome.next.parentNode===knowledgeTestEditorHome.parent?knowledgeTestEditorHome.next:null);testView.classList.add('hidden')}knowledgeTestEditorHome=null;state.knowledgeEditorReturn=false;state.v540Workspace='';var projectsPanel=document.getElementById('projectsPanel');if(projectsPanel)projectsPanel.style.display='';}
   async function openKnowledgeTest(doc, kind) {
+    restoreKnowledgeTestEditor();
     state.v540Workspace = 'test';
     var key = kind === 'full' ? 'fullTest' : 'lightTest', source = clone(doc[key] || {}), syntheticId = 'knowledge_' + doc.id + '_' + kind;
     source.title = source.title || ((kind === 'full' ? 'Полный — ' : 'Лайт — ') + doc.title); source.questions = source.questions || [];
@@ -860,8 +861,8 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     if (adminShell) { adminShell.classList.remove('with-projects'); adminShell.classList.add('no-projects'); }
     if (projectsPanel) projectsPanel.style.display = 'none';
     document.querySelectorAll('.rail-btn').forEach(function (button) { button.classList.toggle('active', button.dataset.adminView === 'database'); });
+    window.renderTestEditor();
     var heading = document.getElementById('testEditorTitle'); if (heading) heading.textContent = source.title;
-    else window.renderTestEditor();
     bindTestTabs();
     var back = document.getElementById('backFromTestEditor');
     if (back) back.onclick = function () {

@@ -87,8 +87,8 @@ export function AdminApp({ active, bridge, onSetMode }) {
     <header className="adm-topbar">
       <button className="adm-mobile-menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Открыть меню" aria-expanded={menuOpen}>☰</button>
       <button className="adm-brand" onClick={() => selectRoute("dashboard")} data-tip="Перейти на дашборд">
-        {snapshot.appearance?.logo && <img src={snapshot.appearance.logo} alt={`Логотип ${snapshot.appearance?.brandName || "RTM обучение"}`} />}
-        <span>{snapshot.appearance?.brandName || "RTM обучение"}</span>
+        {snapshot.appearance?.logo && <img src={snapshot.appearance.logo} alt={`Логотип ${snapshot.appearance?.brandName ?? "RTM обучение"}`} />}
+        {(snapshot.appearance?.brandName ?? "RTM обучение") && <span>{snapshot.appearance?.brandName ?? "RTM обучение"}</span>}
         <em>Администрирование</em>
       </button>
       <div className="adm-top-actions">

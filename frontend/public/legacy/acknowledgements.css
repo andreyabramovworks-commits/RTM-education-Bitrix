@@ -32,6 +32,17 @@
 }
 @media(max-width:420px){.v5100-tabs button{padding:10px 9px;font-size:12px}.v512-mandatory-card{padding:12px}.v512-mandatory-grid>section{padding:11px}.v512-help-anchor>.v512-help-dot{width:18px;height:18px}.v5100-form input,.v5100-form select,.v5100-form textarea{font-size:16px}.v512-assignment-list>div{align-items:stretch;display:grid}.v512-assignment-list button{width:100%}}
 
+.v5100-center-tabs{gap:4px;margin:18px 0;padding:5px;border:1px solid #dbe4ed;border-radius:14px;background:linear-gradient(145deg,#edf2f6,#f8fafb);box-shadow:inset 0 1px 2px rgba(24,37,54,.055)}
+.v5100-center-tabs button{min-height:42px;border:1px solid transparent;border-radius:10px;padding:9px 16px;transition:transform 150ms ease,border-color 150ms ease,box-shadow 150ms ease,background-color 150ms ease}
+.v5100-center-tabs button.active{border-color:#d8e1ea;background:#fff;box-shadow:0 5px 15px rgba(25,39,58,.1);color:var(--v51-ink)}
+.v5100-filterbar{padding-left:2px}
+.v5100-filterbar:before{content:'Быстрые фильтры';display:flex;align-items:center;margin-right:5px;color:#778398;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+.v5100-filterbar button{min-height:34px;padding:6px 12px;border-radius:999px;background:#fff;color:#536176;box-shadow:none}
+.v5100-filterbar button.active{color:#8a4e00;border-color:#efbd7b;background:#fff4e5;box-shadow:inset 0 0 0 1px rgba(224,132,15,.08)}
+[data-v5100-test-host] .v52-review-page>.admin-page-head{justify-content:flex-end;margin-bottom:12px}
+[data-v5100-test-host] .v52-review-page>.admin-page-head>div{display:none}
+@media(hover:hover) and (pointer:fine){.v5100-center-tabs button:hover{transform:translateY(-1px)}}
+
 .v513-picker-toolbar{position:sticky;top:-10px;z-index:2;display:flex;align-items:center;gap:10px;padding:4px;background:#fbfdff}
 .v513-picker-toolbar input{min-width:0;flex:1}
 .v513-picker-toolbar span{flex:0 0 auto;color:var(--v51-muted);font-size:12px}
