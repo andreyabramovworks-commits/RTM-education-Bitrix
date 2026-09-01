@@ -422,7 +422,7 @@ window.__RTM_LEARNER__={
   courseMaterials:function(id){return courseMaterials(id).slice()},
   canOpen:function(id){let item=findItem(id);return !!item&&canOpenCourseMaterial(item)}
   ,loadKnowledge:async function(force){if(!window.RTMV5038||!window.RTMV5038.load)throw new Error('База знаний ещё загружается');return window.RTMV5038.load(Boolean(force))}
-  ,openKnowledge:async function(documentId,kind){if(!window.RTMV5038||!window.RTMV5038.openForUser)throw new Error('База знаний ещё загружается');if(['article','light','full'].includes(kind)&&window.__RTM_LOAD_CANVAS__)await window.__RTM_LOAD_CANVAS__();return window.RTMV5038.openForUser(documentId,kind)}
+  ,openKnowledge:async function(documentId,kind){if(!window.RTMV5038||!window.RTMV5038.prepareForUser)throw new Error('База знаний ещё загружается');if(['article','light','full'].includes(kind)&&window.__RTM_LOAD_CANVAS__)await window.__RTM_LOAD_CANVAS__();var material=await window.RTMV5038.prepareForUser(documentId,kind);if(material)window.dispatchEvent(new CustomEvent('rtm:knowledge-material-prepared',{detail:{material:material}}));return material}
   ,loadAcknowledgements:async function(force){if(!window.RTMV5100||!window.RTMV5100.getMine)throw new Error('Редакции ещё загружаются');return window.RTMV5100.getMine(Boolean(force))}
   ,loadEditions:async function(documentId,force){if(!window.RTMV5100||!window.RTMV5100.getEditions)throw new Error('История редакций ещё загружается');return window.RTMV5100.getEditions(documentId,Boolean(force))}
   ,openAcknowledgement:async function(id){if(!window.RTMV5100||!window.RTMV5100.openAssignmentById)throw new Error('Редакции ещё загружаются');return window.RTMV5100.openAssignmentById(id)}

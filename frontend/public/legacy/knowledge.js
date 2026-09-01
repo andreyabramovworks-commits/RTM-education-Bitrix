@@ -90,7 +90,7 @@
   }
 
   var baseOpenUserMaterial=window.openUserMaterial;
-  async function openCentralForUser(doc, kind, item, previewAnswers) {
+  async function openCentralForUser(doc, kind, item, previewAnswers, prepareOnly) {
     var session=window.RTMMaterialSession;
     var expectedId=item?String(item.ID):"kb_"+(kind==="article"?"article":"test")+"_"+(doc&&doc.id||"")+(kind==="article"?"":"_"+kind);
     var current=session&&session.current();
@@ -112,6 +112,7 @@
         var index=state.items.findIndex(function(row){return String(row.ID)===String(item.ID);});
         if(index>=0)state.items[index]=projection;
       }
+      if(prepareOnly)return projection;
       await baseOpenUserMaterial.call(window,projection);
       var back=document.getElementById("uBackToCourse");
       if(back){
@@ -347,6 +348,7 @@
     getTree:function(){return usableNode(root());},
     getDirectory:function(){return loadDirectory(false);},
     load:function(force){return load(Boolean(force)).then(function(){return {tree:usableNode(root()),documents:docs.slice()};});},
+    prepareForUser:function(documentId,kind){var doc=docs.find(function(row){return String(row.id)===String(documentId);});return openCentralForUser(doc,kind||"article",null,false,true);},
     openForUser:function(documentId,kind){var doc=docs.find(function(row){return String(row.id)===String(documentId);});return openCentralForUser(doc,kind||"article");},
     reload:function(){loaded=false;directory=null;return load(true);}
   };

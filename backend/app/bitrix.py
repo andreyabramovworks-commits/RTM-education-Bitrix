@@ -3,7 +3,7 @@ from urllib.parse import urlencode
 
 from fastapi.responses import HTMLResponse
 
-RELEASE_VERSION = "53.0.30"
+RELEASE_VERSION = "53.0.31"
 
 
 def bitrix_page(*, install: bool = False, launch_params: dict[str, str] | None = None) -> HTMLResponse:

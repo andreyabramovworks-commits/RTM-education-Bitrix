@@ -189,6 +189,16 @@ export function LearnerApp({ active, bridge, onSetMode }) {
     return () => window.removeEventListener("rtm:material-opened", handleLegacyMaterial);
   }, [snapshot.courses]);
   const [history, setHistory] = useState([]);
+  useEffect(() => {
+    const handleKnowledgeMaterial = (event) => {
+      const material = event.detail?.material;
+      if (!material) return;
+      setHistory((old) => [...old.slice(-8), { view, selectedCourse, materialContext: null }]);
+      setMaterialContext({ material, course: null });
+    };
+    window.addEventListener("rtm:knowledge-material-prepared", handleKnowledgeMaterial);
+    return () => window.removeEventListener("rtm:knowledge-material-prepared", handleKnowledgeMaterial);
+  }, [view, selectedCourse]);
   const [materialOpen, setMaterialOpen] = useState({ loading: false, error: "" });
   const menuWasOpen = useRef(false);
   useEffect(() => {
