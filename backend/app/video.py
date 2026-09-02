@@ -48,6 +48,10 @@ class ProgressWrite(BaseModel):
     percent: int = Field(ge=0, le=100)
 
 
+class RutubeSourceWrite(BaseModel):
+    channelUrl: HttpUrl
+
+
 def _embed(raw: str) -> tuple[str, str, str]:
     youtube = re.search(r"(?:youtu\.be/|youtube\.com/(?:watch\?.*?v=|shorts/))([\w-]{6,})", raw, re.I)
     if youtube:
@@ -149,12 +153,79 @@ def sources(session: Annotated[Session, Depends(get_session)], _: Annotated[Bitr
     counts={provider:len(session.exec(select(VideoItem).where(VideoItem.provider==provider)).all()) for provider in ("rutube","youtube","file")}
     settings=get_settings()
     def item(provider: str, title: str, oauth_available: bool=False):
-        row=rows.get(provider); connected=provider=="file" or bool(row and row.status=="connected" and row.encrypted_refresh_token)
+        row=rows.get(provider); connected=provider=="file" or bool(row and row.status=="connected" and (provider=="rutube" and row.external_account_id or row.encrypted_refresh_token))
         return {"provider":provider,"title":title,"configured":oauth_available or provider=="file","connected":connected,
                 "status":row.status if row else ("connected" if provider=="file" else "disconnected"),"accountName":row.account_name if row else "",
                 "externalAccountId":row.external_account_id if row else "","lastSyncAt":row.last_sync_at if row else None,
                 "lastSyncStatus":row.last_sync_status if row else "","lastError":row.last_error if row else "","videoCount":counts[provider]}
-    return [item("rutube","RUTUBE Studio"),item("youtube","YouTube",bool(settings.youtube_client_id and settings.youtube_client_secret and (settings.video_token_encryption_key or settings.google_token_encryption_key))),item("file","Хранилище файлов",True)]
+    return [item("rutube","RUTUBE",True),item("youtube","YouTube",bool(settings.youtube_client_id and settings.youtube_client_secret and (settings.video_token_encryption_key or settings.google_token_encryption_key))),item("file","Хранилище файлов",True)]
+
+
+def _rutube_channel_id(raw: str) -> str:
+    match = re.search(r"rutube\.ru/channel/(\d+)", raw, re.I)
+    if not match:
+        raise HTTPException(422, "Укажите ссылку вида https://rutube.ru/channel/123456/")
+    return match.group(1)
+
+
+@router.put("/sources/rutube")
+def configure_rutube(
+    payload: RutubeSourceWrite,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_editor)],
+):
+    channel_id = _rutube_channel_id(str(payload.channelUrl))
+    response = httpx.get(f"https://rutube.ru/api/video/person/{channel_id}/", timeout=20)
+    if response.is_error:
+        raise HTTPException(502, "RUTUBE не подтвердил канал")
+    data = response.json()
+    first = (data.get("results") or [{}])[0]
+    author = first.get("author") or {}
+    row = session.exec(select(VideoSource).where(VideoSource.provider == "rutube")).first() or VideoSource(provider="rutube")
+    row.account_name = str(author.get("name") or author.get("title") or f"Канал {channel_id}")
+    row.external_account_id = channel_id
+    row.status = "connected"
+    row.connected_by = identity.user.id
+    row.last_sync_status = "ready"
+    row.last_error = ""
+    row.updated_at = utcnow()
+    session.add(row); session.commit(); session.refresh(row)
+    return {"provider": "rutube", "channelId": channel_id, "accountName": row.account_name, "publicVideoCount": len(data.get("results") or [])}
+
+
+@router.post("/sources/rutube/sync")
+def sync_rutube(
+    session: Annotated[Session, Depends(get_session)],
+    _: Annotated[BitrixIdentity, Depends(require_editor)],
+):
+    source = session.exec(select(VideoSource).where(VideoSource.provider == "rutube")).first()
+    if not source or not source.external_account_id:
+        raise HTTPException(409, "Сначала подключите канал RUTUBE")
+    response = httpx.get(f"https://rutube.ru/api/video/person/{source.external_account_id}/", timeout=20)
+    if response.is_error:
+        source.last_error = "RUTUBE временно не ответил"; source.last_sync_status = "failed"; session.add(source); session.commit()
+        raise HTTPException(502, source.last_error)
+    created = updated = 0
+    for item in response.json().get("results") or []:
+        external_id = str(item.get("id") or "")
+        if not external_id:
+            continue
+        row = session.exec(select(VideoItem).where(VideoItem.provider == "rutube", VideoItem.external_id == external_id)).first()
+        if row is None:
+            row = VideoItem(provider="rutube", external_id=external_id, status="published")
+            created += 1
+        else:
+            updated += 1
+        row.title = str(item.get("title") or "Видео RUTUBE")[:500]
+        row.description = str(item.get("description") or "")[:30000]
+        row.canonical_url = str(item.get("video_url") or f"https://rutube.ru/video/{external_id}/")
+        row.embed_url = str(item.get("embed_url") or f"https://rutube.ru/play/embed/{external_id}")
+        row.thumbnail_url = str(item.get("thumbnail_url") or item.get("picture_url") or "")[:2000]
+        row.duration_seconds = max(0, int(item.get("duration") or 0))
+        row.updated_at = utcnow()
+        session.add(row)
+    source.last_sync_at = utcnow(); source.last_sync_status = "success"; source.last_error = ""; source.updated_at = utcnow(); session.add(source); session.commit()
+    return {"created": created, "updated": updated, "total": created + updated, "note": "Скрытые ролики добавляются отдельно по приватной ссылке с ключом доступа"}
 
 
 def _token_cipher() -> Fernet:

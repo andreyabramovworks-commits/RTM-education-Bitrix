@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 
 from app.models import AppUser
-from app.video import _allowed, _embed
+from app.video import _allowed, _embed, _rutube_channel_id
 
 
 def test_youtube_links_use_privacy_enhanced_embed():
@@ -16,6 +16,10 @@ def test_rutube_private_link_preserves_playback_key():
     assert provider == "rutube"
     assert external_id == "abc123"
     assert embed == "https://rutube.ru/play/embed/abc123/?p=secret"
+
+
+def test_rutube_channel_url_extracts_public_channel_id():
+    assert _rutube_channel_id("https://rutube.ru/channel/47531598/") == "47531598"
 
 
 def test_unknown_video_host_is_rejected():
