@@ -40,9 +40,17 @@ export function VideoLibrary({ Icon }) {
   };
   useEffect(() => {
     if (!theater) return undefined;
+    const unlockOrientation = () => {
+      try {
+        if (screen.orientation?.unlock) screen.orientation.unlock();
+      } catch {
+        // Orientation control is optional in embedded mobile browsers.
+      }
+    };
     const closeTheater = (event) => {
       if (event.type === "fullscreenchange" && document.fullscreenElement) return;
       if (event.type === "keydown" && event.key !== "Escape") return;
+      unlockOrientation();
       setTheater(false);
     };
     document.addEventListener("fullscreenchange", closeTheater);
@@ -50,6 +58,7 @@ export function VideoLibrary({ Icon }) {
     return () => {
       document.removeEventListener("fullscreenchange", closeTheater);
       document.removeEventListener("keydown", closeTheater);
+      unlockOrientation();
     };
   }, [theater]);
   const toggleFullscreen = async () => {
@@ -62,6 +71,11 @@ export function VideoLibrary({ Icon }) {
           // The internal theater mode still closes below.
         }
       }
+      try {
+        if (screen.orientation?.unlock) screen.orientation.unlock();
+      } catch {
+        // Orientation control is optional in embedded mobile browsers.
+      }
       setTheater(false);
       return;
     }
@@ -73,6 +87,11 @@ export function VideoLibrary({ Icon }) {
       } catch {
         // Bitrix may deny the native API; CSS theater mode remains inside the app.
       }
+    }
+    try {
+      if (screen.orientation?.lock) await screen.orientation.lock("landscape");
+    } catch {
+      // iOS and some Bitrix WebViews keep the user's current orientation.
     }
   };
   const card = (item) => (

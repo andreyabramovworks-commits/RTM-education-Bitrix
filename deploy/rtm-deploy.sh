@@ -43,6 +43,17 @@ trap rollback ERR
 
 git merge --ff-only "$TARGET"
 export APP_VERSION="${TARGET:0:12}"
+
+if ! grep -Eq '^VIDEO_TOKEN_ENCRYPTION_KEY=.+$' .env; then
+    VIDEO_KEY="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '\n')"
+    if grep -q '^VIDEO_TOKEN_ENCRYPTION_KEY=' .env; then
+        sed -i "s|^VIDEO_TOKEN_ENCRYPTION_KEY=.*$|VIDEO_TOKEN_ENCRYPTION_KEY=${VIDEO_KEY}|" .env
+    else
+        printf '\nVIDEO_TOKEN_ENCRYPTION_KEY=%s\n' "$VIDEO_KEY" >> .env
+    fi
+    chmod 0600 .env
+fi
+
 docker compose config --quiet
 docker compose build
 docker compose run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
