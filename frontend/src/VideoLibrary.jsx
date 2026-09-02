@@ -8,6 +8,7 @@ export function VideoLibrary({ Icon }) {
   const [folderId, setFolderId] = useState(null);
   const [playing, setPlaying] = useState(null);
   const [theater, setTheater] = useState(false);
+  const [rotated, setRotated] = useState(false);
   const playerRef = useRef(null);
   useEffect(() => {
     let live = true;
@@ -51,6 +52,7 @@ export function VideoLibrary({ Icon }) {
       if (event.type === "fullscreenchange" && document.fullscreenElement) return;
       if (event.type === "keydown" && event.key !== "Escape") return;
       unlockOrientation();
+      setRotated(false);
       setTheater(false);
     };
     document.addEventListener("fullscreenchange", closeTheater);
@@ -77,6 +79,7 @@ export function VideoLibrary({ Icon }) {
         // Orientation control is optional in embedded mobile browsers.
       }
       setTheater(false);
+      setRotated(false);
       return;
     }
     setTheater(true);
@@ -92,6 +95,23 @@ export function VideoLibrary({ Icon }) {
       if (screen.orientation?.lock) await screen.orientation.lock("landscape");
     } catch {
       // iOS and some Bitrix WebViews keep the user's current orientation.
+    }
+  };
+  const toggleRotation = async () => {
+    if (rotated) {
+      try {
+        if (screen.orientation?.unlock) screen.orientation.unlock();
+      } catch {
+        // CSS rotation is still reset below.
+      }
+      setRotated(false);
+      return;
+    }
+    setRotated(true);
+    try {
+      if (screen.orientation?.lock) await screen.orientation.lock("landscape");
+    } catch {
+      // Android Bitrix WebView falls back to rotating the player itself.
     }
   };
   const card = (item) => (
@@ -221,11 +241,12 @@ export function VideoLibrary({ Icon }) {
                 ×
               </button>
             </header>
-            <div className={`lr-player-shell ${theater ? "is-theater" : ""}`} ref={playerRef}>
+            <div className={`lr-player-shell ${theater ? "is-theater" : ""} ${rotated ? "is-rotated" : ""}`} ref={playerRef}>
               <iframe src={playing.embedUrl} title={playing.title} allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowFullScreen />
               <button className="lr-fullscreen" type="button" onClick={toggleFullscreen} aria-pressed={theater}>
                 {theater ? "Вернуться" : "На весь экран"}
               </button>
+              {theater && <button className="lr-rotate" type="button" onClick={toggleRotation}>{rotated ? "Вернуть" : "Повернуть"}</button>}
             </div>
             <p>{playing.description}</p>
           </section>

@@ -15,7 +15,19 @@ TARGET="$(git rev-parse origin/main)"
 LAST_SUCCESS="$(git rev-parse --verify refs/rtm/last-success 2>/dev/null || printf '%s' "$CURRENT")"
 ROLLBACK_TARGET="$LAST_SUCCESS"
 
-if [[ "$CURRENT" == "$TARGET" ]] && [[ "$LAST_SUCCESS" == "$TARGET" ]] && [[ "${FORCE_DEPLOY:-0}" != "1" ]]; then
+NEEDS_RESTART=0
+if ! grep -Eq '^VIDEO_TOKEN_ENCRYPTION_KEY=.+$' .env; then
+    VIDEO_KEY="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '\n')"
+    if grep -q '^VIDEO_TOKEN_ENCRYPTION_KEY=' .env; then
+        sed -i "s|^VIDEO_TOKEN_ENCRYPTION_KEY=.*$|VIDEO_TOKEN_ENCRYPTION_KEY=${VIDEO_KEY}|" .env
+    else
+        printf '\nVIDEO_TOKEN_ENCRYPTION_KEY=%s\n' "$VIDEO_KEY" >> .env
+    fi
+    chmod 0600 .env
+    NEEDS_RESTART=1
+fi
+
+if [[ "$CURRENT" == "$TARGET" ]] && [[ "$LAST_SUCCESS" == "$TARGET" ]] && [[ "${FORCE_DEPLOY:-0}" != "1" ]] && [[ "$NEEDS_RESTART" != "1" ]]; then
     exit 0
 fi
 
@@ -43,16 +55,6 @@ trap rollback ERR
 
 git merge --ff-only "$TARGET"
 export APP_VERSION="${TARGET:0:12}"
-
-if ! grep -Eq '^VIDEO_TOKEN_ENCRYPTION_KEY=.+$' .env; then
-    VIDEO_KEY="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '\n')"
-    if grep -q '^VIDEO_TOKEN_ENCRYPTION_KEY=' .env; then
-        sed -i "s|^VIDEO_TOKEN_ENCRYPTION_KEY=.*$|VIDEO_TOKEN_ENCRYPTION_KEY=${VIDEO_KEY}|" .env
-    else
-        printf '\nVIDEO_TOKEN_ENCRYPTION_KEY=%s\n' "$VIDEO_KEY" >> .env
-    fi
-    chmod 0600 .env
-fi
 
 docker compose config --quiet
 docker compose build

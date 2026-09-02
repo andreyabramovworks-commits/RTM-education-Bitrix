@@ -48,6 +48,8 @@ test("learner video player exposes an app-level mobile fullscreen action", () =>
   assert.match(bitrixShell, /allow="fullscreen" allowfullscreen/);
   assert.match(learnerVideo, /screen\.orientation\.lock\("landscape"\)/);
   assert.match(learnerVideo, /screen\.orientation\.unlock/);
+  assert.match(learnerVideo, /Повернуть/);
+  assert.match(learnerVideo, /is-rotated/);
 });
 
 test("RUTUBE Studio connection imports hidden videos with their access keys", () => {
