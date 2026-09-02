@@ -1,5 +1,10 @@
 # Версии RTM Education
 
+# v53.1.0 — 2026-09-02
+
+- Added the approved revision-compliance matrix with employee audit drawer and filtered exports.
+- Added managed video collections, learner playback, truthful source health and YouTube OAuth connection.
+
 # v53.0.32 — 2026-09-01
 
 - Legacy-узел материала теперь переносится в парковочный DOM до удаления React-контейнера, поэтому он остаётся доступен для второго и последующих открытий.

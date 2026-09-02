@@ -349,3 +349,85 @@ class UserHelpPreference(SQLModel, table=True):
     help_key: str = Field(max_length=160, index=True)
     hidden: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
     updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class VideoSource(SQLModel, table=True):
+    __tablename__ = "video_sources"
+
+    id: int | None = Field(default=None, primary_key=True)
+    provider: str = Field(index=True, unique=True, max_length=30)
+    account_name: str = Field(default="", max_length=320)
+    external_account_id: str = Field(default="", max_length=160)
+    encrypted_access_token: str = Field(default="", sa_column=Column(Text, nullable=False))
+    encrypted_refresh_token: str = Field(default="", sa_column=Column(Text, nullable=False))
+    scopes: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    status: str = Field(default="disconnected", max_length=30, index=True)
+    last_sync_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    last_sync_status: str = Field(default="", max_length=30)
+    last_error: str = Field(default="", sa_column=Column(Text, nullable=False))
+    connected_by: int | None = Field(default=None, foreign_key="app_users.id", index=True)
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class VideoCollection(SQLModel, table=True):
+    __tablename__ = "video_collections"
+
+    id: int | None = Field(default=None, primary_key=True)
+    title: str = Field(max_length=300)
+    description: str = Field(default="", sa_column=Column(Text, nullable=False))
+    cover_url: str = Field(default="", max_length=2000)
+    appearance: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    audience_rules: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    visibility: str = Field(default="all", max_length=30)
+    position: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
+    archived: bool = Field(default=False, sa_column=Column(Boolean, nullable=False))
+    created_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class VideoItem(SQLModel, table=True):
+    __tablename__ = "video_items"
+    __table_args__ = (UniqueConstraint("provider", "external_id", name="uq_video_provider_external"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    collection_id: int | None = Field(default=None, foreign_key="video_collections.id", index=True)
+    source_id: int | None = Field(default=None, foreign_key="video_sources.id", index=True)
+    provider: str = Field(default="link", max_length=30, index=True)
+    external_id: str = Field(default="", max_length=200)
+    title: str = Field(max_length=500)
+    description: str = Field(default="", sa_column=Column(Text, nullable=False))
+    canonical_url: str = Field(default="", max_length=2000)
+    embed_url: str = Field(default="", max_length=2000)
+    thumbnail_url: str = Field(default="", max_length=2000)
+    duration_seconds: int = Field(default=0)
+    visibility: str = Field(default="all", max_length=30)
+    status: str = Field(default="draft", max_length=30, index=True)
+    audience_rules: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
+    metadata_json: dict = Field(default_factory=dict, sa_column=Column("metadata", JSON, nullable=False))
+    position: int = Field(default=0, sa_column=Column(BigInteger, nullable=False))
+    created_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class VideoProgress(SQLModel, table=True):
+    __tablename__ = "video_progress"
+    __table_args__ = (UniqueConstraint("user_id", "video_id", name="uq_video_progress_user_video"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="app_users.id", index=True)
+    video_id: int = Field(foreign_key="video_items.id", index=True)
+    watched_seconds: int = Field(default=0)
+    percent: int = Field(default=0)
+    completed_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
+class VideoOAuthState(SQLModel, table=True):
+    __tablename__ = "video_oauth_states"
+
+    id: int | None = Field(default=None, primary_key=True)
+    state: str = Field(index=True, unique=True, max_length=200)
+    provider: str = Field(max_length=30)
+    user_id: int = Field(foreign_key="app_users.id", index=True)
+    expires_at: datetime = Field(sa_column=Column(DateTime(timezone=True), nullable=False, index=True))
+    created_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))

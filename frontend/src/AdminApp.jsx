@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./admin.css";
+import { VideoAdmin } from "./VideoAdmin";
 
 const ICONS = {
   dashboard: "M3 11.5 12 4l9 7.5M5 10.5V20h5v-5h4v5h5v-9.5",
@@ -10,6 +11,7 @@ const ICONS = {
   analytics: "M4 19v-6M10 19V8M16 19v-5M21 19H3",
   events: "M3 10h18M8 2v4M16 2v4M5 4h14a2 2 0 012 2v13a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2",
   settings: "M12 15.5A3.5 3.5 0 1012 8a3.5 3.5 0 000 7.5zm0-12v2m0 13v2m8.5-8.5h-2m-13 0h-2m14.5-6l-1.5 1.5m-9 9L6 18m12 0l-1.5-1.5m-9-9L6 6",
+  videos: "M4 5h16v14H4zM10 9l5 3-5 3z",
   info: "M4 19V5a2 2 0 012-2h12a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2zm4-8h8M8 7h5M8 15h6",
   help: "M12 17h.01M9.1 9a3 3 0 115.3 1.9c-.9 1-2.4 1.2-2.4 3.1M12 22a10 10 0 100-20 10 10 0 000 20",
   sync: "M20 7h-5V2M4 17h5v5M20 7a8 8 0 00-14-3M4 17a8 8 0 0014 3",
@@ -27,6 +29,7 @@ const GROUPS = [
     ["users", "Пользователи и роли", "Доступы и синхронизация сотрудников"],
     ["database", "Управление Базой знаний", "Структура, документы и редакции"],
     ["reviews", "Центр проверок", "Очередь и история проверок"],
+    ["videos", "Видеотека", "Коллекции и источники обучающих видео"],
   ]],
   ["Контроль и отчётность", [
     ["analytics", "Аналитика", "Показатели и детальные отчёты"],
@@ -108,6 +111,7 @@ export function AdminApp({ active, bridge, onSetMode }) {
       {menuOpen && <button className="adm-menu-scrim" onClick={() => setMenuOpen(false)} aria-label="Закрыть меню" />}
       <main className="adm-workspace" data-admin-route={route} ref={mountRef}>
         {routeError && <div className="adm-route-error" role="alert">{routeError}</div>}
+        {route === "videos" && <VideoAdmin />}
       </main>
     </div>
   </div>;

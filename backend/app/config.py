@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     google_token_encryption_key: str = ""
+    youtube_client_id: str = ""
+    youtube_client_secret: str = ""
+    video_token_encryption_key: str = ""
 
     model_config = SettingsConfigDict(case_sensitive=False)
 
