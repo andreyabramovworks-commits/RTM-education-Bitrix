@@ -45,6 +45,8 @@ services:
       retries: 10
     networks:
       - internal
+    volumes:
+      - video_media:/app/data
 
   frontend:
     build:
@@ -87,5 +89,6 @@ networks:
 
 volumes:
   postgres_data:
+  video_media:
   caddy_data:
   caddy_config:

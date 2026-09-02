@@ -3,6 +3,10 @@ from __future__ import annotations
 import re
 import secrets
 import hashlib
+import base64
+import binascii
+from pathlib import Path
+from uuid import uuid4
 from datetime import datetime, timedelta
 from typing import Annotated, Any
 from urllib.parse import urlencode
@@ -10,7 +14,7 @@ from urllib.parse import urlencode
 import httpx
 from cryptography.fernet import Fernet
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field, HttpUrl
 from sqlmodel import Session, select
 
@@ -50,6 +54,14 @@ class ProgressWrite(BaseModel):
 
 class RutubeSourceWrite(BaseModel):
     channelUrl: HttpUrl
+
+
+class CoverUpload(BaseModel):
+    dataUrl: str = Field(min_length=32, max_length=8_000_000)
+
+
+COVER_DIR = Path("/app/data/video-covers")
+COVER_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 
 
 def _embed(raw: str) -> tuple[str, str, str]:
@@ -124,6 +136,42 @@ def update_collection(collection_id: int, payload: CollectionWrite, session: Ann
     row.appearance=payload.appearance; row.audience_rules=payload.audienceRules; row.visibility=payload.visibility; row.updated_at=utcnow()
     session.add(row); session.commit(); session.refresh(row)
     return _collection(row)
+
+
+@router.post("/covers")
+def upload_cover(payload: CoverUpload, _: Annotated[BitrixIdentity, Depends(require_editor)]):
+    match = re.fullmatch(r"data:(image/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\r\n]+)", payload.dataUrl)
+    if not match or match.group(1) not in COVER_TYPES:
+        raise HTTPException(422, "Поддерживаются изображения JPG, PNG и WebP")
+    try:
+        content = base64.b64decode(match.group(2), validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise HTTPException(422, "Файл обложки повреждён") from exc
+    if not content or len(content) > 5_000_000:
+        raise HTTPException(422, "Размер обложки должен быть не больше 5 МБ")
+    mime = match.group(1)
+    valid_signature = (
+        (mime == "image/jpeg" and content.startswith(b"\xff\xd8\xff"))
+        or (mime == "image/png" and content.startswith(b"\x89PNG\r\n\x1a\n"))
+        or (mime == "image/webp" and content.startswith(b"RIFF") and content[8:12] == b"WEBP")
+    )
+    if not valid_signature:
+        raise HTTPException(422, "Содержимое файла не соответствует формату изображения")
+    ext = COVER_TYPES[mime]
+    name = f"{uuid4().hex}.{ext}"
+    COVER_DIR.mkdir(parents=True, exist_ok=True)
+    (COVER_DIR / name).write_bytes(content)
+    return {"url": f"/api/v53/videos/covers/{name}"}
+
+
+@router.get("/covers/{name}")
+def get_cover(name: str):
+    if not re.fullmatch(r"[a-f0-9]{32}\.(?:jpg|png|webp)", name):
+        raise HTTPException(404, "Обложка не найдена")
+    path = COVER_DIR / name
+    if not path.is_file():
+        raise HTTPException(404, "Обложка не найдена")
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 @router.post("")
@@ -201,12 +249,27 @@ def sync_rutube(
     source = session.exec(select(VideoSource).where(VideoSource.provider == "rutube")).first()
     if not source or not source.external_account_id:
         raise HTTPException(409, "Сначала подключите канал RUTUBE")
-    response = httpx.get(f"https://rutube.ru/api/video/person/{source.external_account_id}/", timeout=20)
+    next_url = f"https://rutube.ru/api/video/person/{source.external_account_id}/"
+    items: list[dict[str, Any]] = []
+    for _ in range(100):
+        response = httpx.get(next_url, timeout=20)
+        if response.is_error:
+            break
+        page = response.json()
+        items.extend(page.get("results") or [])
+        candidate = str(page.get("next") or "")
+        if not candidate:
+            next_url = ""
+            break
+        if not candidate.startswith("https://rutube.ru/api/video/person/"):
+            next_url = ""
+            break
+        next_url = candidate
     if response.is_error:
         source.last_error = "RUTUBE временно не ответил"; source.last_sync_status = "failed"; session.add(source); session.commit()
         raise HTTPException(502, source.last_error)
     created = updated = 0
-    for item in response.json().get("results") or []:
+    for item in items:
         external_id = str(item.get("id") or "")
         if not external_id:
             continue
