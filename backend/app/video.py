@@ -47,6 +47,10 @@ class VideoWrite(BaseModel):
     status: str = "published"
 
 
+class VideoFolderWrite(BaseModel):
+    collectionId: int | None = None
+
+
 class ProgressWrite(BaseModel):
     watchedSeconds: int = Field(ge=0)
     percent: int = Field(ge=0, le=100)
@@ -181,6 +185,19 @@ def create_video(payload: VideoWrite, session: Annotated[Session, Depends(get_se
     if existing: raise HTTPException(409, "Это видео уже добавлено")
     if payload.collectionId and not session.get(VideoCollection, payload.collectionId): raise HTTPException(422, "Коллекция не найдена")
     row=VideoItem(collection_id=payload.collectionId, provider=provider, external_id=external_id, title=payload.title.strip(), description=payload.description.strip(), canonical_url=raw, embed_url=embed_url, thumbnail_url=payload.thumbnailUrl, duration_seconds=payload.durationSeconds, visibility=payload.visibility, status=payload.status)
+    session.add(row); session.commit(); session.refresh(row)
+    return _video(row)
+
+
+@router.patch("/{video_id}/folder")
+def move_video_to_folder(video_id: int, payload: VideoFolderWrite, session: Annotated[Session, Depends(get_session)], _: Annotated[BitrixIdentity, Depends(require_editor)]):
+    row = session.get(VideoItem, video_id)
+    if not row:
+        raise HTTPException(404, "Видео не найдено")
+    if payload.collectionId is not None and not session.get(VideoCollection, payload.collectionId):
+        raise HTTPException(422, "Папка не найдена")
+    row.collection_id = payload.collectionId
+    row.updated_at = utcnow()
     session.add(row); session.commit(); session.refresh(row)
     return _video(row)
 

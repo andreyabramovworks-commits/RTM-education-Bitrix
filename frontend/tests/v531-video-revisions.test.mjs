@@ -28,6 +28,20 @@ test("video library uses folders, explorer navigation and keeps global actions",
   assert.match(learnerApp, /view === "videos"[\s\S]+?lr-admin-mode/);
 });
 
+test("admin can assign catalog videos to folders from every catalog view", () => {
+  assert.match(adminVideo, /moveVideoToFolder/);
+  assert.match(adminVideo, /\/folder/);
+  assert.match(adminVideo, /aria-label=\{`Папка для \$\{v\.title\}`\}/);
+  assert.match(adminVideo, /folderMap\[v\.collectionId\]\?\.title \|\| "Без папки"/);
+});
+
+test("learner video player exposes an app-level mobile fullscreen action", () => {
+  assert.match(learnerVideo, /requestFullscreen/);
+  assert.match(learnerVideo, /webkitRequestFullscreen/);
+  assert.match(learnerVideo, /На весь экран/);
+  assert.match(learnerVideo, /lr-player-shell/);
+});
+
 test("revision checks group documents before editions and expose audit details", () => {
   assert.match(acknowledgements, /class="v531-document"/);
   assert.match(acknowledgements, /class="v531-edition"/);
