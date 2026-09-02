@@ -14,3 +14,14 @@ test("knowledge previews are prepared by legacy data code and opened by the Reac
   assert.match(learner, /addEventListener\("rtm:knowledge-material-prepared"/);
   assert.match(learner, /setMaterialContext\(\{ material, course: null \}\)/);
 });
+
+test("material surface parks the legacy node before React removes its host", () => {
+  assert.match(learner, /const host = slot\.current/);
+  assert.match(learner, /if \(node\.parentNode === host\) parking\.appendChild\(node\)/);
+});
+
+test("linked course tests render their learner preview directly inside the expanded row", () => {
+  assert.match(knowledge, /knowledgePreviewAnswers/);
+  assert.match(knowledge, /renderTakeTest\(item\)/);
+  assert.doesNotMatch(knowledge, /data-v51-open-inline-test="'\+html\(item\.ID\)/);
+});

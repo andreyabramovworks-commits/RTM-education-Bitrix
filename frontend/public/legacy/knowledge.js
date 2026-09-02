@@ -298,13 +298,20 @@
     modal('<div class="v542-test-preview"><header><div><h2>'+html(projection.NAME)+'</h2><p>Предпросмотр как у ученика · правильные ответы отмечены</p></div><button type="button" data-v542-close-preview>Закрыть</button></header>'+renderTakeTest(projection)+'</div>');
     var close=document.querySelector("[data-v542-close-preview]");if(close)close.onclick=closeModal;
   }
-  window.openTestEditor=openTestEditor=async function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);})||await api("/api/v47/knowledge/documents/"+meta.knowledgeDocumentId);return previewLinkedTest(doc,meta.knowledgeKind,item);};
+  window.openTestEditor=openTestEditor=async function(id){var item=findItem(id),meta=linkedMeta(item);if(!meta)return baseTestEditor.apply(this,arguments);state.expandedChildId=String(item.ID);if(String(state.courseId)!==String(item.PROPERTY_VALUES.parentId))return openCourseEditor(item.PROPERTY_VALUES.parentId);return renderCourseEditor();};
 
   var baseInlineTestEditor=window.renderInlineTestEditor;
   window.renderInlineTestEditor=renderInlineTestEditor=function(item){
     var meta=linkedMeta(item);
     if(!meta)return baseInlineTestEditor.apply(this,arguments);
-    return '<div class="inline-full-editor v538-linked-preview"><div class="inline-title">'+html(item.NAME)+'</div><div class="v538-readonly-note">Это общий тест из Базы знаний. В курсе он доступен только для просмотра.</div><div class="inline-actions"><button type="button" class="primary" data-v51-open-inline-test="'+html(item.ID)+'">Предпросмотр</button><button type="button" data-v538-open-knowledge="'+html(meta.knowledgeDocumentId)+'">Открыть в базе знаний</button></div></div>';
+    if(meta.knowledgePreviewAnswers)return '<div class="inline-full-editor v538-linked-preview"><div class="inline-title">'+html(item.NAME)+'</div>'+renderTakeTest(item)+'</div>';
+    Promise.resolve().then(async function(){
+      if(window.__RTM_LOAD_CANVAS__)await window.__RTM_LOAD_CANVAS__();
+      var doc=docs.find(function(d){return Number(d.id)===Number(meta.knowledgeDocumentId);})||await api("/api/v47/knowledge/documents/"+meta.knowledgeDocumentId);
+      await openCentralForUser(doc,meta.knowledgeKind,item,true,true);
+      if(String(state.expandedChildId)===String(item.ID))renderCourseEditor();
+    }).catch(function(error){toast(error.message||String(error));});
+    return '<div class="inline-full-editor v538-linked-preview"><div class="inline-title">'+html(item.NAME)+'</div><div class="v40-canvas-loading">Загружаем предпросмотр теста…</div></div>';
   };
 
   var baseCourseChildLine=window.renderCourseChildLine;

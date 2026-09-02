@@ -59,6 +59,7 @@ function MaterialSurface({ active, bridge, material, course, onBack }) {
   useEffect(() => {
     const node = document.getElementById("userMaterialView");
     if (!node || !slot.current) return;
+    const host = slot.current;
     let parking = document.getElementById("rtm-material-parking");
     if (!parking) {
       parking = document.createElement("div");
@@ -67,11 +68,11 @@ function MaterialSurface({ active, bridge, material, course, onBack }) {
       document.body.appendChild(parking);
     }
     legacyNode.current = node;
-    slot.current.appendChild(node);
+    host.appendChild(node);
     return () => {
       bridge.disposeMaterial?.();
       legacyNode.current = null;
-      if (node.parentNode === slot.current) parking.appendChild(node);
+      if (node.parentNode === host) parking.appendChild(node);
     };
   }, [bridge]);
   useEffect(() => {
