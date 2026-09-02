@@ -380,11 +380,22 @@ def _mark_overdue(session: Session, identity: BitrixIdentity | None = None) -> N
         session.commit()
 
 
-def _assignment_payload(session: Session, row: AcknowledgementAssignment) -> dict[str, Any]:
+def _assignment_payload(
+    session: Session,
+    row: AcknowledgementAssignment,
+    departments: dict[str, BitrixDepartment] | None = None,
+    active_users: list[AppUser] | None = None,
+) -> dict[str, Any]:
     campaign = session.get(AcknowledgementCampaign, row.campaign_id)
     edition = session.get(KnowledgeEdition, campaign.edition_id) if campaign else None
     document = session.get(KnowledgeDocument, edition.document_id) if edition else None
     user = session.get(AppUser, row.user_id)
+    departments = departments if departments is not None else _department_map(session)
+    active_users = active_users if active_users is not None else session.exec(
+        select(AppUser).where(AppUser.active == True)  # noqa: E712
+    ).all()
+    responsibles = [candidate for candidate in active_users
+                    if campaign and _match_rules(candidate, campaign.responsible_rules or [], departments)]
     public_test = None
     if campaign and campaign.mode == "test" and document:
         source = document.light_test if campaign.test_kind == "light" else document.full_test
@@ -403,11 +414,12 @@ def _assignment_payload(session: Session, row: AcknowledgementAssignment) -> dic
             ],
         }
     return {"id": row.id, "campaignId": row.campaign_id, "userId": row.user_id, "userBitrixId": user.bitrix_user_id if user else "",
-            "userName": _name(user), "status": row.status, "answer": row.answer, "assignedAt": _iso(row.assigned_at), "dueAt": _iso(row.due_at),
+            "userName": _name(user), "userPhoto": user.photo_url if user else "", "status": row.status, "answer": row.answer, "assignedAt": _iso(row.assigned_at), "dueAt": _iso(row.due_at),
             "startedAt": _iso(row.started_at), "completedAt": _iso(row.completed_at), "reviewedAt": _iso(row.reviewed_at),
             "reviewComment": row.review_comment, "manualReason": row.manual_reason, "campaign": _campaign(campaign) if campaign else None,
             "edition": _edition(edition) if edition else None,
             "document": {"id": document.id, "title": document.title, "description": document.description, "documentUrl": document.document_url} if document else None,
+            "responsibles": [{"id": candidate.id, "bitrixId": candidate.bitrix_user_id, "name": _name(candidate), "photo": candidate.photo_url} for candidate in responsibles],
             "test": public_test}
 
 
@@ -760,10 +772,11 @@ def manual_complete(assignment_id:int,payload:ManualCompleteWrite,session:Annota
 def center(session:Annotated[Session,Depends(get_session)],identity:Annotated[BitrixIdentity,Depends(require_bitrix_identity)],scope:str=Query("all"),history:bool=False):
     if identity.user.role not in MANAGER_ROLES: raise HTTPException(403,"Центр проверок доступен преподавателю и выше")
     _reconcile_new_hires(session); _mark_overdue(session, identity); rows=session.exec(select(AcknowledgementAssignment).order_by(AcknowledgementAssignment.assigned_at.desc())).all()
-    payload=[_assignment_payload(session,row) for row in rows]
+    departments = _department_map(session)
+    active_users = session.exec(select(AppUser).where(AppUser.active == True)).all()  # noqa: E712
+    payload=[_assignment_payload(session,row,departments,active_users) for row in rows]
     if not history: payload=[row for row in payload if row["status"] not in {"completed","exempted"}]
     if scope=="mine":
-        departments=_department_map(session)
         payload=[row for row in payload if _can_manage(identity,session.get(AcknowledgementCampaign,row["campaignId"]),departments)]
     elif scope=="overdue": payload=[row for row in payload if row["status"]=="overdue"]
     elif scope=="idle3": payload=[row for row in payload if row["status"]=="not_started" and datetime.fromisoformat(row["assignedAt"]) < utcnow()-timedelta(days=3)]

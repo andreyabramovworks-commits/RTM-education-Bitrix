@@ -110,6 +110,7 @@ class ImportedUser(BaseModel):
     NAME: str = ""
     LAST_NAME: str = ""
     EMAIL: str = ""
+    PERSONAL_PHOTO: str = ""
     ACTIVE: bool | str = True
 
 
@@ -380,6 +381,7 @@ def _ensure_user(session: Session, imported: ImportedUser) -> AppUser:
     user.first_name = imported.NAME
     user.last_name = imported.LAST_NAME
     user.email = imported.EMAIL
+    user.photo_url = imported.PERSONAL_PHOTO
     user.active = str(imported.ACTIVE).upper() not in {"N", "FALSE", "0"}
     user.updated_at = utcnow()
     session.add(user)
@@ -1048,7 +1050,7 @@ def list_users(
     users = session.exec(query).all()
     return [{
         "ID": user.bitrix_user_id, "NAME": user.first_name, "LAST_NAME": user.last_name,
-        "EMAIL": user.email, "ACTIVE": user.active, "ROLE": user.role,
+        "EMAIL": user.email, "PERSONAL_PHOTO": user.photo_url, "ACTIVE": user.active, "ROLE": user.role,
         "MANUAL_ROLE": user.manual_role, "IS_BITRIX_ADMIN": user.is_bitrix_admin,
     } for user in users]
 

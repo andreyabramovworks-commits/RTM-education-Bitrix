@@ -149,6 +149,7 @@ def require_bitrix_identity(
     if user is None:
         user = AppUser(bitrix_user_id=bitrix_id)
     user.email = str(profile.get("EMAIL") or "")
+    user.photo_url = str(profile.get("PERSONAL_PHOTO") or user.photo_url or "")
     user.first_name = str(profile.get("NAME") or "")
     user.last_name = str(profile.get("LAST_NAME") or "")
     user.is_bitrix_admin = is_admin

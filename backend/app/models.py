@@ -26,6 +26,7 @@ class AppUser(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     bitrix_user_id: str = Field(index=True, unique=True, max_length=40)
     email: str = Field(default="", max_length=320)
+    photo_url: str = Field(default="", max_length=2000)
     first_name: str = Field(default="", max_length=160)
     last_name: str = Field(default="", max_length=160)
     role: str = Field(default="student", max_length=20)
