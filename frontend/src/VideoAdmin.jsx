@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./video.css";
 
 async function api(path, options = {}) {
@@ -14,7 +14,7 @@ const labels = {
 };
 const duration = (s) => (s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "—");
 
-function Sources({ rows, connect, sync }) {
+function Sources({ rows, connect, sync, importRutubeStudio }) {
   return (
     <section className="va-source-page">
       <header>
@@ -49,6 +49,12 @@ function Sources({ rows, connect, sync }) {
             </dl>
             <div className="va-source-buttons">
               {s.connected && s.provider === "rutube" && <button onClick={() => sync(s)}>Синхронизировать</button>}
+              {s.provider === "rutube" && (
+                <label className="va-studio-import">
+                  {s.studioConnected ? "Обновить доступ Studio" : "Подключить RUTUBE Studio"}
+                  <input type="file" accept=".har,application/json" onChange={importRutubeStudio} />
+                </label>
+              )}
               <button onClick={() => connect(s)} disabled={!s.configured || s.provider === "file"}>
                 {s.connected ? "Настроить" : s.configured ? "Подключить" : "Нужна настройка сервера"}
               </button>
@@ -58,9 +64,7 @@ function Sources({ rows, connect, sync }) {
       </div>
       <div className="va-source-help">
         <b>Видео RUTUBE «Только по ссылке»</b>
-        <p>
-          Публичный каталог их не отдаёт. Добавьте приватную ссылку целиком, включая ключ <code>?p=…</code>. Вход в Studio и пароль приложение не сохраняет.
-        </p>
+        <p>Подключение Studio импортирует открытые и скрытые видео вместе с ключами доступа. HAR обрабатывается в браузере; на сервер передаётся только временный токен, который хранится зашифрованным.</p>
       </div>
     </section>
   );
@@ -80,6 +84,7 @@ export function VideoAdmin() {
     [folderQuery, setFolderQuery] = useState(""),
     [status, setStatus] = useState(""),
     [folderId, setFolderId] = useState("");
+  const autoSyncDone = useRef(false);
   const load = useCallback(async () => {
     setBusy(true);
     setError("");
@@ -97,6 +102,12 @@ export function VideoAdmin() {
     load();
     document.querySelector(".adm-workspace")?.scrollTo({ top: 0 });
   }, [load]);
+  useEffect(() => {
+    const rutube = sources.find((source) => source.provider === "rutube");
+    if (!rutube?.studioConnected || autoSyncDone.current) return;
+    autoSyncDone.current = true;
+    sync(rutube, true);
+  }, [sources]);
   useEffect(() => {
     const fn = (e) => e.origin === location.origin && e.data?.type === "rtm-video-source-connected" && load();
     addEventListener("message", fn);
@@ -203,7 +214,7 @@ export function VideoAdmin() {
       setError(x.message);
     }
   }
-  async function sync(s) {
+  async function sync(s, quiet = false) {
     try {
       setBusy(true);
       const result = await api(`/api/v53/videos/sources/${s.provider}/sync`, {
@@ -211,9 +222,41 @@ export function VideoAdmin() {
         body: "{}",
       });
       await load();
-      window.alert(`Синхронизация завершена. Добавлено: ${result.created}, обновлено: ${result.updated}`);
+      if (!quiet) window.alert(`Синхронизация завершена. Добавлено: ${result.created}, обновлено: ${result.updated}`);
     } catch (x) {
       setError(x.message);
+      setBusy(false);
+    }
+  }
+  async function importRutubeStudio(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 20_000_000) {
+      setError("HAR RUTUBE Studio должен быть не больше 20 МБ");
+      return;
+    }
+    try {
+      setBusy(true);
+      const har = JSON.parse(await file.text());
+      const entries = har?.log?.entries;
+      if (!Array.isArray(entries)) throw new Error("Файл не является HAR RUTUBE Studio");
+      let accessToken = "";
+      for (const entry of entries) {
+        const url = new URL(entry?.request?.url || "", location.origin);
+        if (url.hostname !== "studio.rutube.ru" || url.pathname !== "/multipass/api/accounts/profile") continue;
+        const content = entry?.response?.content || {};
+        const text = content.encoding === "base64" ? atob(content.text || "") : content.text || "";
+        accessToken = JSON.parse(text).jwt || "";
+        if (accessToken) break;
+      }
+      if (!accessToken) throw new Error("В HAR не найден активный вход RUTUBE Studio");
+      const result = await api("/api/v53/videos/sources/rutube/studio", { method: "PUT", body: JSON.stringify({ accessToken }) });
+      autoSyncDone.current = true;
+      await load();
+      window.alert(`RUTUBE Studio подключена. Загружено видео: ${result.total}, из них скрытых: ${result.hidden}`);
+    } catch (x) {
+      setError(x.message || "Не удалось подключить RUTUBE Studio");
       setBusy(false);
     }
   }
@@ -254,7 +297,7 @@ export function VideoAdmin() {
       {busy ? (
         <div className="va-loading">Загружаем актуальные данные…</div>
       ) : tab === "sources" ? (
-        <Sources rows={sources} connect={connect} sync={sync} />
+        <Sources rows={sources} connect={connect} sync={sync} importRutubeStudio={importRutubeStudio} />
       ) : (
         <div className="va-catalog">
           <aside>

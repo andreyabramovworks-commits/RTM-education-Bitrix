@@ -6,6 +6,8 @@ const adminVideo = fs.readFileSync(new URL("../src/VideoAdmin.jsx", import.meta.
 const learnerVideo = fs.readFileSync(new URL("../src/VideoLibrary.jsx", import.meta.url), "utf8");
 const learnerApp = fs.readFileSync(new URL("../src/LearnerApp.jsx", import.meta.url), "utf8");
 const acknowledgements = fs.readFileSync(new URL("../public/legacy/acknowledgements.js", import.meta.url), "utf8");
+const videoApi = fs.readFileSync(new URL("../../backend/app/video.py", import.meta.url), "utf8");
+const bitrixShell = fs.readFileSync(new URL("../../backend/app/bitrix.py", import.meta.url), "utf8");
 
 test("video screens reuse the authenticated Bitrix request bridge", () => {
   assert.match(adminVideo, /RTMV47\.ready/);
@@ -40,6 +42,18 @@ test("learner video player exposes an app-level mobile fullscreen action", () =>
   assert.match(learnerVideo, /webkitRequestFullscreen/);
   assert.match(learnerVideo, /На весь экран/);
   assert.match(learnerVideo, /lr-player-shell/);
+  assert.match(learnerVideo, /is-theater/);
+  assert.doesNotMatch(learnerVideo, /window\.open\(playing\.url/);
+  assert.match(bitrixShell, /allow="fullscreen" allowfullscreen/);
+});
+
+test("RUTUBE Studio connection imports hidden videos with their access keys", () => {
+  assert.match(adminVideo, /importRutubeStudio/);
+  assert.match(adminVideo, /\.har/);
+  assert.match(videoApi, /\/sources\/rutube\/studio/);
+  assert.match(videoApi, /Authorization.*Bearer/);
+  assert.match(videoApi, /studio\.rutube\.ru\/api\/v2\/video\/person/);
+  assert.match(videoApi, /_embed\(canonical_url\)/);
 });
 
 test("revision checks group documents before editions and expose audit details", () => {

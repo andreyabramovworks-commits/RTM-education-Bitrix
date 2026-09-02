@@ -3,7 +3,7 @@ from urllib.parse import urlencode
 
 from fastapi.responses import HTMLResponse
 
-RELEASE_VERSION = "53.1.4"
+RELEASE_VERSION = "53.1.5"
 
 
 def bitrix_page(*, install: bool = False, launch_params: dict[str, str] | None = None) -> HTMLResponse:
@@ -48,7 +48,7 @@ def bitrix_page(*, install: bool = False, launch_params: dict[str, str] | None =
   </style>
 </head>
 <body data-mode="{mode}">
-  {('<section class="install"><h1>Подключаем RTM Education</h1><p>Проверяем связь с порталом и сервером. На этом этапе приложение только читает данные текущего пользователя и ничего не записывает в Битрикс24.</p><div class="checks" id="checks"></div><p id="details"></p></section>' if install else f'<div hidden><div id="checks"></div><div id="details"></div></div><main class="workspace"><iframe src="{frame_src}" title="RTM Education v{RELEASE_VERSION}"></iframe></main>')}
+  {('<section class="install"><h1>Подключаем RTM Education</h1><p>Проверяем связь с порталом и сервером. На этом этапе приложение только читает данные текущего пользователя и ничего не записывает в Битрикс24.</p><div class="checks" id="checks"></div><p id="details"></p></section>' if install else f'<div hidden><div id="checks"></div><div id="details"></div></div><main class="workspace"><iframe src="{frame_src}" title="RTM Education v{RELEASE_VERSION}" allow="fullscreen" allowfullscreen></iframe></main>')}
   <script>
     (() => {{
       const mode = document.body.dataset.mode;

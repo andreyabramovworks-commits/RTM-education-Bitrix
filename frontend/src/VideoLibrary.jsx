@@ -7,6 +7,7 @@ export function VideoLibrary({ Icon }) {
   const [query, setQuery] = useState("");
   const [folderId, setFolderId] = useState(null);
   const [playing, setPlaying] = useState(null);
+  const [theater, setTheater] = useState(false);
   const playerRef = useRef(null);
   useEffect(() => {
     let live = true;
@@ -37,18 +38,42 @@ export function VideoLibrary({ Icon }) {
     setFolderId(null);
     setQuery("");
   };
-  const openFullscreen = async () => {
+  useEffect(() => {
+    if (!theater) return undefined;
+    const closeTheater = (event) => {
+      if (event.type === "fullscreenchange" && document.fullscreenElement) return;
+      if (event.type === "keydown" && event.key !== "Escape") return;
+      setTheater(false);
+    };
+    document.addEventListener("fullscreenchange", closeTheater);
+    document.addEventListener("keydown", closeTheater);
+    return () => {
+      document.removeEventListener("fullscreenchange", closeTheater);
+      document.removeEventListener("keydown", closeTheater);
+    };
+  }, [theater]);
+  const toggleFullscreen = async () => {
     const element = playerRef.current;
+    if (theater) {
+      if (document.fullscreenElement) {
+        try {
+          await document.exitFullscreen();
+        } catch {
+          // The internal theater mode still closes below.
+        }
+      }
+      setTheater(false);
+      return;
+    }
+    setTheater(true);
     const requestFullscreen = element?.requestFullscreen || element?.webkitRequestFullscreen || element?.msRequestFullscreen;
     if (requestFullscreen) {
       try {
         await requestFullscreen.call(element);
-        return;
       } catch {
-        // Some embedded mobile browsers block the Fullscreen API.
+        // Bitrix may deny the native API; CSS theater mode remains inside the app.
       }
     }
-    if (playing?.url) window.open(playing.url, "_blank", "noopener,noreferrer");
   };
   const card = (item) => (
     <button key={item.id} onClick={() => setPlaying(item)}>
@@ -177,10 +202,10 @@ export function VideoLibrary({ Icon }) {
                 ×
               </button>
             </header>
-            <div className="lr-player-shell" ref={playerRef}>
+            <div className={`lr-player-shell ${theater ? "is-theater" : ""}`} ref={playerRef}>
               <iframe src={playing.embedUrl} title={playing.title} allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowFullScreen />
-              <button className="lr-fullscreen" type="button" onClick={openFullscreen}>
-                На весь экран
+              <button className="lr-fullscreen" type="button" onClick={toggleFullscreen} aria-pressed={theater}>
+                {theater ? "Вернуться" : "На весь экран"}
               </button>
             </div>
             <p>{playing.description}</p>

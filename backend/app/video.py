@@ -9,10 +9,10 @@ from pathlib import Path
 from uuid import uuid4
 from datetime import datetime, timedelta
 from typing import Annotated, Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urljoin, urlsplit
 
 import httpx
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field, HttpUrl
@@ -58,6 +58,10 @@ class ProgressWrite(BaseModel):
 
 class RutubeSourceWrite(BaseModel):
     channelUrl: HttpUrl
+
+
+class RutubeStudioWrite(BaseModel):
+    accessToken: str = Field(min_length=80, max_length=8000)
 
 
 class CoverUpload(BaseModel):
@@ -222,7 +226,8 @@ def sources(session: Annotated[Session, Depends(get_session)], _: Annotated[Bitr
         return {"provider":provider,"title":title,"configured":oauth_available or provider=="file","connected":connected,
                 "status":row.status if row else ("connected" if provider=="file" else "disconnected"),"accountName":row.account_name if row else "",
                 "externalAccountId":row.external_account_id if row else "","lastSyncAt":row.last_sync_at if row else None,
-                "lastSyncStatus":row.last_sync_status if row else "","lastError":row.last_error if row else "","videoCount":counts[provider]}
+                "lastSyncStatus":row.last_sync_status if row else "","lastError":row.last_error if row else "","videoCount":counts[provider],
+                "studioConnected":bool(row and row.encrypted_access_token and "studio_catalog" in (row.scopes or []))}
     return [item("rutube","RUTUBE",True),item("youtube","YouTube",bool(settings.youtube_client_id and settings.youtube_client_secret and (settings.video_token_encryption_key or settings.google_token_encryption_key))),item("file","Хранилище файлов",True)]
 
 
@@ -231,6 +236,84 @@ def _rutube_channel_id(raw: str) -> str:
     if not match:
         raise HTTPException(422, "Укажите ссылку вида https://rutube.ru/channel/123456/")
     return match.group(1)
+
+
+def _rutube_studio_items(access_token: str) -> list[dict[str, Any]]:
+    headers = {"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
+    starts = (
+        "https://studio.rutube.ru/api/v2/video/person/?origin_type_exclude=rshorts%2Crst&ordering=-calculated_date&show_moderation=1&limit=30",
+        "https://studio.rutube.ru/api/v2/video/person/?origin_type=rshorts&ordering=-calculated_date&show_moderation=1&limit=30",
+    )
+    by_id: dict[str, dict[str, Any]] = {}
+    for start_url in starts:
+        next_url = start_url
+        for _ in range(100):
+            response = httpx.get(next_url, headers=headers, timeout=20)
+            if response.status_code == 401:
+                raise HTTPException(401, "Доступ RUTUBE Studio истёк. Подключите Studio повторно")
+            if response.is_error:
+                raise HTTPException(502, "RUTUBE Studio временно не ответил")
+            page = response.json()
+            for item in page.get("results") or []:
+                external_id = str(item.get("id") or "")
+                if external_id:
+                    by_id[external_id] = item
+            candidate = str(page.get("next") or "")
+            if not candidate:
+                break
+            candidate = urljoin(next_url, candidate)
+            parsed = urlsplit(candidate)
+            if parsed.scheme != "https" or parsed.hostname != "studio.rutube.ru" or parsed.path != "/api/v2/video/person/":
+                raise HTTPException(502, "RUTUBE Studio вернул небезопасную ссылку пагинации")
+            next_url = candidate
+    return list(by_id.values())
+
+
+def _rutube_public_items(channel_id: str) -> list[dict[str, Any]]:
+    next_url = f"https://rutube.ru/api/video/person/{channel_id}/"
+    items: list[dict[str, Any]] = []
+    for _ in range(100):
+        response = httpx.get(next_url, timeout=20)
+        if response.is_error:
+            raise HTTPException(502, "RUTUBE временно не ответил")
+        page = response.json()
+        items.extend(page.get("results") or [])
+        candidate = str(page.get("next") or "")
+        if not candidate:
+            break
+        parsed = urlsplit(candidate)
+        if parsed.scheme != "https" or parsed.hostname != "rutube.ru" or not parsed.path.startswith("/api/video/person/"):
+            raise HTTPException(502, "RUTUBE вернул небезопасную ссылку пагинации")
+        next_url = candidate
+    return items
+
+
+def _save_rutube_items(session: Session, source: VideoSource, items: list[dict[str, Any]]) -> tuple[int, int]:
+    created = updated = 0
+    for item in items:
+        external_id = str(item.get("id") or "")
+        if not external_id:
+            continue
+        row = session.exec(select(VideoItem).where(VideoItem.provider == "rutube", VideoItem.external_id == external_id)).first()
+        if row is None:
+            row = VideoItem(provider="rutube", external_id=external_id, source_id=source.id, status="published")
+            created += 1
+        else:
+            updated += 1
+        canonical_url = str(item.get("video_url") or f"https://rutube.ru/video/{external_id}/")
+        _, _, embed_url = _embed(canonical_url)
+        row.title = str(item.get("title") or "Видео RUTUBE")[:500]
+        row.description = str(item.get("description") or "")[:30000]
+        row.canonical_url = canonical_url
+        row.embed_url = embed_url
+        row.thumbnail_url = str(item.get("thumbnail_url") or item.get("picture_url") or "")[:2000]
+        row.duration_seconds = max(0, int(item.get("duration") or 0))
+        row.status = "published"
+        row.source_id = source.id
+        row.metadata_json = {**(row.metadata_json or {}), "rutubeHidden": bool(item.get("is_hidden"))}
+        row.updated_at = utcnow()
+        session.add(row)
+    return created, updated
 
 
 @router.put("/sources/rutube")
@@ -258,6 +341,38 @@ def configure_rutube(
     return {"provider": "rutube", "channelId": channel_id, "accountName": row.account_name, "publicVideoCount": len(data.get("results") or [])}
 
 
+@router.put("/sources/rutube/studio")
+def configure_rutube_studio(
+    payload: RutubeStudioWrite,
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_editor)],
+):
+    token = payload.accessToken.strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", token):
+        raise HTTPException(422, "HAR не содержит корректный токен RUTUBE Studio")
+    items = _rutube_studio_items(token)
+    first = items[0] if items else {}
+    author = first.get("author") or {}
+    channel_id = str(author.get("id") or "")
+    row = session.exec(select(VideoSource).where(VideoSource.provider == "rutube")).first() or VideoSource(provider="rutube")
+    if row.external_account_id and channel_id and row.external_account_id != channel_id:
+        raise HTTPException(409, "Этот HAR относится к другому каналу RUTUBE")
+    row.account_name = str(author.get("name") or row.account_name or "RUTUBE Studio")[:320]
+    row.external_account_id = channel_id or row.external_account_id
+    row.encrypted_access_token = _token_cipher().encrypt(token.encode()).decode()
+    row.scopes = ["studio_catalog"]
+    row.status = "connected"
+    row.connected_by = identity.user.id
+    row.last_sync_status = "connected"
+    row.last_error = ""
+    row.updated_at = utcnow()
+    session.add(row); session.flush()
+    created, updated = _save_rutube_items(session, row, items)
+    row.last_sync_at = utcnow(); row.last_sync_status = "success"; session.add(row); session.commit()
+    return {"provider": "rutube", "channelId": row.external_account_id, "accountName": row.account_name,
+            "created": created, "updated": updated, "total": len(items), "hidden": sum(bool(item.get("is_hidden")) for item in items)}
+
+
 @router.post("/sources/rutube/sync")
 def sync_rutube(
     session: Annotated[Session, Depends(get_session)],
@@ -266,46 +381,23 @@ def sync_rutube(
     source = session.exec(select(VideoSource).where(VideoSource.provider == "rutube")).first()
     if not source or not source.external_account_id:
         raise HTTPException(409, "Сначала подключите канал RUTUBE")
-    next_url = f"https://rutube.ru/api/video/person/{source.external_account_id}/"
-    items: list[dict[str, Any]] = []
-    for _ in range(100):
-        response = httpx.get(next_url, timeout=20)
-        if response.is_error:
-            break
-        page = response.json()
-        items.extend(page.get("results") or [])
-        candidate = str(page.get("next") or "")
-        if not candidate:
-            next_url = ""
-            break
-        if not candidate.startswith("https://rutube.ru/api/video/person/"):
-            next_url = ""
-            break
-        next_url = candidate
-    if response.is_error:
-        source.last_error = "RUTUBE временно не ответил"; source.last_sync_status = "failed"; session.add(source); session.commit()
-        raise HTTPException(502, source.last_error)
-    created = updated = 0
-    for item in items:
-        external_id = str(item.get("id") or "")
-        if not external_id:
-            continue
-        row = session.exec(select(VideoItem).where(VideoItem.provider == "rutube", VideoItem.external_id == external_id)).first()
-        if row is None:
-            row = VideoItem(provider="rutube", external_id=external_id, status="published")
-            created += 1
+    try:
+        if source.encrypted_access_token and "studio_catalog" in (source.scopes or []):
+            try:
+                token = _token_cipher().decrypt(source.encrypted_access_token.encode()).decode()
+            except InvalidToken as exc:
+                raise HTTPException(409, "Сохранённый доступ RUTUBE Studio повреждён. Подключите Studio повторно") from exc
+            items = _rutube_studio_items(token)
         else:
-            updated += 1
-        row.title = str(item.get("title") or "Видео RUTUBE")[:500]
-        row.description = str(item.get("description") or "")[:30000]
-        row.canonical_url = str(item.get("video_url") or f"https://rutube.ru/video/{external_id}/")
-        row.embed_url = str(item.get("embed_url") or f"https://rutube.ru/play/embed/{external_id}")
-        row.thumbnail_url = str(item.get("thumbnail_url") or item.get("picture_url") or "")[:2000]
-        row.duration_seconds = max(0, int(item.get("duration") or 0))
-        row.updated_at = utcnow()
-        session.add(row)
+            items = _rutube_public_items(source.external_account_id)
+        created, updated = _save_rutube_items(session, source, items)
+    except HTTPException as exc:
+        source.last_error = str(exc.detail); source.last_sync_status = "failed"; session.add(source); session.commit()
+        raise
     source.last_sync_at = utcnow(); source.last_sync_status = "success"; source.last_error = ""; source.updated_at = utcnow(); session.add(source); session.commit()
-    return {"created": created, "updated": updated, "total": created + updated, "note": "Скрытые ролики добавляются отдельно по приватной ссылке с ключом доступа"}
+    return {"created": created, "updated": updated, "total": len(items),
+            "hidden": sum(bool(item.get("is_hidden")) for item in items),
+            "source": "studio" if source.encrypted_access_token else "public"}
 
 
 def _token_cipher() -> Fernet:

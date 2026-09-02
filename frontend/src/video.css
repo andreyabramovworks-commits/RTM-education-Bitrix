@@ -612,6 +612,44 @@
   border-radius: 9px;
   cursor: pointer;
 }
+
+.va-studio-import {
+  align-items: center;
+  background: var(--orange, #e87700);
+  border: 1px solid var(--orange, #e87700);
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  transition: transform 140ms cubic-bezier(.2, .8, .2, 1), background-color 140ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.va-studio-import:hover {
+  background: #d96f00;
+}
+
+.va-studio-import:active {
+  transform: scale(.97);
+}
+
+.va-studio-import:focus-within {
+  outline: 3px solid rgba(232, 119, 0, .22);
+  outline-offset: 2px;
+}
+
+.va-studio-import input {
+  height: 1px;
+  margin: -1px;
+  opacity: 0;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
 .va-source-buttons button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
