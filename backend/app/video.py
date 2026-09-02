@@ -77,7 +77,7 @@ def _embed(raw: str) -> tuple[str, str, str]:
     if youtube:
         key = youtube.group(1)
         return "youtube", key, f"https://www.youtube-nocookie.com/embed/{key}"
-    rutube = re.search(r"rutube\.ru/(?:video(?:/private)?|play/embed)/([a-z0-9]+)", raw, re.I)
+    rutube = re.search(r"rutube\.ru/(?:video(?:/private)?|shorts|play/embed)/([a-z0-9]+)", raw, re.I)
     if rutube:
         key = rutube.group(1)
         private = re.search(r"[?&]p=([^&]+)", raw)

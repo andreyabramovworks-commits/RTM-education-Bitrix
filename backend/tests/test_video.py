@@ -18,6 +18,13 @@ def test_rutube_private_link_preserves_playback_key():
     assert embed == "https://rutube.ru/play/embed/abc123/?p=secret"
 
 
+def test_rutube_short_uses_embedded_player():
+    provider, external_id, embed = _embed("https://rutube.ru/shorts/2c4181fca185888c0d3b77a9367d2dce/")
+    assert provider == "rutube"
+    assert external_id == "2c4181fca185888c0d3b77a9367d2dce"
+    assert embed == "https://rutube.ru/play/embed/2c4181fca185888c0d3b77a9367d2dce/"
+
+
 def test_rutube_channel_url_extracts_public_channel_id():
     assert _rutube_channel_id("https://rutube.ru/channel/47531598/") == "47531598"
 
