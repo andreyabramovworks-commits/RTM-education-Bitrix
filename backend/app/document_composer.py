@@ -61,7 +61,7 @@ def _paragraph(element: dict[str, Any], inline: dict[str, Any], positioned: dict
         embedded = ((positioned.get(object_id) or {}).get("positionedObjectProperties") or {}).get("embeddedObject") or {}
         if image := _image(embedded): images.append(image)
     if images and not parts:
-        return images[0]
+        return images[0] if len(images) == 1 else {"kind": "image-group", "images": images}
     if not parts:
         return None
     named = str((paragraph.get("paragraphStyle") or {}).get("namedStyleType") or "")

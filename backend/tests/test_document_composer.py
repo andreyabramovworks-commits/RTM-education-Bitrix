@@ -27,6 +27,14 @@ def test_composer_replaces_private_google_image_urls_before_publishing():
     assert result["contentHash"]
 
 
+def test_composer_keeps_multiple_images_from_one_google_anchor_as_a_group():
+    source = {"inlineObjects": {"one": {"inlineObjectProperties": {"embeddedObject": {"imageProperties": {"contentUri": "https://example.com/one"}}}}, "two": {"inlineObjectProperties": {"embeddedObject": {"imageProperties": {"contentUri": "https://example.com/two"}}}}}, "body": {"content": [{"paragraph": {"elements": [{"inlineObjectElement": {"inlineObjectId": "one"}}, {"inlineObjectElement": {"inlineObjectId": "two"}}]}}]}}
+    payload, _ = compose(source, [])
+    group = payload["pages"][0]["blocks"][0]
+    assert group["kind"] == "image-group"
+    assert len(group["images"]) == 2
+
+
 def test_composer_keeps_independent_lists_typography_and_removes_control_characters():
     source = {
         "title": "Инструкция",
