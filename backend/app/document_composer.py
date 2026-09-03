@@ -106,6 +106,18 @@ def _mark_document_regions(blocks: list[dict[str, Any]], document_title: str) ->
             block.setdefault("region", "closing")
 
 
+def _apply_editorial_roles(blocks: list[dict[str, Any]]) -> None:
+    """Give short, fully bold body labels a readable section role."""
+    for block in blocks:
+        text = _block_text(block)
+        spans = block.get("spans") or []
+        if block.get("region") or block.get("kind") != "paragraph" or block.get("list") or not 4 <= len(text) <= 100:
+            continue
+        if spans and all(span.get("style", {}).get("bold") for span in spans):
+            block["kind"] = "heading"
+            block["level"] = 2
+
+
 def compose(document: dict[str, Any], comments: list[dict[str, Any]]) -> tuple[dict[str, Any], str]:
     inline, positioned, lists = document.get("inlineObjects") or {}, document.get("positionedObjects") or {}, document.get("lists") or {}
     blocks: list[dict[str, Any]] = []
@@ -125,6 +137,7 @@ def compose(document: dict[str, Any], comments: list[dict[str, Any]]) -> tuple[d
                 item["region"] = "closing"
                 blocks.append(item)
     _mark_document_regions(blocks, str(document.get("title") or ""))
+    _apply_editorial_roles(blocks)
     pages = _split_pages(blocks, page_breaks)
     safe_comments = [{"id": str(item.get("id") or ""), "content": _clean_text(item.get("content")), "quotedText": _clean_text((item.get("quotedFileContent") or {}).get("value")), "author": str((item.get("author") or {}).get("displayName") or ""), "createdAt": str(item.get("createdTime") or ""), "resolved": bool(item.get("resolved")), "replies": [{"id": str(reply.get("id") or ""), "content": _clean_text(reply.get("content")), "author": str((reply.get("author") or {}).get("displayName") or ""), "createdAt": str(reply.get("createdTime") or "")} for reply in item.get("replies") or [] if not reply.get("deleted")]} for item in comments if not item.get("deleted")]
     payload = {"version": 2, "title": str(document.get("title") or "Документ"), "pages": [{"number": index + 1, "blocks": page} for index, page in enumerate(pages)], "comments": safe_comments}

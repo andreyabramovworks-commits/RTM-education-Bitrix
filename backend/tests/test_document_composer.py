@@ -70,3 +70,12 @@ def test_composer_keeps_document_framing_outside_recomposed_article_body():
     assert blocks[1]["region"] == "header"
     assert "region" not in blocks[2]
     assert blocks[-1]["region"] == "closing"
+
+
+def test_composer_promotes_short_bold_body_labels_to_readable_section_headings():
+    source = {"body": {"content": [{"paragraph": {"elements": [{"textRun": {"content": "Хомуты типа UNA\n", "textStyle": {"bold": True}}}]}}, {"paragraph": {"elements": [{"textRun": {"content": "Обычный текст\n", "textStyle": {}}}]}}]}}
+    payload, _ = compose(source, [])
+    first, second = payload["pages"][0]["blocks"]
+    assert first["kind"] == "heading"
+    assert first["level"] == 2
+    assert second["kind"] == "paragraph"
