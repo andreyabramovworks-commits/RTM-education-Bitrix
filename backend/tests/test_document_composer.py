@@ -56,6 +56,14 @@ def test_composer_keeps_independent_lists_typography_and_removes_control_charact
     assert "\u000b" not in text
 
 
+def test_composer_preserves_table_cell_spans_and_borders():
+    source = {"body": {"content": [{"table": {"tableRows": [{"tableCells": [{"tableCellStyle": {"columnSpan": 3, "borderTop": {"width": {"magnitude": 1, "unit": "PT"}}}, "content": [{"paragraph": {"elements": [{"textRun": {"content": "Подпись\n", "textStyle": {}}}]}}]}]}]}}]}}
+    payload, _ = compose(source, [])
+    table = payload["pages"][0]["blocks"][0]
+    assert table["hasBorders"] is True
+    assert table["rows"][0][0]["colSpan"] == 3
+
+
 def test_composer_keeps_document_framing_outside_recomposed_article_body():
     paragraph = lambda text, named="NORMAL_TEXT": {"paragraph": {"paragraphStyle": {"namedStyleType": named}, "elements": [{"textRun": {"content": f"{text}\n", "textStyle": {}}}]}}
     source = {

@@ -74,7 +74,18 @@ def _paragraph(element: dict[str, Any], inline: dict[str, Any], positioned: dict
 
 
 def _table(table: dict[str, Any], inline: dict[str, Any], positioned: dict[str, Any], lists: dict[str, Any]) -> dict[str, Any]:
-    return {"kind": "table", "rows": [[[item for item in (_paragraph(element, inline, positioned, lists) for element in cell.get("content") or []) if item] for cell in row.get("tableCells") or []] for row in table.get("tableRows") or []]}
+    has_borders = False
+    rows: list[list[dict[str, Any]]] = []
+    for row in table.get("tableRows") or []:
+        cells: list[dict[str, Any]] = []
+        for cell in row.get("tableCells") or []:
+            style = cell.get("tableCellStyle") or {}
+            borders = (style.get(name) or {} for name in ("borderTop", "borderBottom", "borderLeft", "borderRight"))
+            has_borders = has_borders or any((_points(border.get("width")) or 0) > 0 for border in borders)
+            items = [item for item in (_paragraph(element, inline, positioned, lists) for element in cell.get("content") or []) if item]
+            cells.append({"items": items, "colSpan": max(1, int(style.get("columnSpan") or 1)), "rowSpan": max(1, int(style.get("rowSpan") or 1))})
+        rows.append(cells)
+    return {"kind": "table", "rows": rows, "hasBorders": has_borders}
 
 
 def _split_pages(blocks: list[dict[str, Any]], page_breaks: set[int]) -> list[list[dict[str, Any]]]:
