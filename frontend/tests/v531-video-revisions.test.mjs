@@ -83,6 +83,8 @@ test("Document Composer keeps one mobile return action and uses semantic page co
   assert.match(learnerApp, /dc-mode-toggle/);
   assert.match(learnerApp, /dc-page-progress/);
   assert.match(learnerApp, /dc-mobile-back/);
+  assert.match(learnerApp, /onTouchStart=\{startPinch\}/);
+  assert.match(learnerApp, /setZoom\(Math\.min\(2\.25/);
   assert.doesNotMatch(learnerApp, /dc-comments-toggle/);
   assert.match(learnerApp, /first\.type === "ordered" \? "ol" : "ul"/);
   assert.match(learnerApp, /dc-gallery/);
@@ -92,8 +94,8 @@ test("Document Composer keeps one mobile return action and uses semantic page co
   assert.match(learnerCss, /dc-document-header/);
   assert.match(learnerCss, /dc-gallery-4/);
   assert.match(learnerCss, /dc-shell:not\(.is-page-mode\)/);
-  assert.match(learnerCss, /touch-action:pan-y pinch-zoom/);
-  assert.match(learnerCss, /dc-table-wrap\.is-visual-table \.dc-visual-island\{display:grid;width:100%;height:220px/);
+  assert.match(learnerCss, /dc-reader-viewport\{overflow:auto;touch-action:pan-x pan-y/);
+  assert.match(learnerCss, /dc-table-wrap\.is-visual-table \.dc-visual-island,\.dc-table-wrap\.is-visual-table \.dc-inline-island\{display:grid;width:100%;height:220px/);
   assert.match(learnerApp, /colSpan=\{cell\.colSpan/);
   assert.match(learnerApp, /spanStyle\(span\.style, item\.kind === "heading"\)/);
   assert.match(learnerCss, /dc-list li::marker/);
