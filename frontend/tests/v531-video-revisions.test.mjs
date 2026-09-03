@@ -5,6 +5,7 @@ import test from "node:test";
 const adminVideo = fs.readFileSync(new URL("../src/VideoAdmin.jsx", import.meta.url), "utf8");
 const learnerVideo = fs.readFileSync(new URL("../src/VideoLibrary.jsx", import.meta.url), "utf8");
 const learnerApp = fs.readFileSync(new URL("../src/LearnerApp.jsx", import.meta.url), "utf8");
+const learnerCss = fs.readFileSync(new URL("../src/learner.css", import.meta.url), "utf8");
 const acknowledgements = fs.readFileSync(new URL("../public/legacy/acknowledgements.js", import.meta.url), "utf8");
 const videoApi = fs.readFileSync(new URL("../../backend/app/video.py", import.meta.url), "utf8");
 const bitrixShell = fs.readFileSync(new URL("../../backend/app/bitrix.py", import.meta.url), "utf8");
@@ -84,4 +85,8 @@ test("Document Composer keeps one mobile return action and uses semantic page co
   assert.match(learnerApp, /dc-mobile-back/);
   assert.doesNotMatch(learnerApp, /dc-comments-toggle/);
   assert.match(learnerApp, /first\.type === "ordered" \? "ol" : "ul"/);
+  assert.match(learnerApp, /dc-gallery/);
+  assert.match(learnerApp, /dc-gallery-caption/);
+  assert.match(learnerCss, /dc-document-header/);
+  assert.match(learnerCss, /dc-list li::marker/);
 });

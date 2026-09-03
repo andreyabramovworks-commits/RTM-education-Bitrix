@@ -46,3 +46,19 @@ def test_composer_keeps_independent_lists_typography_and_removes_control_charact
     assert first["spans"][0]["style"]["fontFamily"] == "Arial"
     assert first["spans"][0]["style"]["fontSize"] == 11.0
     assert "\u000b" not in text
+
+
+def test_composer_keeps_document_framing_outside_recomposed_article_body():
+    paragraph = lambda text, named="NORMAL_TEXT": {"paragraph": {"paragraphStyle": {"namedStyleType": named}, "elements": [{"textRun": {"content": f"{text}\n", "textStyle": {}}}]}}
+    source = {
+        "title": "Инструкция",
+        "headers": {"header": {"content": [paragraph("RTM GROUP")]}},
+        "body": {"content": [paragraph("ОБУЧЕНИЕ"), paragraph("Базовое обучение как работать со строительными лесами", "HEADING_1"), paragraph("Основной текст")]} ,
+        "footers": {"footer": {"content": [paragraph("Авторы инструкции: RTM group")]}},
+    }
+    payload, _ = compose(source, [])
+    blocks = [block for page in payload["pages"] for block in page["blocks"]]
+    assert blocks[0]["region"] == "header"
+    assert blocks[1]["region"] == "header"
+    assert "region" not in blocks[2]
+    assert blocks[-1]["region"] == "closing"

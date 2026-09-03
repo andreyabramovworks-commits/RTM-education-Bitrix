@@ -86,16 +86,45 @@ def _split_pages(blocks: list[dict[str, Any]], page_breaks: set[int]) -> list[li
     return [page for page in pages if page] or [[]]
 
 
+def _block_text(block: dict[str, Any]) -> str:
+    return " ".join(span.get("text", "") for span in block.get("spans", [])).strip().casefold()
+
+
+def _mark_document_regions(blocks: list[dict[str, Any]], document_title: str) -> None:
+    """Keep the document's framing intact while the article body is re-composed."""
+    title = _clean_text(document_title).casefold()
+    first_heading = next((index for index, block in enumerate(blocks) if block.get("kind") == "heading" and len(_block_text(block)) > 20), None)
+    if first_heading is None and title:
+        first_heading = next((index for index, block in enumerate(blocks) if title in _block_text(block)), None)
+    if first_heading is not None and first_heading <= 10:
+        for block in blocks[:first_heading]:
+            block.setdefault("region", "header")
+    closing_markers = ("авторы инструкции", "утверждено", "группа компаний")
+    closing_start = next((index for index, block in enumerate(blocks) if any(marker in _block_text(block) for marker in closing_markers)), None)
+    if closing_start is not None:
+        for block in blocks[closing_start:]:
+            block.setdefault("region", "closing")
+
+
 def compose(document: dict[str, Any], comments: list[dict[str, Any]]) -> tuple[dict[str, Any], str]:
     inline, positioned, lists = document.get("inlineObjects") or {}, document.get("positionedObjects") or {}, document.get("lists") or {}
     blocks: list[dict[str, Any]] = []
     for header in (document.get("headers") or {}).values():
-        blocks.extend(item for item in (_paragraph(element, inline, positioned, lists) for element in header.get("content") or []) if item)
+        for item in (_paragraph(element, inline, positioned, lists) for element in header.get("content") or []):
+            if item:
+                item["region"] = "header"
+                blocks.append(item)
     page_breaks: set[int] = set()
     for element in ((document.get("body") or {}).get("content") or []):
         if element.get("sectionBreak") and blocks: page_breaks.add(len(blocks)); continue
         node = _paragraph(element, inline, positioned, lists) if element.get("paragraph") else _table(element["table"], inline, positioned, lists) if element.get("table") else None
         if node: blocks.append(node)
+    for footer in (document.get("footers") or {}).values():
+        for item in (_paragraph(element, inline, positioned, lists) for element in footer.get("content") or []):
+            if item:
+                item["region"] = "closing"
+                blocks.append(item)
+    _mark_document_regions(blocks, str(document.get("title") or ""))
     pages = _split_pages(blocks, page_breaks)
     safe_comments = [{"id": str(item.get("id") or ""), "content": _clean_text(item.get("content")), "quotedText": _clean_text((item.get("quotedFileContent") or {}).get("value")), "author": str((item.get("author") or {}).get("displayName") or ""), "createdAt": str(item.get("createdTime") or ""), "resolved": bool(item.get("resolved")), "replies": [{"id": str(reply.get("id") or ""), "content": _clean_text(reply.get("content")), "author": str((reply.get("author") or {}).get("displayName") or ""), "createdAt": str(reply.get("createdTime") or "")} for reply in item.get("replies") or [] if not reply.get("deleted")]} for item in comments if not item.get("deleted")]
     payload = {"version": 2, "title": str(document.get("title") or "Документ"), "pages": [{"number": index + 1, "blocks": page} for index, page in enumerate(pages)], "comments": safe_comments}
