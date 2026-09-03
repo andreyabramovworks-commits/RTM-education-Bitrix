@@ -9,6 +9,7 @@ const acknowledgements = fs.readFileSync(new URL("../public/legacy/acknowledgeme
 const videoApi = fs.readFileSync(new URL("../../backend/app/video.py", import.meta.url), "utf8");
 const bitrixShell = fs.readFileSync(new URL("../../backend/app/bitrix.py", import.meta.url), "utf8");
 const deployScript = fs.readFileSync(new URL("../../deploy/rtm-deploy.sh", import.meta.url), "utf8");
+const compose = fs.readFileSync(new URL("../../compose.yaml", import.meta.url), "utf8");
 
 test("video screens reuse the authenticated Bitrix request bridge", () => {
   assert.match(adminVideo, /RTMV47\.ready/);
@@ -63,6 +64,9 @@ test("RUTUBE Studio connection imports hidden videos with their access keys", ()
   assert.match(deployScript, /openssl rand/);
   assert.match(deployScript, /\.rtm-deploy-env\.sha256/);
   assert.match(deployScript, /sha256sum \.env/);
+  assert.match(compose, /media-init:/);
+  assert.match(compose, /DOCUMENT_RENDER_MEDIA_DIR: \/app\/data\/document-renders/);
+  assert.match(compose, /chown -R app:app \/app\/data/);
 });
 
 test("revision checks group documents before editions and expose audit details", () => {

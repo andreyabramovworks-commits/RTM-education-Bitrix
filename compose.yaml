@@ -32,12 +32,15 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_TOKEN_ENCRYPTION_KEY: ${GOOGLE_TOKEN_ENCRYPTION_KEY:-}
+      DOCUMENT_RENDER_MEDIA_DIR: /app/data/document-renders
       YOUTUBE_CLIENT_ID: ${YOUTUBE_CLIENT_ID:-}
       YOUTUBE_CLIENT_SECRET: ${YOUTUBE_CLIENT_SECRET:-}
       VIDEO_TOKEN_ENCRYPTION_KEY: ${VIDEO_TOKEN_ENCRYPTION_KEY:-}
     depends_on:
       db:
         condition: service_healthy
+      media-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
       interval: 10s
@@ -45,6 +48,15 @@ services:
       retries: 10
     networks:
       - internal
+    volumes:
+      - video_media:/app/data
+
+  media-init:
+    build:
+      context: ./backend
+    user: "0:0"
+    restart: "no"
+    command: ["sh", "-c", "mkdir -p /app/data/video-covers /app/data/document-renders && chown -R app:app /app/data"]
     volumes:
       - video_media:/app/data
 
