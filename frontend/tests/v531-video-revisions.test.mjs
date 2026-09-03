@@ -88,7 +88,9 @@ test("Document Composer keeps one mobile return action and uses semantic page co
   assert.match(learnerApp, /dc-gallery/);
   assert.match(learnerApp, /dc-gallery-caption/);
   assert.match(learnerApp, /image-group/);
+  assert.match(learnerApp, /is-visual-table/);
   assert.match(learnerCss, /dc-document-header/);
   assert.match(learnerCss, /dc-gallery-4/);
+  assert.match(learnerCss, /dc-shell:not\(.is-page-mode\)/);
   assert.match(learnerCss, /dc-list li::marker/);
 });
