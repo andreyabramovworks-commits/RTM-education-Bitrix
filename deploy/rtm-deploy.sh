@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 APP_DIR="/opt/rtm-app"
 LOCK_FILE="/run/lock/rtm-deploy.lock"
+ENV_FINGERPRINT_FILE="$APP_DIR/.rtm-deploy-env.sha256"
 
 exec 9>"$LOCK_FILE"
 flock -n 9 || exit 0
@@ -24,6 +25,12 @@ if ! grep -Eq '^VIDEO_TOKEN_ENCRYPTION_KEY=.+$' .env; then
         printf '\nVIDEO_TOKEN_ENCRYPTION_KEY=%s\n' "$VIDEO_KEY" >> .env
     fi
     chmod 0600 .env
+    NEEDS_RESTART=1
+fi
+
+ENV_FINGERPRINT="$(sha256sum .env | awk '{print $1}')"
+LAST_ENV_FINGERPRINT="$(cat "$ENV_FINGERPRINT_FILE" 2>/dev/null || true)"
+if [[ "$ENV_FINGERPRINT" != "$LAST_ENV_FINGERPRINT" ]]; then
     NEEDS_RESTART=1
 fi
 
@@ -68,6 +75,8 @@ for attempt in {1..30}; do
     if curl --fail --silent --show-error https://rtmgroupdocs.fvds.ru/api/ready >/dev/null \
         && [[ "$DEPLOYED_VERSION" == "${TARGET:0:12}"* ]]; then
         git update-ref refs/rtm/last-success "$TARGET"
+        printf '%s\n' "$ENV_FINGERPRINT" > "$ENV_FINGERPRINT_FILE"
+        chmod 0600 "$ENV_FINGERPRINT_FILE"
         trap - ERR
         logger -t rtm-deploy "Deployment ${TARGET:0:12} completed"
         exit 0

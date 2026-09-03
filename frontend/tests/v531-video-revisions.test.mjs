@@ -61,6 +61,8 @@ test("RUTUBE Studio connection imports hidden videos with their access keys", ()
   assert.match(videoApi, /_embed\(canonical_url\)/);
   assert.match(deployScript, /VIDEO_TOKEN_ENCRYPTION_KEY/);
   assert.match(deployScript, /openssl rand/);
+  assert.match(deployScript, /\.rtm-deploy-env\.sha256/);
+  assert.match(deployScript, /sha256sum \.env/);
 });
 
 test("revision checks group documents before editions and expose audit details", () => {
