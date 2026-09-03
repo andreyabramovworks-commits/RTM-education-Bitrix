@@ -25,3 +25,24 @@ def test_composer_replaces_private_google_image_urls_before_publishing():
     assert image["assetUrl"].endswith("scheme.png")
     assert "sourceUri" not in image
     assert result["contentHash"]
+
+
+def test_composer_keeps_independent_lists_typography_and_removes_control_characters():
+    source = {
+        "title": "Инструкция",
+        "lists": {
+            "list-a": {"listProperties": {"nestingLevels": [{"glyphType": "DECIMAL", "startNumber": 1}]}},
+            "list-b": {"listProperties": {"nestingLevels": [{"glyphType": "DECIMAL", "startNumber": 1}]}},
+        },
+        "body": {"content": [
+            {"paragraph": {"bullet": {"listId": "list-a"}, "paragraphStyle": {"alignment": "CENTER", "spaceAbove": {"magnitude": 12, "unit": "PT"}}, "elements": [{"textRun": {"content": "Первый\u000b\n", "textStyle": {"weightedFontFamily": {"fontFamily": "Arial"}, "fontSize": {"magnitude": 11, "unit": "PT"}}}}]}},
+            {"paragraph": {"bullet": {"listId": "list-b"}, "elements": [{"textRun": {"content": "Снова первый\n", "textStyle": {}}}]}},
+        ]},
+    }
+    payload, text = compose(source, [])
+    first, second = payload["pages"][0]["blocks"]
+    assert first["list"] == {"id": "list-a", "level": 0, "type": "ordered", "start": 1}
+    assert second["list"]["start"] == 1
+    assert first["spans"][0]["style"]["fontFamily"] == "Arial"
+    assert first["spans"][0]["style"]["fontSize"] == 11.0
+    assert "\u000b" not in text

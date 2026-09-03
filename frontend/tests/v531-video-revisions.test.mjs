@@ -77,3 +77,11 @@ test("revision checks group documents before editions and expose audit details",
   assert.match(acknowledgements, /data-v531-remind/);
   assert.match(acknowledgements, /Ответственный/);
 });
+
+test("Document Composer keeps one mobile return action and uses semantic page controls", () => {
+  assert.match(learnerApp, /dc-mode-toggle/);
+  assert.match(learnerApp, /dc-page-progress/);
+  assert.match(learnerApp, /dc-mobile-back/);
+  assert.doesNotMatch(learnerApp, /dc-comments-toggle/);
+  assert.match(learnerApp, /first\.type === "ordered" \? "ol" : "ul"/);
+});

@@ -1,8 +1,4 @@
-"""Conversion of a Google Docs response into a safe, responsive reader model.
-
-The client never receives Google HTML. It gets a small, allow-listed document AST
-which keeps text searchable and makes unsupported objects explicit visual islands.
-"""
+"""Safe Google Docs -> responsive Document Composer model."""
 from __future__ import annotations
 
 import hashlib
@@ -10,99 +6,111 @@ import json
 import re
 from typing import Any
 
+_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def _points(value: dict[str, Any] | None) -> float | None:
+    value = value or {}
+    magnitude = value.get("magnitude")
+    return round(float(magnitude), 2) if magnitude is not None and value.get("unit", "PT") == "PT" else None
+
+
+def _clean_text(value: Any) -> str:
+    return _CONTROL.sub("", str(value or "")).replace("\n", "")
+
 
 def _text_style(value: dict[str, Any]) -> dict[str, Any]:
     rgb = ((value.get("foregroundColor") or {}).get("color") or {}).get("rgbColor") or {}
-    color = ""
-    if rgb:
-        color = "#%02x%02x%02x" % tuple(round(float(rgb.get(part, 0)) * 255) for part in ("red", "green", "blue"))
-    return {key: item for key, item in {
-        "bold": bool(value.get("bold")), "italic": bool(value.get("italic")),
-        "underline": bool(value.get("underline")), "link": (value.get("link") or {}).get("url", ""),
-        "color": color,
-    }.items() if item}
+    color = "#%02x%02x%02x" % tuple(round(float(rgb.get(part, 0)) * 255) for part in ("red", "green", "blue")) if rgb else ""
+    family = ((value.get("weightedFontFamily") or {}).get("fontFamily") or value.get("fontFamily") or "").strip()
+    return {key: item for key, item in {"bold": bool(value.get("bold")), "italic": bool(value.get("italic")), "underline": bool(value.get("underline")), "strikethrough": bool(value.get("strikethrough")), "link": (value.get("link") or {}).get("url", ""), "color": color, "fontFamily": family, "fontSize": _points(value.get("fontSize"))}.items() if item not in (False, "", None)}
 
 
-def _paragraph(element: dict[str, Any], inline_objects: dict[str, Any]) -> dict[str, Any] | None:
-    paragraph = element.get("paragraph") or {}
-    parts: list[dict[str, Any]] = []
-    images: list[dict[str, Any]] = []
+def _paragraph_style(value: dict[str, Any]) -> dict[str, Any]:
+    return {key: item for key, item in {"align": str(value.get("alignment") or "").lower(), "spaceAbove": _points(value.get("spaceAbove")), "spaceBelow": _points(value.get("spaceBelow")), "lineSpacing": value.get("lineSpacing"), "indentStart": _points(value.get("indentStart")), "indentEnd": _points(value.get("indentEnd")), "indentFirstLine": _points(value.get("indentFirstLine"))}.items() if item not in ("", None)}
+
+
+def _image(embedded: dict[str, Any]) -> dict[str, Any] | None:
+    image = embedded.get("imageProperties") or {}
+    if not image.get("contentUri"):
+        return None
+    size = embedded.get("size") or {}
+    return {"kind": "image", "sourceUri": image["contentUri"], "alt": embedded.get("title") or embedded.get("description") or "Иллюстрация", "width": _points(size.get("width")), "height": _points(size.get("height"))}
+
+
+def _list_meta(bullet: dict[str, Any], lists: dict[str, Any]) -> dict[str, Any] | None:
+    if not bullet:
+        return None
+    list_id, level = str(bullet.get("listId") or ""), int(bullet.get("nestingLevel") or 0)
+    levels = ((lists.get(list_id) or {}).get("listProperties") or {}).get("nestingLevels") or []
+    definition = levels[level] if level < len(levels) else {}
+    ordered = bool(definition.get("glyphType") or definition.get("glyphFormat"))
+    return {"id": list_id, "level": level, "type": "ordered" if ordered else "unordered", "start": int(definition.get("startNumber") or 1)}
+
+
+def _paragraph(element: dict[str, Any], inline: dict[str, Any], positioned: dict[str, Any], lists: dict[str, Any]) -> dict[str, Any] | None:
+    paragraph, parts, images = element.get("paragraph") or {}, [], []
     for child in paragraph.get("elements") or []:
-        run = child.get("textRun")
-        if run:
-            text = str(run.get("content") or "").replace("\n", "")
-            if text:
+        if run := child.get("textRun"):
+            if text := _clean_text(run.get("content")):
                 parts.append({"text": text, "style": _text_style(run.get("textStyle") or {})})
-        inline = child.get("inlineObjectElement") or {}
-        object_id = inline.get("inlineObjectId")
-        embedded = ((inline_objects.get(object_id) or {}).get("inlineObjectProperties") or {}).get("embeddedObject") or {}
-        image = embedded.get("imageProperties") or {}
-        if image.get("contentUri"):
-            images.append({"kind": "image", "sourceUri": image["contentUri"], "alt": embedded.get("title") or embedded.get("description") or "Иллюстрация", "width": (embedded.get("size") or {}).get("width", {}).get("magnitude", 0)})
+        object_id = (child.get("inlineObjectElement") or {}).get("inlineObjectId")
+        embedded = ((inline.get(object_id) or {}).get("inlineObjectProperties") or {}).get("embeddedObject") or {}
+        if image := _image(embedded): images.append(image)
+    for object_id in paragraph.get("positionedObjectIds") or []:
+        embedded = ((positioned.get(object_id) or {}).get("positionedObjectProperties") or {}).get("embeddedObject") or {}
+        if image := _image(embedded): images.append(image)
     if images and not parts:
         return images[0]
     if not parts:
         return None
     named = str((paragraph.get("paragraphStyle") or {}).get("namedStyleType") or "")
-    bullet = paragraph.get("bullet") or {}
-    kind = "heading" if named.startswith("HEADING_") or named == "TITLE" else "paragraph"
     level = int(named.rsplit("_", 1)[-1]) if named.startswith("HEADING_") and named.rsplit("_", 1)[-1].isdigit() else (1 if named == "TITLE" else 0)
-    node: dict[str, Any] = {"kind": kind, "spans": parts}
+    node: dict[str, Any] = {"kind": "heading" if level else "paragraph", "spans": parts, "style": _paragraph_style(paragraph.get("paragraphStyle") or {})}
     if level: node["level"] = min(level, 4)
-    if bullet: node["list"] = "ordered" if str(bullet.get("listId") or "").startswith("kix") else "unordered"
+    if listing := _list_meta(paragraph.get("bullet") or {}, lists): node["list"] = listing
     if images: node["images"] = images
     return node
 
 
-def _table(table: dict[str, Any], inline_objects: dict[str, Any]) -> dict[str, Any]:
-    rows = []
-    for row in table.get("tableRows") or []:
-        cells = []
-        for cell in row.get("tableCells") or []:
-            content = [_paragraph(item, inline_objects) for item in cell.get("content") or []]
-            cells.append([item for item in content if item])
-        rows.append(cells)
-    return {"kind": "table", "rows": rows}
+def _table(table: dict[str, Any], inline: dict[str, Any], positioned: dict[str, Any], lists: dict[str, Any]) -> dict[str, Any]:
+    return {"kind": "table", "rows": [[[item for item in (_paragraph(element, inline, positioned, lists) for element in cell.get("content") or []) if item] for cell in row.get("tableCells") or []] for row in table.get("tableRows") or []]}
+
+
+def _split_pages(blocks: list[dict[str, Any]], page_breaks: set[int]) -> list[list[dict[str, Any]]]:
+    pages, units = [[]], 0
+    for index, block in enumerate(blocks):
+        if (index in page_breaks or units > 52) and pages[-1]: pages.append([]); units = 0
+        pages[-1].append(block)
+        units += 9 if block.get("kind") == "image" else 12 if block.get("kind") == "table" else max(1, sum(len(item.get("text", "")) for item in block.get("spans", [])) // 85 + 1)
+    return [page for page in pages if page] or [[]]
 
 
 def compose(document: dict[str, Any], comments: list[dict[str, Any]]) -> tuple[dict[str, Any], str]:
-    inline_objects = document.get("inlineObjects") or {}
-    pages: list[list[dict[str, Any]]] = [[]]
+    inline, positioned, lists = document.get("inlineObjects") or {}, document.get("positionedObjects") or {}, document.get("lists") or {}
+    blocks: list[dict[str, Any]] = []
+    for header in (document.get("headers") or {}).values():
+        blocks.extend(item for item in (_paragraph(element, inline, positioned, lists) for element in header.get("content") or []) if item)
+    page_breaks: set[int] = set()
     for element in ((document.get("body") or {}).get("content") or []):
-        if element.get("sectionBreak") and pages[-1]:
-            pages.append([])
-            continue
-        node = _paragraph(element, inline_objects) if element.get("paragraph") else _table(element["table"], inline_objects) if element.get("table") else None
-        if node:
-            pages[-1].append(node)
-    pages = [page for page in pages if page] or [[]]
-    safe_comments = [{
-        "id": str(item.get("id") or ""), "content": str(item.get("content") or ""),
-        "quotedText": str((item.get("quotedFileContent") or {}).get("value") or ""),
-        "author": str((item.get("author") or {}).get("displayName") or ""),
-        "createdAt": str(item.get("createdTime") or ""), "resolved": bool(item.get("resolved")),
-        "replies": [{"id": str(reply.get("id") or ""), "content": str(reply.get("content") or ""), "author": str((reply.get("author") or {}).get("displayName") or ""), "createdAt": str(reply.get("createdTime") or "")} for reply in item.get("replies") or [] if not reply.get("deleted")],
-    } for item in comments if not item.get("deleted")]
-    payload = {"version": 1, "title": str(document.get("title") or "Документ"), "pages": [{"number": index + 1, "blocks": page} for index, page in enumerate(pages)], "comments": safe_comments}
-    text = re.sub(r"\s+", " ", " ".join(span.get("text", "") for page in pages for block in page for span in block.get("spans", []) if isinstance(block, dict))).strip()
-    digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
-    payload["contentHash"] = digest
+        if element.get("sectionBreak") and blocks: page_breaks.add(len(blocks)); continue
+        node = _paragraph(element, inline, positioned, lists) if element.get("paragraph") else _table(element["table"], inline, positioned, lists) if element.get("table") else None
+        if node: blocks.append(node)
+    pages = _split_pages(blocks, page_breaks)
+    safe_comments = [{"id": str(item.get("id") or ""), "content": _clean_text(item.get("content")), "quotedText": _clean_text((item.get("quotedFileContent") or {}).get("value")), "author": str((item.get("author") or {}).get("displayName") or ""), "createdAt": str(item.get("createdTime") or ""), "resolved": bool(item.get("resolved")), "replies": [{"id": str(reply.get("id") or ""), "content": _clean_text(reply.get("content")), "author": str((reply.get("author") or {}).get("displayName") or ""), "createdAt": str(reply.get("createdTime") or "")} for reply in item.get("replies") or [] if not reply.get("deleted")]} for item in comments if not item.get("deleted")]
+    payload = {"version": 2, "title": str(document.get("title") or "Документ"), "pages": [{"number": index + 1, "blocks": page} for index, page in enumerate(pages)], "comments": safe_comments}
+    text = re.sub(r"\s+", " ", " ".join(span.get("text", "") for block in blocks for span in block.get("spans", []))).strip()
+    payload["contentHash"] = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
     return payload, text
 
 
 def materialize_images(payload: dict[str, Any], save_image) -> dict[str, Any]:
-    """Replace short-lived Google content URIs with application-owned asset URLs."""
     def visit(value: Any) -> None:
         if isinstance(value, list):
-            for item in value:
-                visit(item)
+            for item in value: visit(item)
         elif isinstance(value, dict):
-            source_uri = value.pop("sourceUri", "")
-            if source_uri:
-                value["assetUrl"] = save_image(source_uri)
-            for child in value.values():
-                visit(child)
+            if source_uri := value.pop("sourceUri", ""): value["assetUrl"] = save_image(source_uri)
+            for child in value.values(): visit(child)
     visit(payload)
-    payload.pop("contentHash", None)
     payload["contentHash"] = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
     return payload

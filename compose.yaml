@@ -49,7 +49,8 @@ services:
     networks:
       - internal
     volumes:
-      - video_media:/app/data
+      - video_media:/app/data/video-covers
+      - /srv/rtm-education/document-renders:/app/data/document-renders
 
   media-init:
     build:
@@ -58,7 +59,8 @@ services:
     restart: "no"
     command: ["sh", "-c", "mkdir -p /app/data/video-covers /app/data/document-renders && chown -R app:app /app/data"]
     volumes:
-      - video_media:/app/data
+      - video_media:/app/data/video-covers
+      - /srv/rtm-education/document-renders:/app/data/document-renders
 
   frontend:
     build:

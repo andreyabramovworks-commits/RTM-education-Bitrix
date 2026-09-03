@@ -902,7 +902,11 @@ def _render_asset_dir() -> Path:
     return path
 
 
-def _store_google_image(document_id: int, token: str, source_uri: str) -> str:
+def _render_revision_key(revision_id: str) -> str:
+    return hashlib.sha256(revision_id.encode()).hexdigest()[:16]
+
+
+def _store_google_image(document_id: int, revision_id: str, token: str, source_uri: str) -> str:
     host = (urlparse(source_uri).hostname or "").lower()
     if host != "docs.google.com" and not host.endswith(".googleusercontent.com"):
         raise HTTPException(502, "Google Docs вернул неподдерживаемый адрес изображения")
@@ -914,9 +918,11 @@ def _store_google_image(document_id: int, token: str, source_uri: str) -> str:
         raise HTTPException(422, "Изображение в Google Docs превышает допустимый размер 15 МБ")
     extension = mimetypes.guess_extension(content_type) or ".bin"
     asset_name = hashlib.sha256(response.content).hexdigest() + extension
-    target = _render_asset_dir() / asset_name
+    revision_key = _render_revision_key(revision_id)
+    target = _render_asset_dir() / str(document_id) / f"revision-{revision_key}" / "assets" / asset_name
+    target.parent.mkdir(parents=True, exist_ok=True)
     if not target.exists(): target.write_bytes(response.content)
-    return f"/api/v51/documents/{document_id}/document-render/assets/{asset_name}"
+    return f"/api/v51/documents/{document_id}/document-render/assets/{revision_key}/{asset_name}"
 
 
 @router.post("/documents/{document_id}/document-render/refresh")
@@ -931,7 +937,7 @@ def refresh_document_render(document_id: int, session: Annotated[Session, Depend
     try:
         source, revision_id, modified_at, comments = _google_document_snapshot(_google_access_token(session), _google_file_id(document.document_url))
         payload, _ = compose(source, comments)
-        payload = materialize_images(payload, lambda source_uri: _store_google_image(document.id, _google_access_token(session), source_uri))
+        payload = materialize_images(payload, lambda source_uri: _store_google_image(document.id, revision_id, _google_access_token(session), source_uri))
         if row.payload and row.content_hash == payload["contentHash"]:
             row.status = "published"; row.source_revision_id = revision_id; row.source_modified_at = modified_at; row.rendered_at = utcnow(); row.updated_at = utcnow(); session.add(row); session.commit()
             return {"changed": False, "render": _render_summary(row)}
@@ -960,15 +966,13 @@ def get_document_render(document_id: int, session: Annotated[Session, Depends(ge
     return {"documentId": document.id, "title": document.title, "render": row.payload, "status": _render_summary(row)}
 
 
-@router.get("/documents/{document_id}/document-render/assets/{asset_name}")
-def get_document_render_asset(document_id: int, asset_name: str, session: Annotated[Session, Depends(get_session)], identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)]):
+@router.get("/documents/{document_id}/document-render/assets/{revision_key}/{asset_name}")
+def get_document_render_asset(document_id: int, revision_key: str, asset_name: str):
     if not re.fullmatch(r"[a-f0-9]{64}\.[a-z0-9]+", asset_name): raise HTTPException(404, "Ассет не найден")
-    document = session.get(KnowledgeDocument, document_id)
-    departments = {item.bitrix_department_id: item for item in session.exec(select(BitrixDepartment).where(BitrixDepartment.active == True)).all()}
-    if not document or not document.active or not _allows(document.article_assignments, identity, departments): raise HTTPException(404, "Ассет не найден")
-    target = _render_asset_dir() / asset_name
+    if not re.fullmatch(r"[a-f0-9]{16}", revision_key): raise HTTPException(404, "Ассет не найден")
+    target = _render_asset_dir() / str(document_id) / f"revision-{revision_key}" / "assets" / asset_name
     if not target.is_file(): raise HTTPException(404, "Ассет не найден")
-    return FileResponse(target)
+    return FileResponse(target, media_type=mimetypes.guess_type(target.name)[0] or "application/octet-stream", headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 @router.get("/documents/{document_id}/google-revisions")
