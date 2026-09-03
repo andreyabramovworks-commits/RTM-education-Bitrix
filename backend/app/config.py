@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     google_token_encryption_key: str = ""
+    document_render_media_dir: str = "data/document-renders"
     youtube_client_id: str = ""
     youtube_client_secret: str = ""
     video_token_encryption_key: str = ""

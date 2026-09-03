@@ -1,30 +1,35 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+import hashlib
 import logging
+import mimetypes
+from pathlib import Path
 import re
 import secrets
 from typing import Annotated, Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.bitrix_auth import BitrixIdentity, bitrix_call, require_bitrix_identity, require_developer, require_editor
 from app.config import get_settings
 from app.database import get_session
+from app.document_composer import compose, materialize_images
+from app.knowledge import _allows
 from app.models import (
     AcknowledgementAssignment, AcknowledgementCampaign, AcknowledgementEvent, AppUser,
     BitrixDepartment, GoogleOAuthCredential, GoogleOAuthState, KnowledgeDocument,
-    KnowledgeEdition, UserHelpPreference, utcnow,
+    KnowledgeDocumentRender, KnowledgeEdition, UserHelpPreference, utcnow,
 )
 
 router = APIRouter(prefix="/api/v51", tags=["v51"])
-GOOGLE_SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly"
+GOOGLE_SCOPE = "https://www.googleapis.com/auth/documents.readonly https://www.googleapis.com/auth/drive.readonly"
 MANAGER_ROLES = {"developer", "admin", "editor", "teacher"}
 logger = logging.getLogger(__name__)
 TASK_TITLE_TEMPLATE = "Ознакомиться: {document_title}"
@@ -859,6 +864,111 @@ def _google_file_id(url:str)->str:
     match=re.search(r"/d/([a-zA-Z0-9_-]+)",url or "") or re.search(r"[?&]id=([a-zA-Z0-9_-]+)",url or "")
     if not match: raise HTTPException(422,"Не удалось определить ID Google-документа по ссылке")
     return match.group(1)
+
+
+def _google_document_snapshot(token: str, file_id: str) -> tuple[dict[str, Any], str, datetime | None, list[dict[str, Any]]]:
+    headers = {"Authorization": f"Bearer {token}"}
+    metadata = httpx.get(f"https://www.googleapis.com/drive/v3/files/{file_id}", params={"fields": "id,mimeType,headRevisionId,modifiedTime"}, headers=headers, timeout=20)
+    if metadata.status_code in {401, 403}:
+        raise HTTPException(403, "Google-аккаунт не имеет доступа к документу или не выданы права чтения Docs/Drive")
+    if metadata.is_error:
+        raise HTTPException(502, "Google Drive не вернул сведения о документе")
+    meta = metadata.json()
+    if meta.get("mimeType") != "application/vnd.google-apps.document":
+        raise HTTPException(422, "Рендер документа поддерживает только Google Docs")
+    response = httpx.get(f"https://docs.googleapis.com/v1/documents/{file_id}", headers=headers, timeout=30)
+    if response.status_code in {401, 403}:
+        raise HTTPException(403, "Google-аккаунт не имеет права читать содержимое документа")
+    if response.is_error:
+        raise HTTPException(502, "Google Docs не вернул содержимое документа")
+    comments_response = httpx.get(f"https://www.googleapis.com/drive/v3/files/{file_id}/comments", params={"pageSize": 100, "fields": "comments(id,content,quotedFileContent,author,createdTime,resolved,deleted,replies(id,content,author,createdTime,deleted))"}, headers=headers, timeout=20)
+    comments = [] if comments_response.is_error else list(comments_response.json().get("comments") or [])
+    try:
+        modified_at = datetime.fromisoformat(str(meta.get("modifiedTime") or "").replace("Z", "+00:00")) or None
+    except ValueError:
+        modified_at = None
+    return response.json(), str(meta.get("headRevisionId") or ""), modified_at, comments
+
+
+def _render_summary(row: KnowledgeDocumentRender | None) -> dict[str, Any]:
+    if row is None:
+        return {"available": False, "status": "not_rendered", "lastError": "", "renderedAt": None}
+    return {"available": bool(row.payload) and row.status == "published", "status": row.status, "lastError": row.last_error, "renderedAt": _iso(row.rendered_at), "sourceRevisionId": row.source_revision_id}
+
+
+def _render_asset_dir() -> Path:
+    path = Path(get_settings().document_render_media_dir).resolve()
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _store_google_image(document_id: int, token: str, source_uri: str) -> str:
+    host = (urlparse(source_uri).hostname or "").lower()
+    if host != "docs.google.com" and not host.endswith(".googleusercontent.com"):
+        raise HTTPException(502, "Google Docs вернул неподдерживаемый адрес изображения")
+    response = httpx.get(source_uri, headers={"Authorization": f"Bearer {token}"}, timeout=30)
+    content_type = response.headers.get("content-type", "").split(";", 1)[0].lower()
+    if response.is_error or not content_type.startswith("image/"):
+        raise HTTPException(502, "Не удалось получить изображение из Google Docs")
+    if len(response.content) > 15 * 1024 * 1024:
+        raise HTTPException(422, "Изображение в Google Docs превышает допустимый размер 15 МБ")
+    extension = mimetypes.guess_extension(content_type) or ".bin"
+    asset_name = hashlib.sha256(response.content).hexdigest() + extension
+    target = _render_asset_dir() / asset_name
+    if not target.exists(): target.write_bytes(response.content)
+    return f"/api/v51/documents/{document_id}/document-render/assets/{asset_name}"
+
+
+@router.post("/documents/{document_id}/document-render/refresh")
+def refresh_document_render(document_id: int, session: Annotated[Session, Depends(get_session)], _: Annotated[BitrixIdentity, Depends(require_editor)]):
+    document = session.get(KnowledgeDocument, document_id)
+    if not document: raise HTTPException(404, "Документ не найден")
+    if document.source_row != 540: raise HTTPException(409, "В пилоте доступен только рендер документа «Базовое обучение как работать с строительными лесами»")
+    row = session.exec(select(KnowledgeDocumentRender).where(KnowledgeDocumentRender.document_id == document.id)).first()
+    if row is None:
+        row = KnowledgeDocumentRender(document_id=document.id)
+    row.status = "rendering"; row.last_error = ""; row.updated_at = utcnow(); session.add(row); session.commit()
+    try:
+        source, revision_id, modified_at, comments = _google_document_snapshot(_google_access_token(session), _google_file_id(document.document_url))
+        payload, _ = compose(source, comments)
+        payload = materialize_images(payload, lambda source_uri: _store_google_image(document.id, _google_access_token(session), source_uri))
+        if row.payload and row.content_hash == payload["contentHash"]:
+            row.status = "published"; row.source_revision_id = revision_id; row.source_modified_at = modified_at; row.rendered_at = utcnow(); row.updated_at = utcnow(); session.add(row); session.commit()
+            return {"changed": False, "render": _render_summary(row)}
+        row.status = "published"; row.source_revision_id = revision_id; row.source_modified_at = modified_at; row.content_hash = payload["contentHash"]; row.payload = payload; row.rendered_at = utcnow(); row.updated_at = utcnow(); session.add(row); session.commit()
+        return {"changed": True, "render": _render_summary(row)}
+    except HTTPException as error:
+        row.status = "published" if row.payload else "error"; row.last_error = str(error.detail); row.updated_at = utcnow(); session.add(row); session.commit(); raise
+
+
+@router.get("/documents/{document_id}/document-render/status")
+def document_render_status(document_id: int, session: Annotated[Session, Depends(get_session)], _: Annotated[BitrixIdentity, Depends(require_editor)]):
+    document = session.get(KnowledgeDocument, document_id)
+    if not document: raise HTTPException(404, "Документ не найден")
+    row = session.exec(select(KnowledgeDocumentRender).where(KnowledgeDocumentRender.document_id == document.id)).first()
+    return _render_summary(row)
+
+
+@router.get("/documents/{document_id}/document-render")
+def get_document_render(document_id: int, session: Annotated[Session, Depends(get_session)], identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)]):
+    document = session.get(KnowledgeDocument, document_id)
+    if not document or not document.active: raise HTTPException(404, "Документ не найден")
+    departments = {item.bitrix_department_id: item for item in session.exec(select(BitrixDepartment).where(BitrixDepartment.active == True)).all()}
+    if not _allows(document.article_assignments, identity, departments): raise HTTPException(403, "Документ не назначен пользователю")
+    row = session.exec(select(KnowledgeDocumentRender).where(KnowledgeDocumentRender.document_id == document.id)).first()
+    if not row or not row.payload or row.status != "published": raise HTTPException(404, "Рендер документа пока не опубликован")
+    return {"documentId": document.id, "title": document.title, "render": row.payload, "status": _render_summary(row)}
+
+
+@router.get("/documents/{document_id}/document-render/assets/{asset_name}")
+def get_document_render_asset(document_id: int, asset_name: str, session: Annotated[Session, Depends(get_session)], identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)]):
+    if not re.fullmatch(r"[a-f0-9]{64}\.[a-z0-9]+", asset_name): raise HTTPException(404, "Ассет не найден")
+    document = session.get(KnowledgeDocument, document_id)
+    departments = {item.bitrix_department_id: item for item in session.exec(select(BitrixDepartment).where(BitrixDepartment.active == True)).all()}
+    if not document or not document.active or not _allows(document.article_assignments, identity, departments): raise HTTPException(404, "Ассет не найден")
+    target = _render_asset_dir() / asset_name
+    if not target.is_file(): raise HTTPException(404, "Ассет не найден")
+    return FileResponse(target)
 
 
 @router.get("/documents/{document_id}/google-revisions")

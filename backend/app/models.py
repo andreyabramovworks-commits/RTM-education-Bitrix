@@ -237,6 +237,23 @@ class KnowledgeDocument(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
 
 
+class KnowledgeDocumentRender(SQLModel, table=True):
+    """The last successfully published Document Composer payload for one knowledge document."""
+    __tablename__ = "knowledge_document_renders"
+    __table_args__ = (UniqueConstraint("document_id", name="uq_knowledge_document_render"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    document_id: int = Field(foreign_key="knowledge_documents.id", index=True)
+    status: str = Field(default="not_rendered", max_length=30, index=True)
+    source_revision_id: str = Field(default="", max_length=200)
+    source_modified_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    content_hash: str = Field(default="", max_length=64)
+    payload: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    last_error: str = Field(default="", sa_column=Column(Text, nullable=False))
+    rendered_at: datetime | None = Field(default=None, sa_column=Column(DateTime(timezone=True), nullable=True))
+    updated_at: datetime = Field(default_factory=utcnow, sa_column=Column(DateTime(timezone=True), nullable=False))
+
+
 class BitrixDepartment(SQLModel, table=True):
     __tablename__ = "bitrix_departments"
 

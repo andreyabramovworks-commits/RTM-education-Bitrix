@@ -49,6 +49,23 @@ function ResourceState({ state, retry, emptyTitle = "Данных пока не�
   return children(state.data);
 }
 
+function DocumentComposer({ bridge, document, onBack }) {
+  const [state, setState] = useState({ loading: true, data: null, error: "" });
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  useEffect(() => { let alive = true; bridge.loadDocumentRender(document.id).then((data) => alive && setState({ loading: false, data, error: "" })).catch((error) => alive && setState({ loading: false, data: null, error: error?.message || "Не удалось открыть рендер" })); return () => { alive = false; }; }, [bridge, document.id]);
+  if (state.loading) return <main className="dc-shell"><button className="dc-back" onClick={onBack}>‹ Назад</button><section className="dc-loading" role="status">Открываем документ…</section></main>;
+  if (state.error) return <main className="dc-shell"><button className="dc-back" onClick={onBack}>‹ Назад</button><section className="dc-loading" role="alert"><b>Рендер пока недоступен</b><span>{state.error}</span></section></main>;
+  const render = state.data.render || {}, pages = render.pages || [], comments = render.comments || [];
+  const block = (item, index) => {
+    if (item.kind === "image") return <figure className="dc-visual-island" key={index}>{item.assetUrl ? <img src={item.assetUrl} alt={item.alt} /> : <span>Иллюстрация из Google Docs</span>}<figcaption>{item.alt}</figcaption></figure>;
+    if (item.kind === "table") return <div className="dc-table-wrap" key={index}><table><tbody>{(item.rows || []).map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell.map((part, partIndex) => <React.Fragment key={partIndex}>{part.spans?.map((span, spanIndex) => <span key={spanIndex}>{span.text}</span>)}</React.Fragment>)}</td>)}</tr>)}</tbody></table></div>;
+    const Tag = item.kind === "heading" ? `h${Math.min(4, Math.max(1, item.level || 2))}` : "p";
+    const content = <>{(item.spans || []).map((span, spanIndex) => { const style = { fontWeight: span.style?.bold ? 700 : undefined, fontStyle: span.style?.italic ? "italic" : undefined, textDecoration: span.style?.underline ? "underline" : undefined, color: span.style?.color || undefined }; const text = <span key={spanIndex} style={style}>{span.text}</span>; return span.style?.link ? <a key={spanIndex} href={span.style.link} target="_blank" rel="noreferrer">{text}</a> : text; })}{(item.images || []).map((image, imageIndex) => <figure className="dc-inline-island" key={`image-${imageIndex}`}>{image.assetUrl ? <img src={image.assetUrl} alt={image.alt} /> : <span>Иллюстрация из Google Docs</span>}<figcaption>{image.alt}</figcaption></figure>)}</>;
+    return <Tag className={item.list ? `dc-list dc-list-${item.list}` : ""} key={index}>{content}</Tag>;
+  };
+  return <main className="dc-shell"><header className="dc-topbar"><button className="dc-back" onClick={onBack} aria-label="Вернуться к базе знаний">‹</button><div><small>База знаний</small><strong>{state.data.title}</strong></div><button className="dc-comments-toggle" onClick={() => setCommentsOpen(!commentsOpen)} aria-expanded={commentsOpen}>Комментарии <span>{comments.length}</span></button></header><div className="dc-reader">{pages.map((page) => <article className="dc-page" key={page.number}><div className="dc-page-number">Страница {page.number}</div>{page.blocks.map(block)}</article>)}</div>{commentsOpen && <aside className="dc-comments" aria-label="Комментарии Google Docs"><header><b>Комментарии</b><button onClick={() => setCommentsOpen(false)}>×</button></header>{comments.length ? comments.map((comment) => <article key={comment.id}><small>{comment.author || "Google Docs"}</small>{comment.quotedText && <blockquote>{comment.quotedText}</blockquote>}<p>{comment.content}</p>{comment.replies?.map((reply) => <p className="dc-reply" key={reply.id}><b>{reply.author}: </b>{reply.content}</p>)}</article>) : <p>В документе нет открытых комментариев.</p>}</aside>}</main>;
+}
+
 function MaterialSurface({ active, bridge, material, course, onBack }) {
   active = active !== false;
   const slot = useRef(null);
@@ -136,7 +153,7 @@ function findTreeNode(root, path) { let node = root; for (const id of path) node
 function flattenMaterials(node, out = []) { (node?.children || []).forEach((child) => child.type === "material" ? out.push(child) : flattenMaterials(child, out)); return out; }
 
 function Knowledge({ bridge, hintsEnabled }) {
-  const [query, setQuery] = useState(""), [path, setPath] = useState([]), [selected, setSelected] = useState(null), [editionsState, setEditionsState] = useState({ loading: false, data: [], error: "" });
+  const [query, setQuery] = useState(""), [path, setPath] = useState([]), [selected, setSelected] = useState(null), [renderOpen, setRenderOpen] = useState(false), [editionsState, setEditionsState] = useState({ loading: false, data: [], error: "" });
   const [expandedEditions, setExpandedEditions] = useState(() => new Set());
   const [state, setState] = useState({ loading: true, data: null, error: "" });
   const load = useCallback((force = false) => { setState((old) => ({ ...old, loading: true, error: "" })); bridge.loadKnowledge(force).then((data) => setState({ loading: false, data, error: "" })).catch((error) => setState({ loading: false, data: null, error: error.message || String(error) })); }, [bridge]);
@@ -151,11 +168,13 @@ function Knowledge({ bridge, hintsEnabled }) {
     const q = query.trim().toLowerCase();
     const node = findTreeNode(tree, path);
     const rows = q ? flattenMaterials(tree).filter((item) => { const doc = byRow.get(Number(item.row)); return `${item.title} ${doc?.description || ""}`.toLowerCase().includes(q); }) : (node?.children || []);
+    if (selected && renderOpen) return <DocumentComposer bridge={bridge} document={selected} onBack={() => setRenderOpen(false)} />;
     if (selected) return <section className="lr-kb-detail">
       <h2>{selected.title}</h2>
       {selected.description && <p>{selected.description}</p>}
       <div className="lr-kb-actions">
         <button className="lr-primary" onClick={() => openKnowledgeMaterial(selected, "article")}>Предпросмотр статьи</button>
+        {Number(selected.sourceRow) === 540 && <button className="lr-secondary" onClick={() => setRenderOpen(true)}>Открыть рендер документа</button>}
         {selected.documentUrl && <a className="lr-secondary lr-original-action" href={selected.documentUrl} target="_blank" rel="noreferrer">Открыть в базе знаний</a>}
       </div>
       <details className="lr-edition-history"><summary><span>История редакций</span><small>{editionsState.data.length || 0}</small></summary><div className="lr-edition-list">{editionsState.loading ? <div className="lr-resource-state">Загружаем историю…</div> : editionsState.error ? <p className="lr-inline-error">{editionsState.error}</p> : editionsState.data.length ? editionsState.data.map((edition) => { const expanded = expandedEditions.has(edition.id), text = edition.changeLog || "Изменения не описаны", long = text.length > 150; return <article key={edition.id} className={expanded ? "is-expanded" : ""}><header><b>Редакция от {formatDate(edition.editionDate)}</b>{edition.googleVersionName && <small>{edition.googleVersionName}</small>}</header><p>{text}</p>{long && <button className="lr-text-action" aria-expanded={expanded} onClick={() => setExpandedEditions((old) => { const next = new Set(old); expanded ? next.delete(edition.id) : next.add(edition.id); return next; })}>{expanded ? "Свернуть" : "Показать полностью"}</button>}</article>; }) : <p className="lr-muted">История редакций пока пуста.</p>}</div></details>

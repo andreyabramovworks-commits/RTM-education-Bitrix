@@ -186,6 +186,7 @@
       '<section><h3>Статья</h3><button class="primary" data-v538-edit-article>Открыть и редактировать статью</button><button data-v538-assign="article">Настроить назначения</button></section>'+
       '<section><h3>Тест лайт</h3>'+(light.created?'<button data-v538-edit-test="light">Открыть тест лайт</button>':'<button data-v538-create-test="light">Создать тест лайт</button>')+'<button data-v538-assign="light">Настроить назначения</button></section>'+
       '<section><h3>Тест полный</h3>'+(full.created?'<button data-v538-edit-test="full">Открыть тест полный</button>':'<button data-v538-create-test="full">Создать тест полный</button>')+'<button data-v538-assign="full">Настроить назначения</button></section>'+
+      (Number(doc.sourceRow)===540?'<section><h3>Рендер документа</h3><p class="muted" data-v538-render-status>Проверяем статус…</p><button class="primary" data-v538-refresh-render>Обновить из Google Docs</button></section>':'')+
       '</div><p class="muted">Центральные материалы нельзя удалить: изменения автоматически применяются во всех курсах.</p></div>';
   }
   async function renderAdminKnowledge() {
@@ -218,6 +219,10 @@
     document.querySelectorAll("[data-v538-edit-test]").forEach(function(b){b.onclick=function(){editTest(doc,b.dataset.v538EditTest);};});
     document.querySelectorAll("[data-v538-create-test]").forEach(function(b){b.onclick=async function(){await api("/api/v47/knowledge/documents/"+doc.id+"/tests/"+b.dataset.v538CreateTest,{method:"POST",body:"{}"});toast("Пустой тест создан");renderAdminKnowledge();};});
     document.querySelectorAll("[data-v538-assign]").forEach(function(b){b.onclick=function(){assignmentEditor(doc,b.dataset.v538Assign);};});
+    var renderStatus=document.querySelector("[data-v538-render-status]");
+    if(renderStatus) api("/api/v51/documents/"+doc.id+"/document-render/status").then(function(result){renderStatus.textContent=result.available?"Опубликован: "+(result.renderedAt||"").slice(0,16):result.lastError||"Рендер ещё не создан";}).catch(function(error){renderStatus.textContent=error.message||"Статус недоступен";});
+    var refreshRender=document.querySelector("[data-v538-refresh-render]");
+    if(refreshRender) refreshRender.onclick=async function(){refreshRender.disabled=true;try{var result=await api("/api/v51/documents/"+doc.id+"/document-render/refresh",{method:"POST",body:"{}"});toast(result.changed?"Рендер опубликован для всех пользователей":"Документ не изменился");renderAdminKnowledge();}catch(error){toast(error.message||String(error));refreshRender.disabled=false;}};
   }
 
   async function editArticle(doc) {
@@ -354,6 +359,7 @@
     getDocuments:function(){return docs.slice();},
     getTree:function(){return usableNode(root());},
     getDirectory:function(){return loadDirectory(false);},
+    getDocumentRender:function(documentId){return api("/api/v51/documents/"+documentId+"/document-render");},
     load:function(force){return load(Boolean(force)).then(function(){return {tree:usableNode(root()),documents:docs.slice()};});},
     prepareForUser:function(documentId,kind){var doc=docs.find(function(row){return String(row.id)===String(documentId);});return openCentralForUser(doc,kind||"article",null,false,true);},
     openForUser:function(documentId,kind){var doc=docs.find(function(row){return String(row.id)===String(documentId);});return openCentralForUser(doc,kind||"article");},
