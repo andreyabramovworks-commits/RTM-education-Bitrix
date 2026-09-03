@@ -19,7 +19,7 @@
   sdk.src = "https://api.bitrix24.com/api/v1/";
   sdk.onload = function loadContextBridge() {
     var bridge = document.createElement("script");
-    bridge.src = "/bitrix-bootstrap.js?v=53.1.9-r10";
+    bridge.src = "/bitrix-bootstrap.js?v=53.1.9-r11";
     document.head.appendChild(bridge);
   };
   sdk.onerror = function reportSdkFailure() {
