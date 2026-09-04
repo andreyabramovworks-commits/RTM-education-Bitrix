@@ -88,6 +88,8 @@ test("Document Composer keeps one mobile return action and uses semantic page co
   assert.match(learnerApp, /contentX: \(viewport\.scrollLeft \+ point\.x - box\.left\) \/ currentZoom/);
   assert.match(learnerApp, /if \(event\.cancelable\) event\.preventDefault\(\)/);
   assert.match(learnerApp, /applyReaderScale\(nextZoom\)/);
+  assert.match(learnerApp, /stage\.dataset\.zoomed = "true"/);
+  assert.match(learnerApp, /stage\.dataset\.zoomed = "false"/);
   assert.doesNotMatch(learnerApp, /setZoom\(/);
   assert.doesNotMatch(learnerApp, /dc-comments-toggle/);
   assert.match(learnerApp, /first\.type === "ordered" \? "ol" : "ul"/);
@@ -95,11 +97,14 @@ test("Document Composer keeps one mobile return action and uses semantic page co
   assert.match(learnerApp, /dc-gallery-caption/);
   assert.match(learnerApp, /image-group/);
   assert.match(learnerApp, /is-visual-table/);
+  assert.match(learnerApp, /const imageGallery/);
+  assert.match(learnerApp, /textOf\(part\)\.length <= 110/);
   assert.match(learnerCss, /dc-document-header/);
   assert.match(learnerCss, /dc-gallery-4/);
   assert.match(learnerCss, /dc-shell:not\(.is-page-mode\)/);
   assert.match(learnerCss, /dc-reader-viewport\{overflow:auto;overscroll-behavior:contain;touch-action:pan-x pan-y/);
   assert.match(learnerCss, /transform:scale\(var\(--dc-reader-zoom\)\)/);
+  assert.match(learnerCss, /dc-reader-stage\[data-zoomed="true"\]/);
   assert.doesNotMatch(learnerCss, /zoom:var\(--dc-reader-zoom/);
   assert.match(learnerCss, /dc-table-wrap table\{min-width:680px/);
   assert.match(learnerCss, /object-fit:contain/);
