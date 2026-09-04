@@ -35,6 +35,22 @@ def test_composer_keeps_multiple_images_from_one_google_anchor_as_a_group():
     assert len(group["images"]) == 2
 
 
+def test_composer_keeps_positioned_image_geometry_without_recreating_an_overlay():
+    source = {
+        "positionedObjects": {
+            "photo": {"positionedObjectProperties": {
+                "positioning": {"layout": "WRAP_TEXT", "leftOffset": {"magnitude": 72, "unit": "PT"}, "topOffset": {"magnitude": 18, "unit": "PT"}},
+                "embeddedObject": {"size": {"width": {"magnitude": 240, "unit": "PT"}, "height": {"magnitude": 160, "unit": "PT"}}, "imageProperties": {"contentUri": "https://example.com/photo"}},
+            }},
+        },
+        "body": {"content": [{"paragraph": {"positionedObjectIds": ["photo"], "elements": []}}]},
+    }
+    payload, _ = compose(source, [])
+    image = payload["pages"][0]["blocks"][0]
+    assert image["placement"] == {"source": "positioned", "layout": "WRAP_TEXT", "left": 72.0, "top": 18.0, "anchorId": "photo"}
+    assert image["width"] == 240.0 and image["height"] == 160.0
+
+
 def test_composer_keeps_independent_lists_typography_and_removes_control_characters():
     source = {
         "title": "Инструкция",

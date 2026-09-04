@@ -30,12 +30,28 @@ def _paragraph_style(value: dict[str, Any]) -> dict[str, Any]:
     return {key: item for key, item in {"align": str(value.get("alignment") or "").lower(), "spaceAbove": _points(value.get("spaceAbove")), "spaceBelow": _points(value.get("spaceBelow")), "lineSpacing": value.get("lineSpacing"), "indentStart": _points(value.get("indentStart")), "indentEnd": _points(value.get("indentEnd")), "indentFirstLine": _points(value.get("indentFirstLine"))}.items() if item not in ("", None)}
 
 
-def _image(embedded: dict[str, Any]) -> dict[str, Any] | None:
+def _image(embedded: dict[str, Any], placement: dict[str, Any] | None = None) -> dict[str, Any] | None:
     image = embedded.get("imageProperties") or {}
     if not image.get("contentUri"):
         return None
     size = embedded.get("size") or {}
-    return {"kind": "image", "sourceUri": image["contentUri"], "alt": embedded.get("title") or embedded.get("description") or "Иллюстрация", "width": _points(size.get("width")), "height": _points(size.get("height"))}
+    node = {"kind": "image", "sourceUri": image["contentUri"], "alt": embedded.get("title") or embedded.get("description") or "Иллюстрация", "width": _points(size.get("width")), "height": _points(size.get("height"))}
+    if placement:
+        node["placement"] = placement
+    return node
+
+
+def _positioned_image(positioned: dict[str, Any], object_id: str) -> dict[str, Any] | None:
+    properties = positioned.get("positionedObjectProperties") or {}
+    positioning = properties.get("positioning") or {}
+    placement = {
+        "source": "positioned",
+        "layout": str(positioning.get("layout") or "POSITIONED_OBJECT_LAYOUT_UNSPECIFIED"),
+        "left": _points(positioning.get("leftOffset")),
+        "top": _points(positioning.get("topOffset")),
+        "anchorId": object_id,
+    }
+    return _image(properties.get("embeddedObject") or {}, placement)
 
 
 def _list_meta(bullet: dict[str, Any], lists: dict[str, Any]) -> dict[str, Any] | None:
@@ -58,8 +74,8 @@ def _paragraph(element: dict[str, Any], inline: dict[str, Any], positioned: dict
         embedded = ((inline.get(object_id) or {}).get("inlineObjectProperties") or {}).get("embeddedObject") or {}
         if image := _image(embedded): images.append(image)
     for object_id in paragraph.get("positionedObjectIds") or []:
-        embedded = ((positioned.get(object_id) or {}).get("positionedObjectProperties") or {}).get("embeddedObject") or {}
-        if image := _image(embedded): images.append(image)
+        if image := _positioned_image(positioned.get(object_id) or {}, str(object_id)):
+            images.append(image)
     if images and not parts:
         return images[0] if len(images) == 1 else {"kind": "image-group", "images": images}
     if not parts:

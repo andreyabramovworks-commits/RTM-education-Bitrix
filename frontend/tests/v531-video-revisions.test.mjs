@@ -98,7 +98,7 @@ test("Document Composer keeps one mobile return action and uses semantic page co
   assert.match(learnerApp, /image-group/);
   assert.match(learnerApp, /is-visual-table/);
   assert.match(learnerApp, /const imageGallery/);
-  assert.match(learnerApp, /textOf\(part\)\.length <= 110/);
+  assert.match(learnerApp, /part\.style\?\.align === "center"/);
   assert.match(learnerCss, /dc-document-header/);
   assert.match(learnerCss, /dc-gallery-4/);
   assert.match(learnerCss, /dc-shell:not\(.is-page-mode\)/);
@@ -108,9 +108,11 @@ test("Document Composer keeps one mobile return action and uses semantic page co
   assert.doesNotMatch(learnerCss, /zoom:var\(--dc-reader-zoom/);
   assert.match(learnerCss, /dc-table-wrap table\{min-width:680px/);
   assert.match(learnerCss, /object-fit:contain/);
-  assert.match(learnerCss, /dc-table-wrap\.is-visual-table \.dc-visual-island,\.dc-table-wrap\.is-visual-table \.dc-inline-island\{display:grid;width:100%;height:220px/);
+  assert.match(learnerCss, /dc-table-wrap\.is-visual-table \.dc-visual-island\{display:grid;width:100%;min-width:0;height:clamp\(145px,27vw,220px\)/);
   assert.match(learnerApp, /colSpan=\{cell\.colSpan/);
   assert.match(learnerApp, /const visual = hasImage &&/);
+  assert.match(learnerApp, /is-normalized-positioned/);
+  assert.doesNotMatch(learnerApp, /while \(items\[index \+ 1\]\?\.kind === "image"\)/);
   assert.match(learnerApp, /spanStyle\(span\.style, item\.kind === "heading"\)/);
   assert.match(learnerCss, /dc-list li::marker/);
 });
