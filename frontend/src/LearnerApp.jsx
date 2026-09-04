@@ -54,28 +54,48 @@ function DocumentComposer({ bridge, document, onBack }) {
   const [state, setState] = useState({ loading: true, data: null, error: "" });
   const [pageMode, setPageMode] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [zoom, setZoom] = useState(1);
   const readerRef = useRef(null);
   const readerViewportRef = useRef(null);
+  const readerStageRef = useRef(null);
   const pinchRef = useRef(null);
-  const zoomRef = useRef(zoom);
+  const zoomRef = useRef(1);
+  const [readerMeasured, setReaderMeasured] = useState(false);
   useEffect(() => { let alive = true; bridge.loadDocumentRender(document.id).then((data) => alive && setState({ loading: false, data, error: "" })).catch((error) => alive && setState({ loading: false, data: null, error: error?.message || "Не удалось открыть рендер" })); return () => { alive = false; }; }, [bridge, document.id]);
   const render = state.data?.render || {}, pages = render.pages || [];
-  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  const applyReaderScale = useCallback((nextZoom) => {
+    const reader = readerRef.current;
+    const stage = readerStageRef.current;
+    if (!reader || !stage || !reader.offsetWidth || !reader.offsetHeight) return;
+    stage.style.width = `${Math.ceil(reader.offsetWidth * nextZoom)}px`;
+    stage.style.height = `${Math.ceil(reader.offsetHeight * nextZoom)}px`;
+    stage.style.setProperty("--dc-reader-zoom", String(nextZoom));
+    stage.dataset.zoomed = String(nextZoom > 1);
+  }, []);
+  useEffect(() => {
+    const reader = readerRef.current;
+    if (!reader || typeof ResizeObserver === "undefined") return undefined;
+    let frame = 0;
+    const syncStage = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => { applyReaderScale(zoomRef.current); setReaderMeasured(true); }); };
+    const observer = new ResizeObserver(syncStage);
+    observer.observe(reader);
+    syncStage();
+    return () => { cancelAnimationFrame(frame); observer.disconnect(); };
+  }, [applyReaderScale, state.loading]);
   useEffect(() => {
     const viewport = readerViewportRef.current;
-    if (!viewport) return undefined;
+    const stage = readerStageRef.current;
+    if (!viewport || !stage) return undefined;
     const distance = (touches) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
     const midpoint = (touches) => ({ x: (touches[0].clientX + touches[1].clientX) / 2, y: (touches[0].clientY + touches[1].clientY) / 2 });
-    const start = (event) => { if (event.touches.length !== 2) return; const point = midpoint(event.touches), box = viewport.getBoundingClientRect(); pinchRef.current = { distance: distance(event.touches), zoom: zoomRef.current, left: viewport.scrollLeft, top: viewport.scrollTop, x: point.x - box.left, y: point.y - box.top }; };
-    const move = (event) => { const pinch = pinchRef.current; if (!pinch || event.touches.length !== 2) return; event.preventDefault(); const nextZoom = Math.min(2.25, Math.max(1, pinch.zoom * distance(event.touches) / pinch.distance)), point = midpoint(event.touches), box = viewport.getBoundingClientRect(), x = point.x - box.left, y = point.y - box.top, ratio = nextZoom / pinch.zoom; setZoom(nextZoom); requestAnimationFrame(() => { viewport.scrollLeft = (pinch.left + pinch.x) * ratio - x; viewport.scrollTop = (pinch.top + pinch.y) * ratio - y; }); };
+    const start = (event) => { if (event.touches.length !== 2) return; if (event.cancelable) event.preventDefault(); const point = midpoint(event.touches), box = stage.getBoundingClientRect(), currentZoom = zoomRef.current; pinchRef.current = { distance: distance(event.touches), zoom: currentZoom, contentX: (viewport.scrollLeft + point.x - box.left) / currentZoom, contentY: (viewport.scrollTop + point.y - box.top) / currentZoom }; };
+    const move = (event) => { const pinch = pinchRef.current; if (!pinch || event.touches.length !== 2) return; if (event.cancelable) event.preventDefault(); const nextZoom = Math.min(2.25, Math.max(1, pinch.zoom * distance(event.touches) / pinch.distance)); zoomRef.current = nextZoom; applyReaderScale(nextZoom); const point = midpoint(event.touches), box = stage.getBoundingClientRect(); viewport.scrollLeft = pinch.contentX * nextZoom - (point.x - box.left); viewport.scrollTop = pinch.contentY * nextZoom - (point.y - box.top); };
     const end = (event) => { if (event.touches.length < 2) pinchRef.current = null; };
-    viewport.addEventListener("touchstart", start, { passive: true });
+    viewport.addEventListener("touchstart", start, { passive: false });
     viewport.addEventListener("touchmove", move, { passive: false });
     viewport.addEventListener("touchend", end, { passive: true });
     viewport.addEventListener("touchcancel", end, { passive: true });
     return () => { viewport.removeEventListener("touchstart", start); viewport.removeEventListener("touchmove", move); viewport.removeEventListener("touchend", end); viewport.removeEventListener("touchcancel", end); };
-  }, [state.loading]);
+  }, [applyReaderScale, state.loading]);
   useEffect(() => { if (!readerRef.current || !pages.length) return; const observer = new IntersectionObserver((entries) => entries.forEach((entry) => { if (entry.isIntersecting) setCurrentPage(Number(entry.target.dataset.page)); }), { rootMargin: "-42% 0px -48% 0px", threshold: 0 }); readerRef.current.querySelectorAll("[data-page]").forEach((node) => observer.observe(node)); return () => observer.disconnect(); }, [pages.length, pageMode]);
   const spanStyle = (style = {}, inheritSize = false) => ({ fontWeight: style.bold ? 700 : undefined, fontStyle: style.italic ? "italic" : undefined, textDecoration: [style.underline && "underline", style.strikethrough && "line-through"].filter(Boolean).join(" ") || undefined, color: style.color || undefined, fontFamily: style.fontFamily || undefined, fontSize: !inheritSize && style.fontSize ? `${style.fontSize}pt` : undefined });
   const blockStyle = (style = {}) => ({ textAlign: style.align === "center" ? "center" : style.align === "end" || style.align === "right" ? "right" : style.align === "justify" ? "justify" : undefined, marginTop: style.spaceAbove ? `${style.spaceAbove}pt` : undefined, marginBottom: style.spaceBelow ? `${style.spaceBelow}pt` : undefined, lineHeight: style.lineSpacing ? `${Number(style.lineSpacing) / 100}` : undefined, paddingInlineStart: style.indentStart ? `${style.indentStart}pt` : undefined, paddingInlineEnd: style.indentEnd ? `${style.indentEnd}pt` : undefined, textIndent: style.indentFirstLine ? `${style.indentFirstLine}pt` : undefined });
@@ -85,7 +105,7 @@ function DocumentComposer({ bridge, document, onBack }) {
   const blocks = (items) => { const result = [], list = []; const textOf = (item) => (item.spans || []).map((span) => span.text).join("").trim(); const isCaption = (item) => item?.kind === "paragraph" && !item.list && textOf(item).length > 0 && textOf(item).length <= 100; const flush = () => { if (!list.length) return; const first = list[0].list, Tag = first.type === "ordered" ? "ol" : "ul"; result.push(<Tag className={`dc-list dc-list-${first.type} dc-list-level-${first.level || 0}`} start={first.type === "ordered" ? first.start : undefined} key={`list-${result.length}`}>{list.map((item, index) => <li key={index}>{single({ ...item, list: undefined, style: { ...item.style, indentStart: undefined, indentEnd: undefined, indentFirstLine: undefined } }, `list-item-${index}`)}</li>)}</Tag>); list.length = 0; }; for (let index = 0; index < items.length; index += 1) { const item = items[index]; if (item.region === "header" || item.region === "closing") { flush(); const region = item.region, grouped = [item]; while (items[index + 1]?.region === region) grouped.push(items[++index]); result.push(<section className={`dc-document-${region}`} key={`${region}-${index}`}>{grouped.map((block, blockIndex) => single(block, blockIndex))}</section>); continue; } if (item.kind === "image" || item.kind === "image-group") { flush(); const gallery = item.kind === "image-group" ? [...item.images] : [item]; while (items[index + 1]?.kind === "image") gallery.push(items[++index]); const caption = isCaption(items[index + 1]) ? items[++index] : null; result.push(<figure className={`dc-gallery dc-gallery-${Math.min(gallery.length, 4)}`} key={`gallery-${index}`}>{gallery.map((picture, pictureIndex) => image(picture, pictureIndex))}</figure>); if (caption) result.push(<div className="dc-gallery-caption" key={`caption-${index}`}>{body(caption)}</div>); continue; } if (item.list) { const previous = list[list.length - 1]; if (previous && (previous.list.id !== item.list.id || previous.list.level !== item.list.level)) flush(); list.push(item); } else { flush(); result.push(single(item, index)); } } flush(); return result; };
   if (state.loading) return <main className="dc-shell"><section className="dc-loading" role="status">Открываем документ…</section></main>;
   if (state.error) return <main className="dc-shell"><section className="dc-loading" role="alert"><b>Рендер пока недоступен</b><span>{state.error}</span></section><button className="dc-mobile-back" onClick={onBack}><Icon name="back" />Назад</button></main>;
-  return <main className={`dc-shell ${pageMode ? "is-page-mode" : ""}`}><header className="dc-topbar"><div><small>База знаний</small><strong>{state.data.title}</strong></div><button className="dc-mode-toggle" aria-label={pageMode ? "Перейти к непрерывному чтению" : "Показать страницы"} title={pageMode ? "Непрерывное чтение" : "Показать страницы"} aria-pressed={pageMode} onClick={() => setPageMode((value) => !value)}><Icon name="pages" /></button></header><div className="dc-page-progress" aria-live="polite">{currentPage} / {pages.length}</div><div className="dc-reader-viewport" ref={readerViewportRef}><div className="dc-reader" ref={readerRef} style={{ "--dc-reader-zoom": zoom }}>{pages.map((page) => <article className="dc-page" data-page={page.number} key={page.number}>{blocks(page.blocks || [])}<div className="dc-page-corner">{page.number}</div></article>)}</div></div><button className="dc-mobile-back" onClick={onBack}><Icon name="back" />Назад</button></main>;
+  return <main className={`dc-shell ${pageMode ? "is-page-mode" : ""}`}><header className="dc-topbar"><div><small>База знаний</small><strong>{state.data.title}</strong></div><button className="dc-mode-toggle" aria-label={pageMode ? "Перейти к непрерывному чтению" : "Показать страницы"} title={pageMode ? "Непрерывное чтение" : "Показать страницы"} aria-pressed={pageMode} onClick={() => setPageMode((value) => !value)}><Icon name="pages" /></button></header><div className="dc-page-progress" aria-live="polite">{currentPage} / {pages.length}</div><div className="dc-reader-viewport" ref={readerViewportRef}><div className={`dc-reader-stage ${readerMeasured ? "is-measured" : ""}`} ref={readerStageRef}><div className="dc-reader" ref={readerRef}>{pages.map((page) => <article className="dc-page" data-page={page.number} key={page.number}>{blocks(page.blocks || [])}<div className="dc-page-corner">{page.number}</div></article>)}</div></div></div><button className="dc-mobile-back" onClick={onBack}><Icon name="back" />Назад</button></main>;
 }
 
 function MaterialSurface({ active, bridge, material, course, onBack }) {
