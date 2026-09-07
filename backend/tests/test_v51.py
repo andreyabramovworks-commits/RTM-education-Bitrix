@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException
 
 from app.models import AppUser, BitrixDepartment, KnowledgeDocument
-from app.v51 import CampaignWrite, EditionDeleteWrite, _due_at, _google_file_id, _grade_linked_test, _is_in_department, _match_rules, _render_task_template, _validate_campaign
+from app.v51 import CampaignWrite, EditionDeleteWrite, _can_refresh_document_render, _due_at, _google_file_id, _grade_linked_test, _is_in_department, _match_rules, _render_task_template, _validate_campaign
 
 
 def test_department_rule_includes_nested_department():
@@ -20,6 +20,12 @@ def test_department_rule_includes_nested_department():
 def test_google_document_id_supports_docs_and_query_links():
     assert _google_file_id("https://docs.google.com/document/d/abc_123-x/edit") == "abc_123-x"
     assert _google_file_id("https://drive.google.com/open?id=file_42") == "file_42"
+
+
+def test_document_render_is_enabled_for_the_two_validated_google_docs():
+    assert _can_refresh_document_render(KnowledgeDocument(source_row=540, title="Строительные леса", document_url="https://example.com"))
+    assert _can_refresh_document_render(KnowledgeDocument(source_row=541, title="Сценические фермы", document_url="https://example.com"))
+    assert not _can_refresh_document_render(KnowledgeDocument(source_row=542, title="Другой документ", document_url="https://example.com"))
 
 
 def test_control_question_requires_correct_option():

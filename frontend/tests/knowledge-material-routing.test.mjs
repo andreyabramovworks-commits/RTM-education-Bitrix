@@ -25,3 +25,10 @@ test("linked course tests render their learner preview directly inside the expan
   assert.match(knowledge, /renderTakeTest\(item\)/);
   assert.doesNotMatch(knowledge, /data-v51-open-inline-test="'\+html\(item\.ID\)/);
 });
+
+test("both validated Google Docs expose their render actions", () => {
+  assert.match(knowledge, /var renderableDocumentSourceRows = \[540,541\]/);
+  assert.match(knowledge, /renderableDocumentSourceRows\.indexOf\(Number\(doc\.sourceRow\)\)!==-1/);
+  assert.match(learner, /const RENDERABLE_DOCUMENT_SOURCE_ROWS = new Set\(\[540, 541\]\)/);
+  assert.match(learner, /RENDERABLE_DOCUMENT_SOURCE_ROWS\.has\(Number\(selected\.sourceRow\)\)/);
+});

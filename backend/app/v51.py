@@ -41,6 +41,9 @@ TASK_DESCRIPTION_TEMPLATE = (
     "Открыть нужную редакцию в RTM Education:\n{edition_link}"
 )
 TASK_TEMPLATE_FIELDS = {"document_title", "edition_date", "deadline", "changes", "edition_link"}
+# Rendering Google Docs is enabled deliberately, document by document, while the
+# reader rollout is still being validated with real training materials.
+RENDERABLE_DOCUMENT_SOURCE_ROWS = frozenset({540, 541})
 
 
 class EditionWrite(BaseModel):
@@ -896,6 +899,10 @@ def _render_summary(row: KnowledgeDocumentRender | None) -> dict[str, Any]:
     return {"available": bool(row.payload) and row.status == "published", "status": row.status, "lastError": row.last_error, "renderedAt": _iso(row.rendered_at), "sourceRevisionId": row.source_revision_id}
 
 
+def _can_refresh_document_render(document: KnowledgeDocument) -> bool:
+    return document.source_row in RENDERABLE_DOCUMENT_SOURCE_ROWS
+
+
 def _assigned_render_document(document_id: int, session: Session, identity: BitrixIdentity) -> KnowledgeDocument:
     document = session.get(KnowledgeDocument, document_id)
     if not document or not document.active:
@@ -939,7 +946,7 @@ def _store_google_image(document_id: int, revision_id: str, token: str, source_u
 def refresh_document_render(document_id: int, session: Annotated[Session, Depends(get_session)], _: Annotated[BitrixIdentity, Depends(require_editor)]):
     document = session.get(KnowledgeDocument, document_id)
     if not document: raise HTTPException(404, "Документ не найден")
-    if document.source_row != 540: raise HTTPException(409, "В пилоте доступен только рендер документа «Базовое обучение как работать с строительными лесами»")
+    if not _can_refresh_document_render(document): raise HTTPException(409, "Для этого документа рендер из Google Docs пока не включён")
     row = session.exec(select(KnowledgeDocumentRender).where(KnowledgeDocumentRender.document_id == document.id)).first()
     if row is None:
         row = KnowledgeDocumentRender(document_id=document.id)

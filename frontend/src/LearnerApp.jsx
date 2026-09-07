@@ -283,6 +283,7 @@ function Courses({ snapshot, bridge, selectedCourse, setSelectedCourse, openMate
 
 function findTreeNode(root, path) { let node = root; for (const id of path) node = (node?.children || []).find((child) => String(child.id) === String(id)) || node; return node; }
 function flattenMaterials(node, out = []) { (node?.children || []).forEach((child) => child.type === "material" ? out.push(child) : flattenMaterials(child, out)); return out; }
+const RENDERABLE_DOCUMENT_SOURCE_ROWS = new Set([540, 541]);
 
 function Knowledge({ bridge, hintsEnabled }) {
   const [query, setQuery] = useState(""), [path, setPath] = useState([]), [selected, setSelected] = useState(null), [renderOpen, setRenderOpen] = useState(false), [editionsState, setEditionsState] = useState({ loading: false, data: [], error: "" });
@@ -306,7 +307,7 @@ function Knowledge({ bridge, hintsEnabled }) {
       {selected.description && <p>{selected.description}</p>}
       <div className="lr-kb-actions">
         <button className="lr-primary" onClick={() => openKnowledgeMaterial(selected, "article")}>Предпросмотр статьи</button>
-        {Number(selected.sourceRow) === 540 && <button className="lr-secondary" onClick={() => setRenderOpen(true)}>Открыть рендер документа</button>}
+        {RENDERABLE_DOCUMENT_SOURCE_ROWS.has(Number(selected.sourceRow)) && <button className="lr-secondary" onClick={() => setRenderOpen(true)}>Открыть рендер документа</button>}
         {selected.documentUrl && <a className="lr-secondary lr-original-action" href={selected.documentUrl} target="_blank" rel="noreferrer">Открыть в базе знаний</a>}
       </div>
       <details className="lr-edition-history"><summary><span>История редакций</span><small>{editionsState.data.length || 0}</small></summary><div className="lr-edition-list">{editionsState.loading ? <div className="lr-resource-state">Загружаем историю…</div> : editionsState.error ? <p className="lr-inline-error">{editionsState.error}</p> : editionsState.data.length ? editionsState.data.map((edition) => { const expanded = expandedEditions.has(edition.id), text = edition.changeLog || "Изменения не описаны", long = text.length > 150; return <article key={edition.id} className={expanded ? "is-expanded" : ""}><header><b>Редакция от {formatDate(edition.editionDate)}</b>{edition.googleVersionName && <small>{edition.googleVersionName}</small>}</header><p>{text}</p>{long && <button className="lr-text-action" aria-expanded={expanded} onClick={() => setExpandedEditions((old) => { const next = new Set(old); expanded ? next.delete(edition.id) : next.add(edition.id); return next; })}>{expanded ? "Свернуть" : "Показать полностью"}</button>}</article>; }) : <p className="lr-muted">История редакций пока пуста.</p>}</div></details>

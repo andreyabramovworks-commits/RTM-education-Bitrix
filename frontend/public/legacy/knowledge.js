@@ -8,6 +8,7 @@
   var api = function (path, options) { return window.RTMV47.request(path, options); };
   var html = function (value) { return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); };
   var norm = function (value) { return String(value || "").trim().toLowerCase(); };
+  var renderableDocumentSourceRows = [540,541];
   var root = function () { return window.RTM_KB_DATA && window.RTM_KB_DATA.tree || {id:"root",type:"folder",title:"База знаний",children:[]}; };
   var byRow = function (row) { return docs.find(function (doc) { return Number(doc.sourceRow) === Number(row); }); };
   var linkedMeta = function (item) { var meta=item&&j(item.PROPERTY_VALUES&&item.PROPERTY_VALUES.meta); return meta&&meta.linkedKnowledge?meta:null; };
@@ -186,7 +187,7 @@
       '<section><h3>Статья</h3><button class="primary" data-v538-edit-article>Открыть и редактировать статью</button><button data-v538-assign="article">Настроить назначения</button></section>'+
       '<section><h3>Тест лайт</h3>'+(light.created?'<button data-v538-edit-test="light">Открыть тест лайт</button>':'<button data-v538-create-test="light">Создать тест лайт</button>')+'<button data-v538-assign="light">Настроить назначения</button></section>'+
       '<section><h3>Тест полный</h3>'+(full.created?'<button data-v538-edit-test="full">Открыть тест полный</button>':'<button data-v538-create-test="full">Создать тест полный</button>')+'<button data-v538-assign="full">Настроить назначения</button></section>'+
-      (Number(doc.sourceRow)===540?'<section><h3>Рендер документа</h3><p class="muted" data-v538-render-status>Проверяем статус…</p><button class="primary" data-v538-refresh-render>Обновить из Google Docs</button></section>':'')+
+      (renderableDocumentSourceRows.indexOf(Number(doc.sourceRow))!==-1?'<section><h3>Рендер документа</h3><p class="muted" data-v538-render-status>Проверяем статус…</p><button class="primary" data-v538-refresh-render>Обновить из Google Docs</button></section>':'')+
       '</div><p class="muted">Центральные материалы нельзя удалить: изменения автоматически применяются во всех курсах.</p></div>';
   }
   async function renderAdminKnowledge() {
