@@ -896,6 +896,16 @@ def _render_summary(row: KnowledgeDocumentRender | None) -> dict[str, Any]:
     return {"available": bool(row.payload) and row.status == "published", "status": row.status, "lastError": row.last_error, "renderedAt": _iso(row.rendered_at), "sourceRevisionId": row.source_revision_id}
 
 
+def _assigned_render_document(document_id: int, session: Session, identity: BitrixIdentity) -> KnowledgeDocument:
+    document = session.get(KnowledgeDocument, document_id)
+    if not document or not document.active:
+        raise HTTPException(404, "Документ не найден")
+    departments = {item.bitrix_department_id: item for item in session.exec(select(BitrixDepartment).where(BitrixDepartment.active == True)).all()}
+    if not _allows(document.article_assignments, identity, departments):
+        raise HTTPException(403, "Документ не назначен пользователю")
+    return document
+
+
 def _render_asset_dir() -> Path:
     path = Path(get_settings().document_render_media_dir).resolve()
     path.mkdir(parents=True, exist_ok=True)
@@ -957,22 +967,20 @@ def document_render_status(document_id: int, session: Annotated[Session, Depends
 
 @router.get("/documents/{document_id}/document-render")
 def get_document_render(document_id: int, session: Annotated[Session, Depends(get_session)], identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)]):
-    document = session.get(KnowledgeDocument, document_id)
-    if not document or not document.active: raise HTTPException(404, "Документ не найден")
-    departments = {item.bitrix_department_id: item for item in session.exec(select(BitrixDepartment).where(BitrixDepartment.active == True)).all()}
-    if not _allows(document.article_assignments, identity, departments): raise HTTPException(403, "Документ не назначен пользователю")
+    document = _assigned_render_document(document_id, session, identity)
     row = session.exec(select(KnowledgeDocumentRender).where(KnowledgeDocumentRender.document_id == document.id)).first()
     if not row or not row.payload or row.status != "published": raise HTTPException(404, "Рендер документа пока не опубликован")
     return {"documentId": document.id, "title": document.title, "render": row.payload, "status": _render_summary(row)}
 
 
 @router.get("/documents/{document_id}/document-render/assets/{revision_key}/{asset_name}")
-def get_document_render_asset(document_id: int, revision_key: str, asset_name: str):
+def get_document_render_asset(document_id: int, revision_key: str, asset_name: str, session: Annotated[Session, Depends(get_session)], identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)]):
+    _assigned_render_document(document_id, session, identity)
     if not re.fullmatch(r"[a-f0-9]{64}\.[a-z0-9]+", asset_name): raise HTTPException(404, "Ассет не найден")
     if not re.fullmatch(r"[a-f0-9]{16}", revision_key): raise HTTPException(404, "Ассет не найден")
     target = _render_asset_dir() / str(document_id) / f"revision-{revision_key}" / "assets" / asset_name
     if not target.is_file(): raise HTTPException(404, "Ассет не найден")
-    return FileResponse(target, media_type=mimetypes.guess_type(target.name)[0] or "application/octet-stream", headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    return FileResponse(target, media_type=mimetypes.guess_type(target.name)[0] or "application/octet-stream", headers={"Cache-Control": "private, max-age=3600"})
 
 
 @router.get("/documents/{document_id}/google-revisions")

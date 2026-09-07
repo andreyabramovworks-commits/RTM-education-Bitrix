@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./learner.css";
+import { clampReaderZoom, collectVisualRun, galleryLayout, imageAspect, isCaptionBlock, isImageBlock, isVisualTable, partsOfCell, tableCellStyle } from "./documentPresentation";
 import { VideoLibrary } from "./VideoLibrary";
 
 const NAV = [["learn", "Обучение"], ["kb", "База знаний"], ["videos", "Видеотека"], ["profile", "Профиль"]];
@@ -54,10 +55,13 @@ function DocumentComposer({ bridge, document, onBack }) {
   const [state, setState] = useState({ loading: true, data: null, error: "" });
   const [pageMode, setPageMode] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [zoom, setZoom] = useState(1);
   const readerRef = useRef(null);
   const readerViewportRef = useRef(null);
   const readerStageRef = useRef(null);
+  const pointersRef = useRef(new Map());
   const pinchRef = useRef(null);
+  const dragRef = useRef(null);
   const zoomRef = useRef(1);
   useEffect(() => { let alive = true; bridge.loadDocumentRender(document.id).then((data) => alive && setState({ loading: false, data, error: "" })).catch((error) => alive && setState({ loading: false, data: null, error: error?.message || "Не удалось открыть рендер" })); return () => { alive = false; }; }, [bridge, document.id]);
   const render = state.data?.render || {}, pages = render.pages || [];
@@ -77,6 +81,13 @@ function DocumentComposer({ bridge, document, onBack }) {
     stage.style.height = `${Math.ceil(reader.offsetHeight * nextZoom)}px`;
     stage.style.setProperty("--dc-reader-zoom", String(nextZoom));
   }, []);
+  const setReaderZoom = useCallback((value, publish = true) => {
+    const nextZoom = clampReaderZoom(value);
+    zoomRef.current = nextZoom;
+    applyReaderScale(nextZoom);
+    if (publish) setZoom(nextZoom);
+    return nextZoom;
+  }, [applyReaderScale]);
   useEffect(() => {
     const reader = readerRef.current;
     if (!reader || typeof ResizeObserver === "undefined") return undefined;
@@ -91,60 +102,91 @@ function DocumentComposer({ bridge, document, onBack }) {
     const viewport = readerViewportRef.current;
     const stage = readerStageRef.current;
     if (!viewport || !stage) return undefined;
-    const distance = (touches) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
-    const midpoint = (touches) => ({ x: (touches[0].clientX + touches[1].clientX) / 2, y: (touches[0].clientY + touches[1].clientY) / 2 });
-    const start = (event) => { if (event.touches.length !== 2) return; if (event.cancelable) event.preventDefault(); const point = midpoint(event.touches), box = stage.getBoundingClientRect(), currentZoom = zoomRef.current; pinchRef.current = { distance: distance(event.touches), zoom: currentZoom, contentX: (viewport.scrollLeft + point.x - box.left) / currentZoom, contentY: (viewport.scrollTop + point.y - box.top) / currentZoom }; };
-    const move = (event) => { const pinch = pinchRef.current; if (!pinch || event.touches.length !== 2) return; if (event.cancelable) event.preventDefault(); const nextZoom = Math.min(2.25, Math.max(1, pinch.zoom * distance(event.touches) / pinch.distance)); zoomRef.current = nextZoom; applyReaderScale(nextZoom); const point = midpoint(event.touches), box = stage.getBoundingClientRect(); viewport.scrollLeft = pinch.contentX * nextZoom - (point.x - box.left); viewport.scrollTop = pinch.contentY * nextZoom - (point.y - box.top); };
-    const end = (event) => { if (event.touches.length < 2) pinchRef.current = null; };
-    viewport.addEventListener("touchstart", start, { passive: false });
-    viewport.addEventListener("touchmove", move, { passive: false });
-    viewport.addEventListener("touchend", end, { passive: true });
-    viewport.addEventListener("touchcancel", end, { passive: true });
-    return () => { viewport.removeEventListener("touchstart", start); viewport.removeEventListener("touchmove", move); viewport.removeEventListener("touchend", end); viewport.removeEventListener("touchcancel", end); };
-  }, [applyReaderScale, state.loading]);
-  useEffect(() => { if (!readerRef.current || !pages.length) return; const observer = new IntersectionObserver((entries) => entries.forEach((entry) => { if (entry.isIntersecting) setCurrentPage(Number(entry.target.dataset.page)); }), { rootMargin: "-42% 0px -48% 0px", threshold: 0 }); readerRef.current.querySelectorAll("[data-page]").forEach((node) => observer.observe(node)); return () => observer.disconnect(); }, [pages.length, pageMode]);
+    const distance = ([first, second]) => Math.hypot(first.x - second.x, first.y - second.y);
+    const midpoint = ([first, second]) => ({ x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 });
+    const beginPinch = () => {
+      const pointers = [...pointersRef.current.values()];
+      if (pointers.length !== 2) return;
+      const point = midpoint(pointers), box = stage.getBoundingClientRect(), currentZoom = zoomRef.current;
+      pinchRef.current = { distance: distance(pointers), zoom: currentZoom, contentX: (viewport.scrollLeft + point.x - box.left) / currentZoom };
+      dragRef.current = null;
+    };
+    const start = (event) => {
+      if (event.pointerType !== "touch") return;
+      viewport.setPointerCapture?.(event.pointerId);
+      pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (pointersRef.current.size === 2) beginPinch();
+      if (pointersRef.current.size === 1) dragRef.current = { id: event.pointerId, x: event.clientX, y: event.clientY, axis: "" };
+    };
+    const move = (event) => {
+      const pointer = pointersRef.current.get(event.pointerId);
+      if (!pointer) return;
+      pointer.x = event.clientX; pointer.y = event.clientY;
+      if (pointersRef.current.size === 2 && pinchRef.current) {
+        if (event.cancelable) event.preventDefault();
+        const pinch = pinchRef.current, pointers = [...pointersRef.current.values()];
+        const nextZoom = setReaderZoom(pinch.zoom * distance(pointers) / pinch.distance, false);
+        const point = midpoint(pointers), box = stage.getBoundingClientRect();
+        viewport.scrollLeft = Math.max(0, pinch.contentX * nextZoom - (point.x - box.left));
+        return;
+      }
+      const drag = dragRef.current;
+      if (!drag || drag.id !== event.pointerId) return;
+      const dx = drag.x - event.clientX, dy = drag.y - event.clientY;
+      if (!drag.axis && Math.hypot(dx, dy) > 6) drag.axis = zoomRef.current > 1 && Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      if (drag.axis === "x") viewport.scrollLeft += dx;
+      if (drag.axis === "y") viewport.scrollTop += dy;
+      drag.x = event.clientX; drag.y = event.clientY;
+    };
+    const end = (event) => {
+      pointersRef.current.delete(event.pointerId);
+      if (pinchRef.current) setZoom(zoomRef.current);
+      pinchRef.current = null;
+      const remaining = [...pointersRef.current.entries()][0];
+      dragRef.current = remaining ? { id: remaining[0], ...remaining[1], axis: "" } : null;
+    };
+    viewport.addEventListener("pointerdown", start, { passive: false });
+    viewport.addEventListener("pointermove", move, { passive: false });
+    viewport.addEventListener("pointerup", end);
+    viewport.addEventListener("pointercancel", end);
+    return () => { viewport.removeEventListener("pointerdown", start); viewport.removeEventListener("pointermove", move); viewport.removeEventListener("pointerup", end); viewport.removeEventListener("pointercancel", end); pointersRef.current.clear(); };
+  }, [setReaderZoom, state.loading]);
+  useEffect(() => { if (!readerRef.current || !pages.length) return; const observer = new IntersectionObserver((entries) => entries.forEach((entry) => { if (entry.isIntersecting) setCurrentPage(Number(entry.target.dataset.page)); }), { root: readerViewportRef.current, rootMargin: "-42% 0px -48% 0px", threshold: 0 }); readerRef.current.querySelectorAll("[data-page]").forEach((node) => observer.observe(node)); return () => observer.disconnect(); }, [pages.length, pageMode]);
   const spanStyle = (style = {}, inheritSize = false) => ({ fontWeight: style.bold ? 700 : undefined, fontStyle: style.italic ? "italic" : undefined, textDecoration: [style.underline && "underline", style.strikethrough && "line-through"].filter(Boolean).join(" ") || undefined, color: style.color || undefined, fontFamily: style.fontFamily || undefined, fontSize: !inheritSize && style.fontSize ? `${style.fontSize}pt` : undefined });
   const blockStyle = (style = {}) => ({ textAlign: style.align === "center" ? "center" : style.align === "end" || style.align === "right" ? "right" : style.align === "justify" ? "justify" : undefined, marginTop: style.spaceAbove ? `${style.spaceAbove}pt` : undefined, marginBottom: style.spaceBelow ? `${style.spaceBelow}pt` : undefined, lineHeight: style.lineSpacing ? `${Number(style.lineSpacing) / 100}` : undefined, paddingInlineStart: style.indentStart ? `${style.indentStart}pt` : undefined, paddingInlineEnd: style.indentEnd ? `${style.indentEnd}pt` : undefined, textIndent: style.indentFirstLine ? `${style.indentFirstLine}pt` : undefined });
-  const image = (item, key, fitCell = false) => <figure className={`dc-visual-island ${item.placement?.source === "positioned" ? "is-normalized-positioned" : ""}`} key={key} style={{ "--dc-source-ratio": item.width && item.height ? item.width / item.height : undefined, maxWidth: fitCell ? "100%" : item.width ? `min(100%, ${item.width}pt)` : undefined }}>{item.assetUrl ? <img src={item.assetUrl} alt={item.alt || ""} /> : <span>Изображение недоступно</span>}</figure>;
+  const image = (item, key, fitCell = false) => <div className={`dc-visual-island ${item.placement?.source === "positioned" ? "is-normalized-positioned" : ""}`} key={key} style={{ "--dc-source-ratio": item.width && item.height ? item.width / item.height : undefined, maxWidth: fitCell ? "100%" : item.width ? `min(100%, ${item.width}pt)` : undefined }}>{item.assetUrl ? <img src={item.assetUrl} alt={item.alt || ""} /> : <span>Изображение недоступно</span>}</div>;
   const body = (item) => <>{(item.spans || []).map((span, index) => { const text = <span key={index} style={spanStyle(span.style, item.kind === "heading")}>{span.text}</span>; return span.style?.link ? <a key={index} href={span.style.link} target="_blank" rel="noreferrer">{text}</a> : text; })}</>;
-  const imageGallery = (pictures, key, fitCell = false) => <section className={`dc-gallery dc-gallery-${Math.min(pictures.length, 4)}`} key={key}>{pictures.map((picture, index) => image(picture, index, fitCell))}</section>;
+  const imageGallery = (pictures, key, fitCell = false) => <div className={`dc-gallery ${galleryLayout(pictures)}`} key={key}>{pictures.map((picture, index) => image(picture, index, fitCell))}</div>;
+  const visualFigure = (pictures, key, caption = null, fitCell = false) => <figure className="dc-figure-set" key={key}>{imageGallery(pictures, `${key}-gallery`, fitCell)}{caption ? <figcaption>{body(caption)}</figcaption> : null}</figure>;
   const single = (item, key, fitCell = false) => {
-    if (item.kind === "image") return image(item, key, fitCell);
-    if (item.kind === "image-group") return imageGallery(item.images, key, fitCell);
+    if (item.kind === "image") return visualFigure([item], key, null, fitCell);
+    if (item.kind === "image-group") return visualFigure(item.images, key, null, fitCell);
     if (item.kind === "table") {
-      const cells = (item.rows || []).flat();
-      const partsOf = (cell) => cell.items || cell;
-      const tableParts = cells.flatMap(partsOf);
-      const textOf = (part) => (part.spans || []).map((span) => span.text).join("").trim();
-      const isCenteredCaption = (part) => part.kind === "paragraph" && !part.list && part.style?.align === "center" && textOf(part).length > 0 && textOf(part).length <= 100;
-      const pictureOf = (part) => part.kind === "image" ? part : part.kind === "image-group" ? part.images?.[0] : part.images?.[0];
-      const aspectOf = (cell) => { const picture = partsOf(cell).map(pictureOf).find(Boolean); return picture?.width && picture?.height ? picture.width / picture.height : 0; };
-      const hasImage = tableParts.some((part) => part.kind === "image" || part.kind === "image-group" || part.images?.length);
-      const visual = hasImage && tableParts.every((part) => part.kind === "image" || part.kind === "image-group" || isCenteredCaption(part));
-      return <div className={`dc-table-wrap ${visual ? "is-visual-table" : ""} ${item.hasBorders ? "has-borders" : ""}`} key={key}><table><tbody>{(item.rows || []).map((row, rowIndex) => {
-        const totalAspect = row.reduce((total, cell) => total + aspectOf(cell), 0);
+      const visual = isVisualTable(item);
+      return <div className={`dc-table-wrap ${visual ? "is-visual-table" : ""}`} key={key}><table>{!visual && item.columnWidths?.length ? <colgroup>{item.columnWidths.map((width, index) => <col key={index} style={width ? { width: `${width}pt` } : undefined} />)}</colgroup> : null}<tbody>{(item.rows || []).map((row, rowIndex) => {
+        const totalAspect = row.reduce((total, cell) => total + imageAspect(partsOfCell(cell).find(isImageBlock)), 0);
         return <tr key={rowIndex}>{row.map((cell, cellIndex) => {
-          const aspect = aspectOf(cell);
-          return <td key={cellIndex} colSpan={cell.colSpan || undefined} rowSpan={cell.rowSpan || undefined} style={visual && aspect && totalAspect ? { width: `${(aspect / totalAspect) * 100}%` } : undefined}>{partsOf(cell).map((part, partIndex) => <React.Fragment key={partIndex}>{single(part, `cell-${rowIndex}-${cellIndex}-${partIndex}`, visual)}</React.Fragment>)}</td>;
+          const aspect = imageAspect(partsOfCell(cell).find(isImageBlock));
+          const width = visual && aspect && totalAspect ? `${(aspect / totalAspect) * 100}%` : "";
+          return <td key={cellIndex} colSpan={cell.colSpan || undefined} rowSpan={cell.rowSpan || undefined} style={tableCellStyle(cell, visual, width)}>{partsOfCell(cell).map((part, partIndex) => <React.Fragment key={partIndex}>{single(part, `cell-${rowIndex}-${cellIndex}-${partIndex}`, visual)}</React.Fragment>)}</td>;
         })}</tr>;
       })}</tbody></table></div>;
     }
     const Tag = item.kind === "heading" ? `h${Math.min(4, Math.max(1, item.level || 2))}` : "p";
     const pictures = item.images || [];
+    if (pictures.length && isCaptionBlock(item)) return visualFigure(pictures, key, item, fitCell);
     return <React.Fragment key={key}>{pictures.length ? imageGallery(pictures, `${key}-images`, fitCell) : null}{item.spans?.length ? <Tag style={blockStyle(item.style)}>{body(item)}</Tag> : null}</React.Fragment>;
   };
   const blocks = (items) => {
     const result = [], list = [];
-    const textOf = (item) => (item.spans || []).map((span) => span.text).join("").trim();
-    const isCaption = (item) => item?.kind === "paragraph" && !item.list && item.style?.align === "center" && textOf(item).length > 0 && textOf(item).length <= 100;
     const flush = () => { if (!list.length) return; const first = list[0].list, Tag = first.type === "ordered" ? "ol" : "ul"; result.push(<Tag className={`dc-list dc-list-${first.type} dc-list-level-${first.level || 0}`} start={first.type === "ordered" ? first.start : undefined} key={`list-${result.length}`}>{list.map((item, index) => <li key={index}>{single({ ...item, list: undefined, style: { ...item.style, indentStart: undefined, indentEnd: undefined, indentFirstLine: undefined } }, `list-item-${index}`)}</li>)}</Tag>); list.length = 0; };
     for (let index = 0; index < items.length; index += 1) {
       const item = items[index];
       if (item.region === "header" || item.region === "closing") { flush(); const region = item.region, grouped = [item]; while (items[index + 1]?.region === region) grouped.push(items[++index]); result.push(<section className={`dc-document-${region}`} key={`${region}-${index}`}>{grouped.map((block, blockIndex) => single(block, blockIndex))}</section>); continue; }
-      if (item.kind === "image" || item.kind === "image-group") {
-        flush(); const gallery = item.kind === "image-group" ? item.images : [item]; const caption = isCaption(items[index + 1]) ? items[++index] : null;
-        result.push(imageGallery(gallery, `gallery-${index}`));
-        if (caption) result.push(<div className="dc-gallery-caption" key={`caption-${index}`}>{body(caption)}</div>);
+      if (isImageBlock(item)) {
+        flush(); const run = collectVisualRun(items, index);
+        index = run.nextIndex - 1;
+        result.push(visualFigure(run.gallery, `gallery-${index}`, run.caption));
         continue;
       }
       if (item.list) { const previous = list[list.length - 1]; if (previous && (previous.list.id !== item.list.id || previous.list.level !== item.list.level)) flush(); list.push(item); } else { flush(); result.push(single(item, index)); }
@@ -153,7 +195,7 @@ function DocumentComposer({ bridge, document, onBack }) {
   };
   if (state.loading) return <main className="dc-shell"><section className="dc-loading" role="status">Открываем документ…</section></main>;
   if (state.error) return <main className="dc-shell"><section className="dc-loading" role="alert"><b>Рендер пока недоступен</b><span>{state.error}</span></section><button className="dc-mobile-back" onClick={onBack}><Icon name="back" />Назад</button></main>;
-  return <main className={`dc-shell ${pageMode ? "is-page-mode" : ""}`}><header className="dc-topbar"><div><small>База знаний</small><strong>{state.data.title}</strong></div><button className="dc-mode-toggle" aria-label={pageMode ? "Перейти к непрерывному чтению" : "Показать страницы"} title={pageMode ? "Непрерывное чтение" : "Показать страницы"} aria-pressed={pageMode} onClick={() => setPageMode((value) => !value)}><Icon name="pages" /></button></header><div className="dc-page-progress" aria-live="polite">{currentPage} / {pages.length}</div><div className="dc-reader-viewport" ref={readerViewportRef}><div className="dc-reader-stage" ref={readerStageRef}><div className="dc-reader" ref={readerRef}>{pages.map((page) => <article className="dc-page" data-page={page.number} key={page.number}>{blocks(page.blocks || [])}<div className="dc-page-corner">{page.number}</div></article>)}</div></div></div><button className="dc-mobile-back" onClick={onBack}><Icon name="back" />Назад</button></main>;
+  return <main className={`dc-shell ${pageMode ? "is-page-mode" : ""}`}><header className="dc-topbar"><div className="dc-topbar-copy"><small>База знаний</small><strong>{state.data.title}</strong></div><div className="dc-topbar-actions"><div className="dc-zoom-controls" aria-label="Масштаб документа"><button type="button" aria-label="Уменьшить масштаб" disabled={zoom <= 1} onClick={() => setReaderZoom(zoomRef.current - 0.25)}>−</button><output>{Math.round(zoom * 100)}%</output><button type="button" aria-label="Увеличить масштаб" disabled={zoom >= 2.25} onClick={() => setReaderZoom(zoomRef.current + 0.25)}>+</button></div><button className="dc-mode-toggle" aria-label={pageMode ? "Перейти к непрерывному чтению" : "Показать страницы"} title={pageMode ? "Непрерывное чтение" : "Показать страницы"} aria-pressed={pageMode} onClick={() => setPageMode((value) => !value)}><Icon name="pages" /></button></div></header><div className="dc-page-progress" aria-live="polite">{currentPage} / {pages.length}</div><div className="dc-reader-viewport" ref={readerViewportRef} tabIndex={0} aria-label="Содержимое документа"><div className="dc-reader-stage" ref={readerStageRef}><div className="dc-reader" ref={readerRef}>{pages.map((page) => <article className="dc-page" data-page={page.number} key={page.number}>{blocks(page.blocks || [])}<div className="dc-page-corner">{page.number}</div></article>)}</div></div></div><button className="dc-mobile-back" onClick={onBack}><Icon name="back" />Назад</button></main>;
 }
 
 function MaterialSurface({ active, bridge, material, course, onBack }) {

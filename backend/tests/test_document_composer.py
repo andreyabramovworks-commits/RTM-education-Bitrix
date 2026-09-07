@@ -11,6 +11,7 @@ def test_composer_preserves_text_styles_links_tables_and_comments():
         ]},
     }
     payload, text = compose(source, [{"id": "comment-1", "content": "Проверить схему", "quotedFileContent": {"value": "Ригеля"}, "author": {"displayName": "Анна"}}])
+    assert payload["version"] == 3
     assert payload["pages"][0]["blocks"][0]["kind"] == "heading"
     assert payload["pages"][0]["blocks"][1]["spans"][1]["style"]["link"] == "https://example.com"
     assert payload["pages"][0]["blocks"][2]["kind"] == "table"
@@ -73,11 +74,17 @@ def test_composer_keeps_independent_lists_typography_and_removes_control_charact
 
 
 def test_composer_preserves_table_cell_spans_and_borders():
-    source = {"body": {"content": [{"table": {"tableRows": [{"tableCells": [{"tableCellStyle": {"columnSpan": 3, "borderTop": {"width": {"magnitude": 1, "unit": "PT"}}}, "content": [{"paragraph": {"elements": [{"textRun": {"content": "Подпись\n", "textStyle": {}}}]}}]}]}]}}]}}
+    source = {"body": {"content": [{"table": {"tableRows": [{"tableCells": [{"tableCellStyle": {"columnSpan": 3, "contentAlignment": "MIDDLE", "paddingLeft": {"magnitude": 6, "unit": "PT"}, "backgroundColor": {"color": {"rgbColor": {"red": 1, "green": 0.8, "blue": 0}}}, "borderTop": {"width": {"magnitude": 1, "unit": "PT"}, "dashStyle": "DASH", "color": {"color": {"rgbColor": {"red": 0.2, "green": 0.3, "blue": 0.4}}}}, "borderRight": {"width": {"magnitude": 2, "unit": "PT"}}}, "content": [{"paragraph": {"elements": [{"textRun": {"content": "Подпись\n", "textStyle": {}}}]}}]}]}]}}]}}
     payload, _ = compose(source, [])
     table = payload["pages"][0]["blocks"][0]
     assert table["hasBorders"] is True
     assert table["rows"][0][0]["colSpan"] == 3
+    style = table["rows"][0][0]["style"]
+    assert style["contentAlignment"] == "MIDDLE"
+    assert style["paddingLeft"] == 6.0
+    assert style["backgroundColor"] == "#ffcc00"
+    assert style["borders"]["top"] == {"width": 1.0, "color": "#334c66", "dash": "DASH"}
+    assert style["borders"]["right"]["width"] == 2.0
 
 
 def test_composer_keeps_document_framing_outside_recomposed_article_body():

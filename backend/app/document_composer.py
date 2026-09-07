@@ -30,6 +30,34 @@ def _paragraph_style(value: dict[str, Any]) -> dict[str, Any]:
     return {key: item for key, item in {"align": str(value.get("alignment") or "").lower(), "spaceAbove": _points(value.get("spaceAbove")), "spaceBelow": _points(value.get("spaceBelow")), "lineSpacing": value.get("lineSpacing"), "indentStart": _points(value.get("indentStart")), "indentEnd": _points(value.get("indentEnd")), "indentFirstLine": _points(value.get("indentFirstLine"))}.items() if item not in ("", None)}
 
 
+def _color(value: dict[str, Any] | None) -> str:
+    color = (value or {}).get("color") or {}
+    rgb = (color.get("rgbColor") or (color.get("color") or {}).get("rgbColor") or {})
+    return "#%02x%02x%02x" % tuple(round(float(rgb.get(part, 0)) * 255) for part in ("red", "green", "blue")) if rgb else ""
+
+
+def _border(value: dict[str, Any] | None) -> dict[str, Any]:
+    value = value or {}
+    width = _points(value.get("width"))
+    return {key: item for key, item in {"width": width, "color": _color(value), "dash": str(value.get("dashStyle") or "")}.items() if item not in ("", None, 0)}
+
+
+def _table_cell_style(value: dict[str, Any]) -> dict[str, Any]:
+    borders = {
+        side: _border(value.get(source))
+        for side, source in (("top", "borderTop"), ("right", "borderRight"), ("bottom", "borderBottom"), ("left", "borderLeft"))
+    }
+    return {key: item for key, item in {
+        "borders": {side: border for side, border in borders.items() if border},
+        "backgroundColor": _color(value.get("backgroundColor")),
+        "contentAlignment": str(value.get("contentAlignment") or ""),
+        "paddingTop": _points(value.get("paddingTop")),
+        "paddingRight": _points(value.get("paddingRight")),
+        "paddingBottom": _points(value.get("paddingBottom")),
+        "paddingLeft": _points(value.get("paddingLeft")),
+    }.items() if item not in ("", None, {})}
+
+
 def _image(embedded: dict[str, Any], placement: dict[str, Any] | None = None) -> dict[str, Any] | None:
     image = embedded.get("imageProperties") or {}
     if not image.get("contentUri"):
@@ -99,9 +127,11 @@ def _table(table: dict[str, Any], inline: dict[str, Any], positioned: dict[str, 
             borders = (style.get(name) or {} for name in ("borderTop", "borderBottom", "borderLeft", "borderRight"))
             has_borders = has_borders or any((_points(border.get("width")) or 0) > 0 for border in borders)
             items = [item for item in (_paragraph(element, inline, positioned, lists) for element in cell.get("content") or []) if item]
-            cells.append({"items": items, "colSpan": max(1, int(style.get("columnSpan") or 1)), "rowSpan": max(1, int(style.get("rowSpan") or 1))})
+            cells.append({"items": items, "colSpan": max(1, int(style.get("columnSpan") or 1)), "rowSpan": max(1, int(style.get("rowSpan") or 1)), "style": _table_cell_style(style)})
         rows.append(cells)
-    return {"kind": "table", "rows": rows, "hasBorders": has_borders}
+    table_style = table.get("tableStyle") or {}
+    columns = [_points(item.get("width")) for item in table_style.get("tableColumnProperties") or []]
+    return {"kind": "table", "rows": rows, "hasBorders": has_borders, "columnWidths": columns}
 
 
 def _split_pages(blocks: list[dict[str, Any]], page_breaks: set[int]) -> list[list[dict[str, Any]]]:
@@ -167,7 +197,7 @@ def compose(document: dict[str, Any], comments: list[dict[str, Any]]) -> tuple[d
     _apply_editorial_roles(blocks)
     pages = _split_pages(blocks, page_breaks)
     safe_comments = [{"id": str(item.get("id") or ""), "content": _clean_text(item.get("content")), "quotedText": _clean_text((item.get("quotedFileContent") or {}).get("value")), "author": str((item.get("author") or {}).get("displayName") or ""), "createdAt": str(item.get("createdTime") or ""), "resolved": bool(item.get("resolved")), "replies": [{"id": str(reply.get("id") or ""), "content": _clean_text(reply.get("content")), "author": str((reply.get("author") or {}).get("displayName") or ""), "createdAt": str(reply.get("createdTime") or "")} for reply in item.get("replies") or [] if not reply.get("deleted")]} for item in comments if not item.get("deleted")]
-    payload = {"version": 2, "title": str(document.get("title") or "Документ"), "pages": [{"number": index + 1, "blocks": page} for index, page in enumerate(pages)], "comments": safe_comments}
+    payload = {"version": 3, "title": str(document.get("title") or "Документ"), "pages": [{"number": index + 1, "blocks": page} for index, page in enumerate(pages)], "comments": safe_comments}
     text = re.sub(r"\s+", " ", " ".join(span.get("text", "") for block in blocks for span in block.get("spans", []))).strip()
     payload["contentHash"] = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
     return payload, text
