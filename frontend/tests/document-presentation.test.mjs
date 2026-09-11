@@ -22,6 +22,13 @@ test("instruction paragraphs remain body text, not captions", () => {
   assert.equal(blocks.length, 2);
   assert.equal(blocks[1].spans[0].text, instruction.spans[0].text);
 });
+test("cached payloads recover their title page when the title was plain text", () => {
+  const pages = prepareDocumentPages({ title: "Базовое обучение", pages: [{ blocks: [{ kind: "image" }, paragraph("ОБУЧЕНИЕ"), paragraph("Базовое обучение"), paragraph("Цель документа:")] }] });
+  assert.equal(pages[0].blocks[0].region, "header");
+  assert.equal(pages[0].blocks[1].region, "header");
+  assert.equal(pages[0].blocks[2].kind, "heading");
+  assert.equal(pages[0].blocks[2].level, 1);
+});
 
 test("reader zoom stays inside the promised 100–225% range", () => {
   assert.equal(clampReaderZoom(0.25), 1);

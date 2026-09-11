@@ -29,7 +29,14 @@ export const sortPictures = (pictures = []) => {
 };
 
 export const prepareDocumentPages = (render = {}) => {
-  const source = (render.pages || []).flatMap((page) => page.blocks || []);
+  const source = (render.pages || []).flatMap((page) => page.blocks || []).map((block) => ({ ...block }));
+  // Repair payloads created before the composer learned that a Google Docs
+  // title can be NORMAL_TEXT. This keeps cached renders visually compatible.
+  const titleIndex = source.findIndex((block) => render.title && textOfBlock(block).localeCompare(render.title, "ru", { sensitivity: "base" }) === 0);
+  if (titleIndex > 0 && titleIndex <= 10) {
+    for (let index = 0; index < titleIndex; index += 1) source[index].region ||= "header";
+    source[titleIndex] = { ...source[titleIndex], kind: "heading", level: 1 };
+  }
   const expanded = source.flatMap((block) => {
     if (!isImageBlock(block) && block.images?.length && !block.region) {
       const { images, ...copy } = block;
