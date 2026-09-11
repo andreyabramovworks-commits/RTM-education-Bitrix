@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./learner.css";
-import { clampReaderZoom, collectVisualRun, galleryLayout, imageAspect, isCaptionBlock, isImageBlock, isVisualTable, partsOfCell, tableCellStyle } from "./documentPresentation";
+import { clampReaderZoom, collectVisualRun, galleryLayout, imageAspect, isCaptionBlock, isImageBlock, isVisualTable, partsOfCell, tableCellStyle, prepareDocumentPages } from "./documentPresentation";
+import { DocumentImage } from "./DocumentImage";
 import { VideoLibrary } from "./VideoLibrary";
 
 const NAV = [["learn", "Обучение"], ["kb", "База знаний"], ["videos", "Видеотека"], ["profile", "Профиль"]];
@@ -51,7 +52,7 @@ function ResourceState({ state, retry, emptyTitle = "Данных пока не�
   return children(state.data);
 }
 
-function DocumentComposer({ bridge, document, onBack }) {
+export function DocumentComposer({ bridge, document, onBack }) {
   const [state, setState] = useState({ loading: true, data: null, error: "" });
   const [pageMode, setPageMode] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -64,7 +65,7 @@ function DocumentComposer({ bridge, document, onBack }) {
   const dragRef = useRef(null);
   const zoomRef = useRef(1);
   useEffect(() => { let alive = true; bridge.loadDocumentRender(document.id).then((data) => alive && setState({ loading: false, data, error: "" })).catch((error) => alive && setState({ loading: false, data: null, error: error?.message || "Не удалось открыть рендер" })); return () => { alive = false; }; }, [bridge, document.id]);
-  const render = state.data?.render || {}, pages = render.pages || [];
+  const pages = useMemo(() => prepareDocumentPages(state.data?.render), [state.data]);
   const applyReaderScale = useCallback((nextZoom) => {
     const reader = readerRef.current;
     const stage = readerStageRef.current;
@@ -152,13 +153,17 @@ function DocumentComposer({ bridge, document, onBack }) {
     return () => { viewport.removeEventListener("pointerdown", start); viewport.removeEventListener("pointermove", move); viewport.removeEventListener("pointerup", end); viewport.removeEventListener("pointercancel", end); pointersRef.current.clear(); };
   }, [setReaderZoom, state.loading]);
   useEffect(() => { if (!readerRef.current || !pages.length) return; const observer = new IntersectionObserver((entries) => entries.forEach((entry) => { if (entry.isIntersecting) setCurrentPage(Number(entry.target.dataset.page)); }), { root: readerViewportRef.current, rootMargin: "-42% 0px -48% 0px", threshold: 0 }); readerRef.current.querySelectorAll("[data-page]").forEach((node) => observer.observe(node)); return () => observer.disconnect(); }, [pages.length, pageMode]);
-  const spanStyle = (style = {}, inheritSize = false) => ({ fontWeight: style.bold ? 700 : undefined, fontStyle: style.italic ? "italic" : undefined, textDecoration: [style.underline && "underline", style.strikethrough && "line-through"].filter(Boolean).join(" ") || undefined, color: style.color || undefined, fontFamily: style.fontFamily || undefined, fontSize: !inheritSize && style.fontSize ? `${style.fontSize}pt` : undefined });
-  const blockStyle = (style = {}) => ({ textAlign: style.align === "center" ? "center" : style.align === "end" || style.align === "right" ? "right" : style.align === "justify" ? "justify" : undefined, marginTop: style.spaceAbove ? `${style.spaceAbove}pt` : undefined, marginBottom: style.spaceBelow ? `${style.spaceBelow}pt` : undefined, lineHeight: style.lineSpacing ? `${Number(style.lineSpacing) / 100}` : undefined, paddingInlineStart: style.indentStart ? `${style.indentStart}pt` : undefined, paddingInlineEnd: style.indentEnd ? `${style.indentEnd}pt` : undefined, textIndent: style.indentFirstLine ? `${style.indentFirstLine}pt` : undefined });
-  const image = (item, key, fitCell = false) => <div className={`dc-visual-island ${item.placement?.source === "positioned" ? "is-normalized-positioned" : ""}`} key={key} style={{ "--dc-source-ratio": item.width && item.height ? item.width / item.height : undefined, maxWidth: fitCell ? "100%" : item.width ? `min(100%, ${item.width}pt)` : undefined }}>{item.assetUrl ? <img src={item.assetUrl} alt={item.alt || ""} /> : <span>Изображение недоступно</span>}</div>;
+  const spanStyle = (style = {}) => ({ fontWeight: style.bold ? 700 : undefined, fontStyle: style.italic ? "italic" : undefined, textDecoration: [style.underline && "underline", style.strikethrough && "line-through"].filter(Boolean).join(" ") || undefined });
+  const blockStyle = (style = {}) => ({ textAlign: style.align === "center" ? "center" : undefined });
+  const image = (item, key) => <div className="dc-visual-island" key={key}><DocumentImage item={item} bridge={bridge} /></div>;
   const body = (item) => <>{(item.spans || []).map((span, index) => { const text = <span key={index} style={spanStyle(span.style, item.kind === "heading")}>{span.text}</span>; return span.style?.link ? <a key={index} href={span.style.link} target="_blank" rel="noreferrer">{text}</a> : text; })}</>;
   const imageGallery = (pictures, key, fitCell = false) => <div className={`dc-gallery ${galleryLayout(pictures)}`} key={key}>{pictures.map((picture, index) => image(picture, index, fitCell))}</div>;
   const visualFigure = (pictures, key, caption = null, fitCell = false) => <figure className="dc-figure-set" key={key}>{imageGallery(pictures, `${key}-gallery`, fitCell)}{caption ? <figcaption>{body(caption)}</figcaption> : null}</figure>;
   const single = (item, key, fitCell = false) => {
+    if (item.kind === "figure") {
+      if (!item.captions?.length) return visualFigure(item.images, key, item.caption, fitCell);
+      return <div className={`dc-gallery dc-labeled-gallery ${galleryLayout(item.images)}`} key={key}>{item.images.map((picture, index) => <figure className="dc-figure-set" key={index}>{image(picture, index)}<figcaption>{body(item.captions[index])}</figcaption></figure>)}</div>;
+    }
     if (item.kind === "image") return visualFigure([item], key, null, fitCell);
     if (item.kind === "image-group") return visualFigure(item.images, key, null, fitCell);
     if (item.kind === "table") {
@@ -175,7 +180,7 @@ function DocumentComposer({ bridge, document, onBack }) {
     const Tag = item.kind === "heading" ? `h${Math.min(4, Math.max(1, item.level || 2))}` : "p";
     const pictures = item.images || [];
     if (pictures.length && isCaptionBlock(item)) return visualFigure(pictures, key, item, fitCell);
-    return <React.Fragment key={key}>{pictures.length ? imageGallery(pictures, `${key}-images`, fitCell) : null}{item.spans?.length ? <Tag style={blockStyle(item.style)}>{body(item)}</Tag> : null}</React.Fragment>;
+    return <React.Fragment key={key}>{item.spans?.length ? <Tag style={blockStyle(item.style)}>{body(item)}</Tag> : null}{pictures.length ? imageGallery(pictures, `${key}-images`, fitCell) : null}</React.Fragment>;
   };
   const blocks = (items) => {
     const result = [], list = [];

@@ -56,7 +56,9 @@
       headers['X-Bitrix-Domain'] = auth.domain;
     }
     options.headers = Object.assign({}, options.headers || {}, headers);
-    var response = await fetch(path, options);
+    var fetchOptions = Object.assign({}, options);
+    delete fetchOptions.responseType;
+    var response = await fetch(path, fetchOptions);
     if (window.rtmCapture) window.rtmCapture('rtm_api_request', {
       method: String(options.method || 'GET').toUpperCase(),
       status: response.status,
@@ -78,7 +80,7 @@
       throw apiError;
     }
     if (response.status === 204) return null;
-    return response.json();
+    return options.responseType === 'blob' ? response.blob() : response.json();
   }
 
   async function bitrixRows(method, params) {

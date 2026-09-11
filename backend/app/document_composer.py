@@ -104,6 +104,8 @@ def _paragraph(element: dict[str, Any], inline: dict[str, Any], positioned: dict
     for object_id in paragraph.get("positionedObjectIds") or []:
         if image := _positioned_image(positioned.get(object_id) or {}, str(object_id)):
             images.append(image)
+    if not any(part["text"].strip() for part in parts):
+        parts = []
     if images and not parts:
         return images[0] if len(images) == 1 else {"kind": "image-group", "images": images}
     if not parts:
@@ -150,9 +152,11 @@ def _block_text(block: dict[str, Any]) -> str:
 def _mark_document_regions(blocks: list[dict[str, Any]], document_title: str) -> None:
     """Keep the document's framing intact while the article body is re-composed."""
     title = _clean_text(document_title).casefold()
-    first_heading = next((index for index, block in enumerate(blocks) if block.get("kind") == "heading" and len(_block_text(block)) > 20), None)
-    if first_heading is None and title:
-        first_heading = next((index for index, block in enumerate(blocks) if title in _block_text(block)), None)
+    first_heading = next((index for index, block in enumerate(blocks) if title and title == _block_text(block)), None)
+    if first_heading is not None:
+        blocks[first_heading].update(kind="heading", level=1)
+    else:
+        first_heading = next((index for index, block in enumerate(blocks) if block.get("kind") == "heading" and len(_block_text(block)) > 20), None)
     if first_heading is not None and first_heading <= 10:
         for block in blocks[:first_heading]:
             block.setdefault("region", "header")

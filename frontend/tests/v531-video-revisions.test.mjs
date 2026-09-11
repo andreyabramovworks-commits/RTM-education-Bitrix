@@ -111,7 +111,8 @@ test("Document Composer keeps one mobile return action and uses semantic page co
   assert.match(learnerCss, /dc-table-wrap\.is-visual-table \.dc-gallery \.dc-visual-island img/);
   assert.match(learnerApp, /colSpan=\{cell\.colSpan/);
   assert.match(learnerApp, /const visual = isVisualTable\(item\)/);
-  assert.match(learnerApp, /is-normalized-positioned/);
+  assert.match(learnerApp, /prepareDocumentPages/);
+  assert.match(learnerApp, /DocumentImage/);
   assert.match(learnerApp, /viewport\.scrollLeft = Math\.max/);
   assert.doesNotMatch(learnerApp, /viewport\.scrollTop = pinch/);
   assert.match(learnerApp, /spanStyle\(span\.style, item\.kind === "heading"\)/);

@@ -1,6 +1,27 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clampReaderZoom, collectVisualRun, galleryLayout, isCaptionBlock, isVisualTable, tableCellStyle } from "../src/documentPresentation.js";
+import { clampReaderZoom, collectVisualRun, galleryLayout, isCaptionBlock, isVisualTable, tableCellStyle, prepareDocumentPages } from "../src/documentPresentation.js";
+
+const paragraph = (text, extra = {}) => ({ kind: "paragraph", spans: [{ text }], ...extra });
+test("editorial composition keeps instructions before media and pairs tab labels in visual order across pages", () => {
+  const pictures = [2, 0, 1].map((left) => ({ kind: "image", assetUrl: String(left), placement: { source: "positioned", left: left * 180, top: 16 } }));
+  const pages = prepareDocumentPages({ pages: [{ blocks: [paragraph("Подготовьте фермы:", { images: pictures })] }, { blocks: [paragraph("Т39\t\tТ67\tТ100")] }] });
+  const blocks = pages.flatMap((page) => page.blocks);
+  assert.equal(blocks[0].spans[0].text, "Подготовьте фермы:");
+  assert.deepEqual(blocks[1].images.map((image) => image.assetUrl), ["0", "1", "2"]);
+  assert.deepEqual(blocks[1].captions.map((caption) => caption.spans[0].text), ["Т39", "Т67", "Т100"]);
+});
+test("unrelated adjacent images are not automatically one gallery", () => {
+  const pages = prepareDocumentPages({ pages: [{ blocks: [{ kind: "image", assetUrl: "joint" }, { kind: "image", assetUrl: "connector" }, paragraph("Коннектор С2-80")] }] });
+  assert.equal(pages[0].blocks.length, 2);
+  assert.equal(pages[0].blocks[1].caption.spans[0].text, "Коннектор С2-80");
+});
+test("instruction paragraphs remain body text, not captions", () => {
+  const instruction = paragraph("Перед установкой проверьте диаметр трубы и хомута.");
+  const blocks = prepareDocumentPages({ pages: [{ blocks: [{ kind: "image" }, instruction] }] })[0].blocks;
+  assert.equal(blocks.length, 2);
+  assert.equal(blocks[1].spans[0].text, instruction.spans[0].text);
+});
 
 test("reader zoom stays inside the promised 100–225% range", () => {
   assert.equal(clampReaderZoom(0.25), 1);

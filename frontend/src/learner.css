@@ -964,9 +964,26 @@ body.rtm-material-loading::after {
 .dc-page p { max-width:68ch; margin:0 0 15px; }.dc-page a { color:#536a2c; text-decoration-thickness:1px; }
 .dc-list { margin:0 0 1.25em; padding-left:24px; }.dc-list li { padding-left:2px; }.dc-list li::marker { color:#657544; font-weight:800; }.dc-list li>p { margin:0 0 9px; }.dc-list-level-1 { margin-left:10px; }.dc-list-level-2 { margin-left:18px; }
 .dc-figure-set { clear:both; max-width:100%; margin:28px auto; }.dc-figure-set figcaption { max-width:700px; margin:10px auto 0; color:#585a51; font-size:13px; line-height:1.4; text-align:center; }
-.dc-visual-island { box-sizing:border-box; width:fit-content; max-width:100%; margin:0 auto; color:#66695f; text-align:center; }.dc-visual-island img { display:block; width:auto; max-width:100%; height:auto; max-height:640px; margin-inline:auto; object-fit:contain; }.dc-visual-island.is-normalized-positioned { float:none; }
+.dc-visual-island { box-sizing:border-box; width:fit-content; max-width:100%; margin:0 auto; color:#66695f; text-align:center; }.dc-visual-island img { display:block; width:auto; max-width:100%; height:auto; max-height:640px; margin-inline:auto; object-fit:contain; }
 .dc-gallery { display:grid; width:min(100%,700px); margin:0 auto; gap:14px; }.dc-gallery-1 { grid-template-columns:minmax(0,1fr); max-width:620px; }.dc-gallery-2 { grid-template-columns:repeat(2,minmax(0,1fr)); }.dc-gallery-3 { grid-template-columns:repeat(3,minmax(0,1fr)); }.dc-gallery-4 { grid-template-columns:repeat(2,minmax(0,1fr)); }.dc-gallery-feature-pair,.dc-gallery-pair-detail { grid-template-columns:repeat(2,minmax(0,1fr)); }.dc-gallery-feature-pair>:first-child { grid-column:1/-1; }.dc-gallery-pair-detail>:last-child { grid-column:1/-1; width:50%; }
 .dc-gallery .dc-visual-island { display:grid; width:100%; min-width:0; place-items:start center; }.dc-gallery .dc-visual-island img { max-height:min(420px,48vw); }.dc-gallery-1 .dc-visual-island img { max-height:520px; }
+.dc-image-content { display:grid; width:100%; min-width:0; place-items:center; }
+.dc-image-content.is-pending { aspect-ratio:var(--dc-image-ratio,1.5); max-height:420px; min-height:100px; background:#f3f3ef; border-radius:8px; }
+.dc-image-content img { max-width:100%; height:auto; object-fit:contain; }
+.dc-image-error { display:grid; gap:12px; padding:24px; color:#686a61; font-size:13px; }
+.dc-image-error button { min-height:44px; border:1px solid #c7cbbd; border-radius:8px; background:#fffefb; color:#36472b; cursor:pointer; }
+.dc-labeled-gallery { margin:28px auto; align-items:start; }
+.dc-labeled-gallery>.dc-figure-set { width:100%; min-width:0; margin:0; }
+.dc-labeled-gallery .dc-image-content { height:240px; }
+.dc-labeled-gallery .dc-image-content img { max-height:240px; }
+.dc-page p,.dc-figure-set figcaption { overflow-wrap:anywhere; }
+@media (max-width:640px) {
+  .dc-gallery-4 { grid-template-columns:1fr; }
+  .dc-labeled-gallery .dc-image-content { height:auto; min-height:0; }
+  .dc-labeled-gallery .dc-image-content img { max-height:340px; }
+  .dc-table-wrap.is-visual-table table,.dc-table-wrap.is-visual-table tbody,.dc-table-wrap.is-visual-table tr { display:block; }
+  .dc-table-wrap.is-visual-table td { display:block; width:100% !important; box-sizing:border-box; }
+}
 .dc-table-wrap { margin:26px 0; overflow-x:auto; -webkit-overflow-scrolling:touch; }.dc-table-wrap table { width:100%; min-width:600px; border-collapse:collapse; }.dc-table-wrap td { min-width:118px; padding:11px 12px; vertical-align:top; overflow-wrap:break-word; word-break:normal; }.dc-table-wrap td:empty { min-width:42px; }
 .dc-table-wrap.is-visual-table { max-width:700px; margin:28px auto; overflow:visible; }.dc-table-wrap.is-visual-table table { min-width:0; table-layout:auto; }.dc-table-wrap.is-visual-table td { min-width:0; padding:8px 7px; text-align:center; }.dc-table-wrap.is-visual-table .dc-figure-set { margin:0; }.dc-table-wrap.is-visual-table .dc-gallery { gap:8px; }.dc-table-wrap.is-visual-table .dc-gallery .dc-visual-island img { max-height:min(300px,32vw); }.dc-table-wrap.is-visual-table p { margin:8px 0 12px; color:#585a51; font-size:13px; line-height:1.4; text-align:center; }
 .dc-shell.is-page-mode .dc-page { min-height:min(980px,calc(100dvh - 120px)); margin-bottom:36px; border:1px solid #e8e5dc; box-shadow:0 8px 30px rgb(45 45 35 / 9%); }.dc-shell.is-page-mode .dc-page-corner { position:absolute; right:24px; bottom:20px; display:block; color:#748052; font-size:12px; font-weight:700; }.dc-page-corner { display:none; }

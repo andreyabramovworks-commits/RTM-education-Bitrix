@@ -890,7 +890,11 @@ def _google_document_snapshot(token: str, file_id: str) -> tuple[dict[str, Any],
         modified_at = datetime.fromisoformat(str(meta.get("modifiedTime") or "").replace("Z", "+00:00")) or None
     except ValueError:
         modified_at = None
-    return response.json(), str(meta.get("headRevisionId") or ""), modified_at, comments
+    # Native Google Docs do not always expose headRevisionId. modifiedTime is
+    # still a stable revision discriminator and prevents unrelated snapshots
+    # from sharing the empty-hash asset directory.
+    revision_id = str(meta.get("headRevisionId") or meta.get("modifiedTime") or "")
+    return response.json(), revision_id, modified_at, comments
 
 
 def _render_summary(row: KnowledgeDocumentRender | None) -> dict[str, Any]:
