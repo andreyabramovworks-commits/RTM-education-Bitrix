@@ -29,3 +29,4 @@
 .adm-workspace .v51-checks label b,.adm-workspace .v51-checks label small{display:block}
 @media(hover:hover) and (pointer:fine){.adm-workspace button:hover,.adm-top-actions button:hover,.adm-sidebar nav button:hover{transform:translateY(-1px)}}
 .adm-route-error{position:sticky;top:0;z-index:40;margin:0 0 16px;padding:12px 14px;border:1px solid #fecaca;border-radius:12px;background:#fff1f2;color:#b91c1c;font-weight:700}
+.adm-workspace:is([data-admin-route="dashboard"],[data-admin-route="events"],[data-admin-route="users"],[data-admin-route="videos"],[data-admin-route="settings"],[data-admin-route="analytics"])>.admin-main{display:none}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import {
   LEGACY_SCRIPTS,
   LEGACY_STYLES,
@@ -7,8 +7,9 @@ import {
   RELEASE_VERSION,
   releaseAsset,
 } from "./legacyRuntime";
-import { LearnerApp } from "./LearnerApp";
-import { AdminApp } from "./AdminApp";
+
+const LearnerApp = lazy(() => import("./LearnerApp").then((module) => ({ default: module.LearnerApp })));
+const AdminApp = lazy(() => import("./AdminApp").then((module) => ({ default: module.AdminApp })));
 
 let runtimePromise = null;
 let canvasRuntimePromise = null;
@@ -131,7 +132,8 @@ export function LegacyReactHost() {
   const [markup, setMarkup] = useState("");
   const [error, setError] = useState("");
   const [learnerBridge, setLearnerBridge] = useState(null);
-  const [, setBridgeTick] = useState(0);
+  const [adminOpened, setAdminOpened] = useState(false);
+  const [bridgeTick, setBridgeTick] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     fetch(releaseAsset("/legacy/index.html"), {
@@ -182,6 +184,10 @@ export function LegacyReactHost() {
     return () => window.removeEventListener("rtm:learner-change", refreshShell);
   }, [learnerBridge]);
 
+  useEffect(() => {
+    if (learnerBridge?.getSnapshot().mode === "admin") setAdminOpened(true);
+  }, [learnerBridge, bridgeTick]);
+
   const setShellMode = useCallback((mode) => {
     try {
       learnerBridge?.setMode?.(mode);
@@ -195,7 +201,7 @@ export function LegacyReactHost() {
     {!learnerBridge && <div className="v48-loading" role="status" aria-live="polite"><div className="v48-loading-mark"><img className="v48-loading-logo" src={releaseAsset("/assets/rtm-education-logo-transparent.png")} alt="RTM Group Education" /><span className="v48-loading-progress" aria-hidden="true" /></div><small>{markup ? "Загружаем ваши материалы…" : "Подготавливаем приложение…"}</small></div>}
     {markup && <LegacyMarkupHost markup={markup} ready={Boolean(learnerBridge)} />}
     {markup && <div id="modalBackdrop" className="modal-backdrop hidden" role="presentation"><div id="modalBox" className="modal-box" role="dialog" aria-modal="true" /></div>}
-    {learnerBridge && <LearnerApp active={learnerBridge.getSnapshot().mode === "user"} bridge={learnerBridge} onSetMode={setShellMode} />}
-    {learnerBridge && window.__RTM_ADMIN__ && <AdminApp active={learnerBridge.getSnapshot().mode === "admin"} bridge={window.__RTM_ADMIN__} onSetMode={setShellMode} />}
+    {learnerBridge && <Suspense fallback={<div className="v48-loading" role="status">Загружаем материалы…</div>}><LearnerApp active={learnerBridge.getSnapshot().mode === "user"} bridge={learnerBridge} onSetMode={setShellMode} /></Suspense>}
+    {learnerBridge && window.__RTM_ADMIN__ && adminOpened && <Suspense fallback={<div className="v48-loading" role="status">Загружаем панель управления…</div>}><AdminApp active={learnerBridge.getSnapshot().mode === "admin"} bridge={window.__RTM_ADMIN__} onSetMode={setShellMode} /></Suspense>}
   </>;
 }

@@ -1,7 +1,8 @@
 from fastapi import HTTPException
+from sqlmodel import Session, SQLModel, create_engine, select
 
-from app.models import AppUser
-from app.video import _allowed, _embed, _rutube_channel_id
+from app.models import AppUser, VideoCollection, VideoItem, VideoProgress
+from app.video import ProgressWrite, _allowed, _embed, _rutube_channel_id, save_progress
 
 
 def test_youtube_links_use_privacy_enhanced_embed():
@@ -43,3 +44,50 @@ def test_restricted_video_audience_is_enforced():
     assert _allowed("all", [], identity)
     assert _allowed("restricted", [{"type": "department", "id": "9"}], identity)
     assert not _allowed("restricted", [{"type": "role", "id": "admin"}], identity)
+
+
+def test_progress_respects_video_and_collection_visibility():
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        user = AppUser(bitrix_user_id="42", role="student")
+        folder = VideoCollection(title="Закрытая папка", visibility="restricted", audience_rules=[{"type": "role", "id": "admin"}])
+        session.add_all([user, folder]); session.flush()
+        video = VideoItem(title="Видео", collection_id=folder.id, status="published")
+        session.add(video); session.commit()
+        identity = type("Identity", (), {"user": user})()
+        for blocked in (True, False):
+            if not blocked:
+                folder.visibility = "all"
+                video.visibility = "restricted"
+                video.audience_rules = [{"type": "role", "id": "admin"}]
+                session.add_all([folder, video]); session.commit()
+            try:
+                save_progress(video.id, ProgressWrite(watchedSeconds=20, percent=100), session, identity)
+            except HTTPException as error:
+                assert error.status_code == 404
+            else:
+                raise AssertionError("Hidden video must not record progress")
+            assert session.exec(select(VideoProgress)).all() == []
+        video.visibility = "all"
+        video.status = "draft"
+        session.add(video); session.commit()
+        try:
+            save_progress(video.id, ProgressWrite(watchedSeconds=20, percent=100), session, identity)
+        except HTTPException as error:
+            assert error.status_code == 404
+        else:
+            raise AssertionError("Draft video must not record progress")
+        video.status = "published"
+        session.add(video); session.commit()
+        folder.archived = True
+        session.add(folder); session.commit()
+        try:
+            save_progress(video.id, ProgressWrite(watchedSeconds=20, percent=100), session, identity)
+        except HTTPException as error:
+            assert error.status_code == 404
+        else:
+            raise AssertionError("Archived folder must not accept progress")
+        folder.archived = False
+        session.add(folder); session.commit()
+        assert save_progress(video.id, ProgressWrite(watchedSeconds=20, percent=100), session, identity)["percent"] == 100

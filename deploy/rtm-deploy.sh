@@ -38,16 +38,33 @@ if [[ "$CURRENT" == "$TARGET" ]] && [[ "$LAST_SUCCESS" == "$TARGET" ]] && [[ "${
     exit 0
 fi
 
-if ! git diff --quiet || ! git diff --cached --quiet; then
-    logger -t rtm-deploy "Deployment refused: server worktree has local changes"
+if ! git diff --quiet -- . ':(exclude)deploy/Caddyfile' \
+    || ! git diff --cached --quiet; then
+    logger -t rtm-deploy "Deployment refused: server worktree has unexpected or staged changes"
     exit 1
 fi
+
+# The shared proxy also hosts services outside this repository. Preserve its
+# operational routes only when the incoming commit does not change the base file.
+CADDY_BACKUP=""
+if ! git diff --quiet -- deploy/Caddyfile; then
+    if ! git diff --quiet "$CURRENT" "$TARGET" -- deploy/Caddyfile; then
+        logger -t rtm-deploy "Deployment refused: deploy/Caddyfile changed both locally and upstream"
+        exit 1
+    fi
+    CADDY_BACKUP="$(mktemp)"
+    cp deploy/Caddyfile "$CADDY_BACKUP"
+fi
+trap '[[ -z "$CADDY_BACKUP" ]] || rm -f "$CADDY_BACKUP"' EXIT
 
 rollback() {
     local exit_code=$?
     trap - ERR
     logger -t rtm-deploy "Deployment ${TARGET:0:12} failed; rolling back to ${ROLLBACK_TARGET:0:12}"
     git reset --hard "$ROLLBACK_TARGET"
+    if [[ -n "$CADDY_BACKUP" ]]; then
+        cp "$CADDY_BACKUP" deploy/Caddyfile
+    fi
     export APP_VERSION="${ROLLBACK_TARGET:0:12}"
     if docker compose build \
         && docker compose up -d --remove-orphans \

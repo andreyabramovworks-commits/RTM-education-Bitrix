@@ -209,24 +209,6 @@
   roleLabel = function (role) {
     return {developer: 'Разработчик', admin: 'Администратор', moderator: 'Редактор', teacher: 'Преподаватель', employee: 'Ученик'}[role] || 'Ученик';
   };
-  saveRole = async function (userId, legacyRole) {
-    var role = legacyRole === 'developer' ? 'developer' : legacyRole === 'admin' ? 'admin' : legacyRole === 'moderator' ? 'editor' : legacyRole === 'teacher' ? 'teacher' : 'student';
-    await request('/api/v47/users/' + encodeURIComponent(userId) + '/role', {
-      method: 'PUT', body: JSON.stringify({role: role})
-    });
-    var user = (state.users || []).find(function (candidate) { return String(candidate.ID) === String(userId); });
-    if (user) user.ROLE = role;
-  };
-  roleModal = function (userId) {
-    var user = userById(userId), role = getAppRole(user);
-    modal('<h2>' + esc(fullName(user)) + '</h2><p class="muted">Роль определяет доступ внутри приложения.</p>' +
-      '<select id="roleSelect"><option value="employee" ' + (role === 'employee' ? 'selected' : '') + '>Ученик</option>' +
-      '<option value="teacher" ' + (role === 'teacher' ? 'selected' : '') + '>Преподаватель</option>' +
-      '<option value="moderator" ' + (role === 'moderator' ? 'selected' : '') + '>Редактор</option>' +
-      '<option value="admin" ' + (role === 'admin' ? 'selected' : '') + '>Администратор</option></select>' +
-      '<div class="inline-actions"><button onclick="window.closeModal()">Отмена</button><button class="primary" id="roleSave">Сохранить</button></div>');
-    $('#roleSave').onclick = async function () { await saveRole(userId, $('#roleSelect').value); closeModal(); await loadAll(); switchAdmin('users'); };
-  };
 
   window.RTMV47 = {ready: ensureReady, request: request, version: window.__RTM_VERSION__ ? 'v' + window.__RTM_VERSION__ : window.__RTM_V49__ ? 'v49' : window.__RTM_V48__ ? 'v48' : 'v47'};
   window.RTMV47.bitrixCall = function (method, params) {

@@ -13,11 +13,12 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field as PydanticField
 from sqlmodel import Session, select
 
-from app.bitrix_auth import BitrixIdentity, bitrix_call, create_browser_session, require_admin, require_bitrix_identity
+from app.bitrix_auth import BitrixIdentity, bitrix_call, create_browser_session, require_admin, require_bitrix_identity, require_editor
 from app.company_policy import PRIMARY_DEVELOPER_BITRIX_ID
 from app.database import get_session
 from app.models import (
     AppUser,
+    BitrixDepartment,
     ArticleDraft,
     Article,
     DeveloperWorkspace,
@@ -517,7 +518,7 @@ def get_appearance(
 def save_appearance(
     payload: AppearanceWrite,
     session: Annotated[Session, Depends(get_session)],
-    identity: Annotated[BitrixIdentity, Depends(require_admin)],
+    identity: Annotated[BitrixIdentity, Depends(require_editor)],
 ) -> dict[str, Any]:
     del identity
     return _save_appearance_setting(session, _validate_appearance(payload))
@@ -698,7 +699,7 @@ def list_legacy(
                 meta = json.loads(str(properties.get("meta") or "{}"))
             except (TypeError, ValueError, json.JSONDecodeError):
                 meta = {}
-            properties["meta"] = json.dumps({key: meta[key] for key in ("sectionId", "required", "order") if key in meta}, ensure_ascii=False)
+            properties["meta"] = json.dumps({key: meta[key] for key in ("sectionId", "required", "order", "points") if key in meta}, ensure_ascii=False)
         item["PROPERTY_VALUES"] = properties
     return result
 
@@ -944,7 +945,107 @@ def list_users(
         "ID": user.bitrix_user_id, "NAME": user.first_name, "LAST_NAME": user.last_name,
         "EMAIL": user.email, "PERSONAL_PHOTO": user.photo_url, "ACTIVE": user.active, "ROLE": user.role,
         "MANUAL_ROLE": user.manual_role, "IS_BITRIX_ADMIN": user.is_bitrix_admin,
+        "DEPARTMENT_IDS": user.department_ids,
+        "CAN_EDIT_ROLE": (
+            identity.user.role in {"developer", "admin"}
+            and user.bitrix_user_id != PRIMARY_DEVELOPER_BITRIX_ID
+            and (identity.user.bitrix_user_id == PRIMARY_DEVELOPER_BITRIX_ID
+                 or (user.role != "developer" and not user.is_bitrix_admin))
+        ),
+        "ALLOWED_ROLES": (
+            (["admin", "developer"] if user.is_bitrix_admin else ["student", "teacher", "editor", "admin", "developer"])
+            if identity.user.bitrix_user_id == PRIMARY_DEVELOPER_BITRIX_ID
+            else ["student", "teacher", "editor", "admin"]
+        ),
     } for user in users]
+
+
+@router.get("/departments")
+def list_departments(
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> list[dict[str, str]]:
+    if not _is_legacy_manager(identity):
+        raise HTTPException(status_code=403, detail="Department directory is available to staff only")
+    return [{"id": row.bitrix_department_id, "name": row.name} for row in session.exec(
+        select(BitrixDepartment).where(BitrixDepartment.active == True).order_by(BitrixDepartment.name)).all()]  # noqa: E712
+
+
+@router.get("/events")
+def list_events(
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    if not _is_legacy_manager(identity):
+        raise HTTPException(status_code=403, detail="Event journal is available to staff only")
+    users = {row.bitrix_user_id: row for row in session.exec(select(AppUser)).all()}
+    items = {row.legacy_id: row for row in session.exec(
+        select(LegacyRecord).where(LegacyRecord.entity == "rtm_items")).all()}
+    departments = session.exec(select(BitrixDepartment).where(BitrixDepartment.active == True)).all()  # noqa: E712
+    events = session.exec(select(LegacyRecord).where(
+        LegacyRecord.entity == "rtm_events").order_by(LegacyRecord.id.desc())).all()
+    result = []
+    for row in events:
+        props = row.properties or {}
+        user_id = str(props.get("userId") or "")
+        user = users.get(user_id)
+        item = items.get(str(props.get("targetId") or ""))
+        name = str(props.get("userName") or "").strip()
+        if not name or name in {"0", "ID", "ID 0", "Пользователь", "Неизвестный пользователь"}:
+            name = (f"{user.first_name} {user.last_name}".strip() or user.email) if user else f"ID {user_id or '0'}"
+        result.append({
+            "id": row.legacy_id,
+            "createdAt": props.get("createdAt") or row.date_create,
+            "userId": user_id,
+            "userName": name,
+            "departmentIds": user.department_ids if user else [],
+            "event": props.get("event") or "—",
+            "targetName": props.get("targetName") or "—",
+            "targetType": (item.properties or {}).get("type") if item else "",
+            "duration": props.get("duration") or "—",
+        })
+    return {"events": result, "departments": [
+        {"id": row.bitrix_department_id, "name": row.name} for row in departments
+    ]}
+
+
+@router.get("/dashboard")
+def dashboard_summary(
+    session: Annotated[Session, Depends(get_session)],
+    identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)],
+) -> dict[str, Any]:
+    if not _is_legacy_manager(identity):
+        raise HTTPException(status_code=403, detail="Dashboard is available to staff only")
+    records = session.exec(select(LegacyRecord).where(LegacyRecord.entity.in_(
+        ["rtm_items", "rtm_assigns", "rtm_progress", "rtm_events"]
+    )).order_by(LegacyRecord.id.desc())).all()
+    by_entity: dict[str, list[LegacyRecord]] = {entity: [] for entity in ("rtm_items", "rtm_assigns", "rtm_progress", "rtm_events")}
+    for row in records:
+        by_entity[row.entity].append(row)
+    materials = [row for row in by_entity["rtm_items"] if (row.properties or {}).get("deleted") != "Y"
+                 and (row.properties or {}).get("type") != "section"]
+    completed = sum((row.properties or {}).get("status") == "completed" for row in by_entity["rtm_progress"])
+    assigned = len(by_entity["rtm_assigns"])
+    opened = sum((row.properties or {}).get("event") == "Открытие" for row in by_entity["rtm_events"])
+    in_work = max(0, min(assigned - completed, opened))
+    not_started = max(0, assigned - completed - in_work)
+    users = session.exec(select(AppUser).where(AppUser.active == True)).all()  # noqa: E712
+    by_user = {row.bitrix_user_id: row for row in users}
+    event_targets = {row.legacy_id: (row.properties or {}).get("targetId") for row in by_entity["rtm_events"]}
+    recent_events = list_events(session, identity)["events"][:5]
+    recent_materials = []
+    for row in materials[:5]:
+        props = row.properties or {}
+        author = by_user.get(str(props.get("authorId") or ""))
+        author_name = (f"{author.first_name} {author.last_name}".strip() or author.email) if author else props.get("author") or "—"
+        recent_materials.append({"id": row.legacy_id, "name": row.name, "type": props.get("type") or "",
+                                 "updatedAt": props.get("updatedAt") or row.date_create, "author": author_name})
+    return {
+        "counts": {"materials": len(materials), "users": len(users), "completed": completed,
+                   "inWork": in_work, "notStarted": not_started},
+        "recentEvents": [{**row, "targetId": event_targets.get(row["id"])} for row in recent_events],
+        "recentMaterials": recent_materials,
+    }
 
 
 @router.put("/users/{bitrix_user_id}/role")

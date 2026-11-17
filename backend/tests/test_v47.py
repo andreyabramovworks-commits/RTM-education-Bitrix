@@ -9,7 +9,79 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from app.bitrix_auth import BitrixIdentity, encode_bitrix_params, require_admin, require_bitrix_identity
 from app.database import get_session
 from app.main import app
-from app.models import AppUser, Article, DeveloperWorkspace, DeveloperWorkspaceRevision, ExcalidrawScene, LegacyRecord, SystemSetting
+from app.models import AppUser, Article, BitrixDepartment, DeveloperWorkspace, DeveloperWorkspaceRevision, ExcalidrawScene, LegacyRecord, SystemSetting
+from app.v47 import dashboard_summary, list_departments, list_events, list_users
+
+
+def test_event_journal_preserves_filters_data_and_rejects_student():
+    isolated = create_engine("sqlite://")
+    SQLModel.metadata.create_all(isolated)
+    with Session(isolated) as session:
+        editor = AppUser(bitrix_user_id="11", first_name="Мария", role="editor", department_ids=["5"])
+        student = AppUser(bitrix_user_id="12", role="student")
+        department = BitrixDepartment(bitrix_department_id="5", name="Отдел обучения")
+        item = LegacyRecord(entity="rtm_items", legacy_id="article-1", name="Материал", properties={"type": "article"})
+        event = LegacyRecord(entity="rtm_events", legacy_id="event-1", name="Открытие", properties={"userId": "11", "event": "Открытие", "targetId": "article-1", "targetName": "Материал", "createdAt": "2026-11-17T10:00:00Z"})
+        session.add_all([editor, student, department, item, event]); session.commit()
+        editor_identity = BitrixIdentity(user=editor, access_token="test", domain="rtm-group.bitrix24.ru")
+        result = list_events(session, editor_identity)
+        assert result["events"][0]["userName"] == "Мария"
+        assert result["events"][0]["departmentIds"] == ["5"]
+        assert result["events"][0]["targetType"] == "article"
+        assert result["departments"] == [{"id": "5", "name": "Отдел обучения"}]
+        student_identity = BitrixIdentity(user=student, access_token="test", domain="rtm-group.bitrix24.ru")
+        from fastapi import HTTPException
+        try:
+            list_events(session, student_identity)
+        except HTTPException as error:
+            assert error.status_code == 403
+        else:
+            raise AssertionError("Student must not read the staff event journal")
+
+
+def test_users_directory_exposes_role_controls_only_to_administrators():
+    isolated = create_engine("sqlite://")
+    SQLModel.metadata.create_all(isolated)
+    with Session(isolated) as session:
+        admin = AppUser(bitrix_user_id="100", role="admin")
+        student = AppUser(bitrix_user_id="101", role="student", department_ids=["5"])
+        department = BitrixDepartment(bitrix_department_id="5", name="Отдел")
+        session.add_all([admin, student, department]); session.commit()
+        admin_identity = BitrixIdentity(user=admin, access_token="test", domain="rtm-group.bitrix24.ru")
+        student_row = next(row for row in list_users(session, admin_identity) if row["ID"] == "101")
+        assert student_row["DEPARTMENT_IDS"] == ["5"]
+        assert student_row["CAN_EDIT_ROLE"] is True
+        assert "developer" not in student_row["ALLOWED_ROLES"]
+        assert list_departments(session, admin_identity) == [{"id": "5", "name": "Отдел"}]
+        student_identity = BitrixIdentity(user=student, access_token="test", domain="rtm-group.bitrix24.ru")
+        own = list_users(session, student_identity)
+        assert len(own) == 1 and own[0]["CAN_EDIT_ROLE"] is False
+        from fastapi import HTTPException
+        try:
+            list_departments(session, student_identity)
+        except HTTPException as error:
+            assert error.status_code == 403
+        else:
+            raise AssertionError("Student must not read the staff directory")
+
+
+def test_dashboard_summary_preserves_counts_and_material_links():
+    isolated = create_engine("sqlite://")
+    SQLModel.metadata.create_all(isolated)
+    with Session(isolated) as session:
+        editor = AppUser(bitrix_user_id="11", first_name="Мария", role="editor")
+        session.add(editor); session.flush()
+        session.add_all([
+            LegacyRecord(entity="rtm_items", legacy_id="article-1", name="Кодекс", properties={"type": "article", "authorId": "11"}),
+            LegacyRecord(entity="rtm_assigns", legacy_id="assignment-1", properties={}),
+            LegacyRecord(entity="rtm_events", legacy_id="event-1", properties={"event": "Открытие", "targetId": "article-1", "targetName": "Кодекс", "userId": "11"}),
+            LegacyRecord(entity="rtm_progress", legacy_id="progress-1", properties={"status": "completed"}),
+        ]); session.commit()
+        identity = BitrixIdentity(user=editor, access_token="test", domain="rtm-group.bitrix24.ru")
+        result = dashboard_summary(session, identity)
+        assert result["counts"] == {"materials": 1, "users": 1, "completed": 1, "inWork": 0, "notStarted": 0}
+        assert result["recentEvents"][0]["targetId"] == "article-1"
+        assert result["recentMaterials"][0]["author"] == "Мария"
 
 
 engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
@@ -39,10 +111,11 @@ client = TestClient(app)
 
 
 def test_learner_summary_strips_heavy_material_payload_and_detail_restores_it() -> None:
-    created = client.post("/api/v47/legacy/rtm_items", json={"name": "Heavy article", "properties": {"type": "article", "content": "large body", "meta": '{"sectionId":"start","required":true,"order":10,"pages":[{"canvasBackup":"very large scene"}]}'}})
+    created = client.post("/api/v47/legacy/rtm_items", json={"name": "Heavy article", "properties": {"type": "article", "content": "large body", "meta": '{"sectionId":"start","required":true,"order":10,"points":12,"pages":[{"canvasBackup":"very large scene"}]}'}})
     assert created.status_code == 201
     legacy_id = created.json()["id"]
     summary = client.get("/api/v47/legacy/rtm_items?summary=true")
+    assert any(json.loads(row["PROPERTY_VALUES"]["meta"]).get("points") == 12 for row in summary.json() if row["ID"] == legacy_id)
     row = next(item for item in summary.json() if item["ID"] == legacy_id)
     assert row["PROPERTY_VALUES"]["content"] == ""
     assert "pages" not in row["PROPERTY_VALUES"]["meta"]
@@ -55,7 +128,7 @@ def test_bitrix_shell_is_never_cached_and_pins_current_release() -> None:
     response = client.get("/bitrix/app", follow_redirects=False)
     assert response.status_code == 303
     assert response.headers["cache-control"] == "no-cache, no-store, must-revalidate"
-    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.1.12"
+    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.1.13"
 
 
 def test_bitrix_shell_preserves_only_safe_application_routes() -> None:
@@ -64,7 +137,7 @@ def test_bitrix_shell_preserves_only_safe_application_routes() -> None:
         follow_redirects=False,
     )
     assert response.status_code == 303
-    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.1.12&rtm_assignment=17&rtm_view=acknowledgements"
+    assert response.headers["location"] == "/?bitrix_frame=1&rtm_release=53.1.13&rtm_assignment=17&rtm_view=acknowledgements"
     assert "AUTH_ID" not in response.headers["location"]
 
 

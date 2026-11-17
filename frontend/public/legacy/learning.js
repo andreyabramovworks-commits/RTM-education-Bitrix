@@ -77,18 +77,6 @@
     document.querySelectorAll('[data-v492-reset-attempts]').forEach(function (button) { button.onclick = async function () { if (!confirm('Сбросить использованные попытки для этого теста?')) return; button.disabled = true; try { await window.RTMV47.request('/api/v47/tests/' + encodeURIComponent(button.dataset.v492ResetAttempts) + '/users/' + encodeURIComponent(button.dataset.user) + '/attempts', {method: 'DELETE'}); await loadAll(); closeModal(); openUserAnalytics(userId); } catch (error) { button.disabled = false; alert(error.message || String(error)); } }; });
   }
 
-  var analyticsUsersBase = window.renderAnalyticsUsers;
-  if (typeof analyticsUsersBase === 'function') window.renderAnalyticsUsers = function (root, data) {
-    analyticsUsersBase.apply(this, arguments);
-    var rows = filteredUsers(data);
-    document.querySelectorAll('#analyticsUserRows tr').forEach(function (row, index) {
-      var item = rows[index]; if (!item) return;
-      row.tabIndex = 0; row.classList.add('v49-analytics-user-row'); row.title = 'Открыть подробную аналитику';
-      row.onclick = function () { openUserAnalytics(item.u.ID); };
-      row.onkeydown = function (event) { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openUserAnalytics(item.u.ID); } };
-    });
-  };
-
   window.RTMV49 = window.RTMV49 || {};
   window.RTMV49.openUserAnalytics = openUserAnalytics;
   setTimeout(repairScroll, 0);
@@ -177,24 +165,7 @@
   var courseScopedOpenUserMaterial = window.openUserMaterial;
   window.openUserMaterial = function (material) { var result = courseScopedOpenUserMaterial.apply(this, arguments); if (material && typeof materialCourseId === 'function' && !materialCourseId(material)) state.courseId = null; return result; };
 
-  window.renderUsers = function () {
-    var box = document.getElementById('usersTable'); if (!box) return;
-    var q = String(document.getElementById('usersSearch') && document.getElementById('usersSearch').value || '').toLowerCase();
-    var dept = String(document.getElementById('usersDeptFilter') && document.getElementById('usersDeptFilter').value || 'all');
-    var total = document.getElementById('usersTotal'); if (total) total.textContent = state.users.length;
-    var deptSelect = document.getElementById('usersDeptFilter');
-    if (deptSelect && !deptSelect.dataset.ready) { deptSelect.innerHTML = '<option value="all">Все департаменты</option>' + state.departments.map(function (d) { return '<option value="' + d.ID + '">' + esc(d.NAME) + '</option>'; }).join(''); deptSelect.dataset.ready = '1'; deptSelect.onchange = renderUsers; var search = document.getElementById('usersSearch'); if (search) search.oninput = renderUsers; var sync = document.getElementById('usersSyncBtn'); if (sync) sync.onclick = loadAll; }
-    var rows = state.users.filter(Boolean).filter(function (u) { return (fullName(u) + ' ' + (u.EMAIL || '')).toLowerCase().includes(q); }).filter(function (u) { var ds = Array.isArray(u.UF_DEPARTMENT) ? u.UF_DEPARTMENT : u.UF_DEPARTMENT ? [u.UF_DEPARTMENT] : []; return dept === 'all' || ds.map(String).includes(dept); });
-    box.innerHTML = rows.map(function (u) { var role = getAppRole(u), locked = role === 'developer' || Boolean(u.IS_BITRIX_ADMIN), editable = ['developer', 'admin'].includes(currentRole()) && !locked; return '<tr><td><div class="user-cell"><span class="avatar-mini">' + esc(initials(u)) + '</span><div><b>' + esc(fullName(u) || 'ID ' + u.ID) + '</b><div class="row-sub">' + esc(u.EMAIL || '') + '</div></div></div></td><td><span class="pill green">Активен</span></td><td>' + esc(userDepartments(u)) + '</td><td><span class="pill ' + (role === 'developer' ? 'violet' : role === 'admin' ? 'mint' : role === 'moderator' ? 'yellow' : role === 'teacher' ? 'blue' : 'gray') + '">' + esc(roleLabel(role)) + (u.IS_BITRIX_ADMIN ? ' · Bitrix24' : '') + '</span></td><td><button class="icon-action" data-role-user="' + u.ID + '" ' + (editable ? '' : 'disabled') + '>' + gearIcon() + '</button></td></tr>'; }).join('') || '<tr><td colspan="5">Пользователи не найдены</td></tr>';
-    document.querySelectorAll('[data-role-user]').forEach(function (b) { b.onclick = function () { roleModal(b.dataset.roleUser); }; });
-  };
 
-  window.roleModal = function (userId) {
-    if (!['developer', 'admin'].includes(currentRole())) return alert('Назначать роли может только администратор.');
-    var user = userById(userId), role = getAppRole(user); if (!user || role === 'developer' || user.IS_BITRIX_ADMIN) return alert('Эта роль управляется автоматически и защищена.');
-    modal('<h2>' + esc(fullName(user)) + '</h2><p class="muted">Редактор создаёт материалы. Преподаватель видит админку, назначения и попытки, но не меняет материалы.</p><select id="roleSelect"><option value="employee" ' + (role === 'employee' ? 'selected' : '') + '>Ученик</option><option value="teacher" ' + (role === 'teacher' ? 'selected' : '') + '>Преподаватель</option><option value="moderator" ' + (role === 'moderator' ? 'selected' : '') + '>Редактор</option><option value="admin" ' + (role === 'admin' ? 'selected' : '') + '>Администратор</option></select><div class="inline-actions"><button onclick="window.closeModal()">Отмена</button><button class="primary" id="roleSave">Сохранить</button></div>');
-    document.getElementById('roleSave').onclick = async function () { await saveRole(userId, document.getElementById('roleSelect').value); closeModal(); await loadAll(); switchAdmin('users'); };
-  };
 
   function mediaHtml(media) {
     if (!media || !media.url) return '';
@@ -747,7 +718,7 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
       var button = document.createElement('button'); button.className = 'rail-btn'; button.dataset.adminView = 'reviews'; button.title = 'Проверка тестов'; button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="m8 11 2 2 5-5M8 17h8"/></svg>'; eventsButton.parentNode.insertBefore(button, eventsButton); button.onclick = function () { switchAdmin('reviews'); };
     }
     if (!document.getElementById('adminReviews')) {
-      var view = document.createElement('div'); view.id = 'adminReviews'; view.className = 'admin-view v51-reviews-view'; var events = document.getElementById('adminEvents'); if (events && events.parentNode) events.parentNode.insertBefore(view, events); else document.querySelector('.admin-main').appendChild(view);
+      var view = document.createElement('div'); view.id = 'adminReviews'; view.className = 'admin-view v51-reviews-view'; document.querySelector('.admin-main').appendChild(view);
     }
   }
   function renderReviews() {
@@ -779,22 +750,6 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     var box = document.createElement('section'); box.className = 'settings-card v51-reviewer-setting'; box.innerHTML = '<h3>Проверяющий свободных ответов</h3><p class="muted">Назначается на весь курс. Если проверяющий не выбран, ответы доступны администраторам.</p><select id="v51CourseReviewer"><option value="">Администратор по умолчанию</option>' + candidates.map(function (user) { return '<option value="' + user.ID + '" ' + (String(meta.reviewerId || '') === String(user.ID) ? 'selected' : '') + '>' + esc(fullName(user) || ('ID ' + user.ID)) + ' · ' + esc(roleLabel(getAppRole(user))) + '</option>'; }).join('') + '</select>'; pane.insertBefore(box, pane.firstChild); document.getElementById('v51CourseReviewer').onchange = async function () { meta.reviewerId = this.value; await saveItemMeta(course.ID, meta); toast('Проверяющий сохранён'); };
   };
 
-  window.roleModal = function (userId) {
-    var actorId = String(state.user && state.user.ID || ''), actorRole = actualRole(), user = userById(userId), role = getAppRole(user); if (!user || !['developer', 'admin'].includes(actorRole)) return;
-    if (String(user.ID) === '36') return alert('Основная роль разработчика защищена.');
-    if (role === 'developer' && actorId !== '36') return alert('Роль разработчика может изменять только основной разработчик.');
-    modal('<h2>' + esc(fullName(user)) + '</h2><p class="muted">Права наследуются: разработчик администратор редактор преподаватель пользователь.</p><select id="roleSelect"><option value="employee" ' + (role === 'employee' ? 'selected' : '') + '>Пользователь</option><option value="teacher" ' + (role === 'teacher' ? 'selected' : '') + '>Преподаватель</option><option value="moderator" ' + (role === 'moderator' ? 'selected' : '') + '>Редактор</option><option value="admin" ' + (role === 'admin' ? 'selected' : '') + '>Администратор</option>' + (actorId === '36' ? '<option value="developer" ' + (role === 'developer' ? 'selected' : '') + '>Разработчик</option>' : '') + '</select><div class="inline-actions"><button onclick="window.closeModal()">Отмена</button><button class="primary" id="roleSave">Сохранить</button></div>');
-    document.getElementById('roleSave').onclick = async function () { await saveRole(userId, document.getElementById('roleSelect').value); closeModal(); await loadAll(); switchAdmin('users'); };
-  };
-  window.renderUsers = renderUsers = function () {
-    var box = document.getElementById('usersTable'); if (!box) return; var q = String(document.getElementById('usersSearch') && document.getElementById('usersSearch').value || '').toLowerCase(), dept = String(document.getElementById('usersDeptFilter') && document.getElementById('usersDeptFilter').value || 'all'), roleFilter=String(document.getElementById('usersRoleFilter')&&document.getElementById('usersRoleFilter').value||'all'),sort=String(document.getElementById('usersSort')&&document.getElementById('usersSort').value||'name'), actorRole = actualRole(), actorId = String(state.user && state.user.ID || '');
-    var total = document.getElementById('usersTotal'); if (total) total.textContent = state.users.length; var deptSelect = document.getElementById('usersDeptFilter'); if (deptSelect && !deptSelect.dataset.ready) { deptSelect.innerHTML = '<option value="all">Все департаменты</option>' + state.departments.map(function (department) { return '<option value="' + department.ID + '">' + esc(department.NAME) + '</option>'; }).join(''); deptSelect.dataset.ready = '1'; deptSelect.onchange = renderUsers; document.getElementById('usersSearch').oninput = renderUsers; document.getElementById('usersSyncBtn').onclick = loadAll; }
-    ['usersRoleFilter','usersSort'].forEach(function(id){var node=document.getElementById(id);if(node&&!node.dataset.bound){node.dataset.bound='1';node.onchange=renderUsers;}});
-    var rank={developer:5,admin:4,moderator:3,teacher:2,employee:1};
-    var rows = state.users.filter(Boolean).filter(function (user) { return (fullName(user) + ' ' + (user.EMAIL || '')).toLowerCase().includes(q); }).filter(function (user) { var departments = Array.isArray(user.UF_DEPARTMENT) ? user.UF_DEPARTMENT : user.UF_DEPARTMENT ? [user.UF_DEPARTMENT] : []; return dept === 'all' || departments.map(String).includes(dept); }).filter(function(user){return roleFilter==='all'||getAppRole(user)===roleFilter;}).sort(function(a,b){return sort==='role'?(rank[getAppRole(b)]-rank[getAppRole(a)]||fullName(a).localeCompare(fullName(b),'ru')):fullName(a).localeCompare(fullName(b),'ru');});
-    box.innerHTML = rows.map(function (user) { var role = getAppRole(user), protectedDeveloper = role === 'developer' && actorId !== '36', protectedAdmin = Boolean(user.IS_BITRIX_ADMIN) && actorId !== '36', editable = ['developer', 'admin'].includes(actorRole) && !protectedDeveloper && !protectedAdmin && String(user.ID) !== '36',photo=String(user.PERSONAL_PHOTO||''); return '<tr class="user-role-row '+(editable?'is-editable':'')+'" data-role-user="' + user.ID + '" tabindex="'+(editable?'0':'-1')+'"><td><div class="user-cell"><span class="avatar-mini">' + (photo?'<img src="'+esc(photo)+'" alt="">':esc(initials(user))) + '</span><div><b>' + esc(fullName(user) || ('ID ' + user.ID)) + '</b><div class="row-sub">' + esc(user.EMAIL || '') + '</div></div></div></td><td><span class="pill green">Активен</span></td><td>' + esc(userDepartments(user)) + '</td><td><span class="pill ' + (role === 'developer' ? 'violet' : role === 'admin' ? 'mint' : role === 'moderator' ? 'yellow' : role === 'teacher' ? 'blue' : 'gray') + '">' + esc(roleLabel(role)) + (user.IS_BITRIX_ADMIN ? ' · Bitrix24' : '') + '</span></td></tr>'; }).join('') || '<tr><td colspan="4">Пользователи не найдены</td></tr>';
-    document.querySelectorAll('.user-role-row.is-editable[data-role-user]').forEach(function (row) { row.onclick = function () { roleModal(row.dataset.roleUser); };row.onkeydown=function(event){if(event.key==='Enter'||event.key===' '){event.preventDefault();roleModal(row.dataset.roleUser);}}; });
-  };
 
   window.addMaterialModalForCourse = addMaterialModalForCourse = function () {
     modal('<h2>Добавить материал в курс</h2><button class="modal-close" onclick="window.closeModal()">×</button><div class="add-material-grid">' + [['article', 'Статья', 'Пустой лист Excalidraw'], ['test', 'Тест', 'Интерактивный тест Excalidraw'], ['file', 'Файл', 'Карточка файла']].map(function (row) { return '<div class="add-tile" data-v51-course-new="' + row[0] + '">' + svgIcon(row[0] === 'file' ? 'upload' : row[0]) + '<div><h3>' + row[1] + '</h3><p class="muted">' + row[2] + '</p></div></div>'; }).join('') + '</div>');
@@ -892,7 +847,6 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
   var designerTemplate = null;
   var templatePromise = null;
   var reviewState = {filter: 'pending_review', query: '', selected: ''};
-  var analyticsState = {query: '', department: 'all', from: '', to: '', sort: -1, direction: 1};
 
   function clone(value) { return JSON.parse(JSON.stringify(value)); }
   function localId(prefix) { return (prefix || 'v52') + '_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now().toString(36); }
@@ -1149,41 +1103,6 @@ window.takeTestSubmit=takeTestSubmit=async function(e){e.preventDefault();var f=
     else setTimeout(function () { updateMaterialNavigation(material); }, 0);
     return result;
   };
-
-  function activeTableRows() { return Array.from(document.querySelectorAll('#analyticsContent table tbody tr')); }
-  function rowDate(row, tab) {
-    if (tab === 'events') { var match = String(row.cells[0] && row.cells[0].textContent || '').match(/(\d{2})\.(\d{2})\.(\d{4})/); return match ? match[3] + '-' + match[2] + '-' + match[1] : ''; }
-    var name = String(row.cells[tab === 'users' ? 0 : tab === 'top' ? 1 : 0] && row.cells[tab === 'users' ? 0 : tab === 'top' ? 1 : 0].textContent || '').trim();
-    var dates = state.events.filter(function (event) { var p = event.PROPERTY_VALUES || {}; return tab === 'users' || tab === 'top' ? name.includes(eventUserName(event)) : name.includes(String(p.targetName || '')); }).map(function (event) { return dateKey(event.PROPERTY_VALUES && event.PROPERTY_VALUES.createdAt); }).sort();
-    return dates[dates.length - 1] || '';
-  }
-  function exportAnalyticsTable() {
-    var table = document.querySelector('#analyticsContent table'); if (!table) return;
-    var rows = [Array.from(table.querySelectorAll('thead th')).map(function (cell) { return cell.textContent.trim().replace(/[↕↑↓]/g, ''); })].concat(activeTableRows().filter(function (row) { return row.style.display !== 'none'; }).map(function (row) { return Array.from(row.cells).map(function (cell) { return cell.textContent.trim(); }); }));
-    var csv = '\ufeff' + rows.map(function (row) { return row.map(function (cell) { return '"' + String(cell || '').replace(/"/g, '""') + '"'; }).join(';'); }).join('\n'), link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'})); link.download = 'rtm_' + String(state.analyticsTab || 'analytics') + '_' + new Date().toISOString().slice(0, 10) + '.csv'; link.click(); setTimeout(function () { URL.revokeObjectURL(link.href); }, 500);
-  }
-  function enhanceAnalytics() {
-    var root = document.getElementById('analyticsContent'), search = document.getElementById('analyticsSearch'), filter = document.getElementById('analyticsFilterPanel'); if (!root || !search) return;
-    search.value = analyticsState.query;
-    if (filter) filter.innerHTML = '<select id="analyticsDept">' + analyticsDeptOptions() + '</select><label>С</label><input id="v52AnalyticsFrom" type="date" value="' + analyticsState.from + '"><label>По</label><input id="v52AnalyticsTo" type="date" value="' + analyticsState.to + '"><button class="primary" id="analyticsApply">Применить</button>';
-    var dept = document.getElementById('analyticsDept'); if (dept) dept.value = analyticsState.department;
-    function apply() {
-      analyticsState.query = String(search.value || ''); analyticsState.department = String(dept && dept.value || 'all'); analyticsState.from = String(document.getElementById('v52AnalyticsFrom') && document.getElementById('v52AnalyticsFrom').value || ''); analyticsState.to = String(document.getElementById('v52AnalyticsTo') && document.getElementById('v52AnalyticsTo').value || '');
-      var tab = state.analyticsTab || 'overview', department = state.departments.find(function (row) { return String(row.ID) === analyticsState.department; }), deptName = department && department.NAME || '';
-      activeTableRows().forEach(function (row) { var text = row.textContent.toLowerCase(), date = rowDate(row, tab), matches = text.includes(analyticsState.query.toLowerCase()); if (deptName && !text.includes(deptName.toLowerCase())) matches = false; if (analyticsState.from && (!date || date < analyticsState.from)) matches = false; if (analyticsState.to && (!date || date > analyticsState.to)) matches = false; row.style.display = matches ? '' : 'none'; });
-    }
-    search.oninput = apply; var applyButton = document.getElementById('analyticsApply'); if (applyButton) applyButton.onclick = apply;
-    var filterButton = document.getElementById('analyticsFilterBtn'); if (filterButton) filterButton.onclick = function () { filter.classList.toggle('hidden'); };
-    var exportButton = document.getElementById('analyticsExportBtn'); if (exportButton) exportButton.onclick = exportAnalyticsTable;
-    var table = root.querySelector('table'); if (table) table.querySelectorAll('thead th').forEach(function (heading, index) { heading.classList.add('v52-sortable'); heading.title = 'Сортировать'; heading.onclick = function () { analyticsState.direction = analyticsState.sort === index ? -analyticsState.direction : 1; analyticsState.sort = index; var body = table.tBodies[0], rows = activeTableRows(); rows.sort(function (a, b) { var av = String(a.cells[index] && a.cells[index].textContent || '').trim(), bv = String(b.cells[index] && b.cells[index].textContent || '').trim(), an = parseFloat(av.replace(/[^0-9,.-]/g, '').replace(',', '.')), bn = parseFloat(bv.replace(/[^0-9,.-]/g, '').replace(',', '.')); return ((!isNaN(an) && !isNaN(bn)) ? an - bn : av.localeCompare(bv, 'ru', {numeric: true})) * analyticsState.direction; }); rows.forEach(function (row) { body.appendChild(row); }); table.querySelectorAll('thead th').forEach(function (cell) { cell.dataset.sort = ''; }); heading.dataset.sort = analyticsState.direction > 0 ? '↑' : '↓'; }; });
-    apply();
-  }
-  var baseRenderAnalytics = window.renderAnalytics;
-  window.renderAnalytics = renderAnalytics = function () { var result = baseRenderAnalytics.apply(this, arguments); if ((state.analyticsTab || 'overview') !== 'overview') setTimeout(enhanceAnalytics, 0); return result; };
-
-  window.RTMUI = window.RTMUI || {afterRender: [], adminView: []};
-  window.RTMUI.adminView.push(function (view) { if (view === 'analytics' && (state.analyticsTab || 'overview') !== 'overview') enhanceAnalytics(); });
 
   /* The acknowledgements module owns the Reviews route.  Keep this legacy
      entry point only as a fallback for a standalone v52 host; otherwise its

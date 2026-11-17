@@ -21,7 +21,7 @@ from app.bitrix_auth import BitrixIdentity, bitrix_call, require_bitrix_identity
 from app.config import get_settings
 from app.database import get_session
 from app.document_composer import compose, materialize_images
-from app.knowledge import _allows
+from app.knowledge import _allows, _visible_document
 from app.models import (
     AcknowledgementAssignment, AcknowledgementCampaign, AcknowledgementEvent, AppUser,
     BitrixDepartment, GoogleOAuthCredential, GoogleOAuthState, KnowledgeDocument,
@@ -465,6 +465,9 @@ def list_editions(document_id: int, session: Annotated[Session, Depends(get_sess
     document = session.get(KnowledgeDocument, document_id)
     if not document or not document.active:
         raise HTTPException(404, "Документ не найден")
+    departments = _department_map(session)
+    if _visible_document(document, identity, departments) is None:
+        raise HTTPException(403, "Документ не назначен этому пользователю")
     rows = session.exec(select(KnowledgeEdition).where(KnowledgeEdition.document_id == document_id).order_by(KnowledgeEdition.edition_date.desc())).all()
     campaigns = session.exec(select(AcknowledgementCampaign).where(AcknowledgementCampaign.edition_id.in_([row.id for row in rows] or [-1]))).all()
     by_edition = {row.edition_id: _campaign(row) for row in campaigns}
@@ -555,12 +558,17 @@ def launch_campaign(campaign_id: int, session: Annotated[Session, Depends(get_se
     campaign.status="active"; campaign.launched_at=now; campaign.updated_at=now; session.add(campaign)
     edition=session.get(KnowledgeEdition,campaign.edition_id); document=session.get(KnowledgeDocument,edition.document_id)
     notification_errors=[]
+    assignments=[]
     for user in users:
         assignment = _add_assignment(session, campaign, user, actor_id=identity.user.id)
+        assignments.append((assignment, user))
+    # Persist the launch before making any irreversible Bitrix24 calls.
+    session.commit()
+    for assignment, user in assignments:
         failure = _deliver_assignment(session, identity, campaign, assignment, user, document, edition)
         if failure:
             notification_errors.append(failure)
-    session.commit()
+        session.commit()
     return {"campaign":_campaign(campaign),"assigned":len(users),"notificationErrors":notification_errors}
 
 
@@ -607,6 +615,7 @@ def update_active_campaign(
     edition = session.get(KnowledgeEdition, campaign.edition_id)
     document = session.get(KnowledgeDocument, edition.document_id) if edition else None
     notification_errors: list[dict[str, Any]] = []
+    assignments_to_notify: list[tuple[AcknowledgementAssignment, AppUser]] = []
     added = 0
     for user in _recipient_users(session, payload.recipientRules):
         if user.id in existing:
@@ -614,9 +623,7 @@ def update_active_campaign(
         assignment = _add_assignment(session, campaign, user, actor_id=identity.user.id, event_type="recipient_added")
         added += 1
         if document and edition:
-            failure = _deliver_assignment(session, identity, campaign, assignment, user, document, edition)
-            if failure:
-                notification_errors.append(failure)
+            assignments_to_notify.append((assignment, user))
 
     recalculated = 0
     if payload.dueDatePolicy == "recalculate" and old_due_days != payload.dueDays:
@@ -633,6 +640,12 @@ def update_active_campaign(
     _event(session, campaign.id, "campaign_updated", actor_id=identity.user.id,
            details={"added": added, "recalculated": recalculated, "dueDatePolicy": payload.dueDatePolicy})
     session.commit()
+    if document and edition:
+        for assignment, user in assignments_to_notify:
+            failure = _deliver_assignment(session, identity, campaign, assignment, user, document, edition)
+            if failure:
+                notification_errors.append(failure)
+            session.commit()
     session.refresh(campaign)
     return {"campaign": _campaign(campaign), "added": added, "recalculated": recalculated,
             "notificationErrors": notification_errors}

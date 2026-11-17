@@ -18,8 +18,6 @@
   async function editions(documentId,refresh){if(refresh||!cache.editions[documentId])cache.editions[documentId]=await api('/api/v51/documents/'+documentId+'/editions');return cache.editions[documentId];}
 
   function installNames(){
-    var users=document.querySelector('[data-admin-view="users"]');if(users){users.title='Роли пользователей';users.dataset.helpKey='roles';}
-    var title=document.querySelector('#adminUsers h1');if(title&&title.textContent!=='Роли пользователей')title.textContent='Роли пользователей';
     document.querySelectorAll('[data-admin-view="reviews"]').forEach(function(button){button.title='Центр проверок';button.dataset.helpKey='review-center';});
   }
 

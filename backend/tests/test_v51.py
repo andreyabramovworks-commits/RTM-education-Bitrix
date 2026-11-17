@@ -1,9 +1,58 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
+from sqlmodel import Session, SQLModel, create_engine
 
-from app.models import AppUser, BitrixDepartment, KnowledgeDocument
-from app.v51 import CampaignWrite, EditionDeleteWrite, _can_refresh_document_render, _due_at, _google_file_id, _grade_linked_test, _is_in_department, _match_rules, _render_task_template, _validate_campaign
+from app.models import AcknowledgementAssignment, AcknowledgementCampaign, AppUser, BitrixDepartment, KnowledgeDocument, KnowledgeEdition
+from app.v51 import CampaignWrite, EditionDeleteWrite, _can_refresh_document_render, _due_at, _google_file_id, _grade_linked_test, _is_in_department, _match_rules, _render_task_template, _validate_campaign, launch_campaign, list_editions
+
+
+def test_hidden_document_editions_are_not_disclosed():
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        user = AppUser(bitrix_user_id="10", role="student")
+        document = KnowledgeDocument(source_row=1, title="Закрытый документ", document_url="https://example.com", article_assignments=[{"type": "user", "id": "20"}])
+        session.add_all([user, document]); session.commit()
+        identity = type("Identity", (), {"user": user})()
+        try:
+            list_editions(document.id, session, identity)
+        except HTTPException as error:
+            assert error.status_code == 403
+        else:
+            raise AssertionError("Hidden document editions must not be disclosed")
+        document.article_assignments = [{"type": "user", "id": "10"}]
+        session.add(document); session.commit()
+        assert list_editions(document.id, session, identity) == []
+
+
+def test_campaign_assignments_commit_before_external_delivery(monkeypatch):
+    engine = create_engine("sqlite://")
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        editor = AppUser(bitrix_user_id="1", role="editor")
+        recipient = AppUser(bitrix_user_id="2", role="student")
+        document = KnowledgeDocument(source_row=2, title="Документ", document_url="https://example.com")
+        session.add_all([editor, recipient, document]); session.flush()
+        edition = KnowledgeEdition(document_id=document.id, edition_date=date(2026, 8, 10))
+        session.add(edition); session.flush()
+        campaign = AcknowledgementCampaign(edition_id=edition.id, recipient_rules=[{"type": "user", "id": "2"}])
+        session.add(campaign); session.commit()
+        identity = type("Identity", (), {"user": editor})()
+        delivered = []
+
+        def check_persisted(_session, _identity, _campaign, assignment, _user, _document, _edition):
+            with Session(engine) as other:
+                saved = other.get(AcknowledgementAssignment, assignment.id)
+                assert saved is not None
+                assert other.get(AcknowledgementCampaign, campaign.id).status == "active"
+            delivered.append(assignment.id)
+            return None
+
+        monkeypatch.setattr("app.v51._deliver_assignment", check_persisted)
+        result = launch_campaign(campaign.id, session, identity)
+        assert result["assigned"] == 1
+        assert len(delivered) == 1
 
 
 def test_department_rule_includes_nested_department():

@@ -110,11 +110,19 @@ def _allowed(visibility: str, rules: list[dict[str, Any]], identity: BitrixIdent
     return False
 
 
+def _visible_video(row: VideoItem, collection: VideoCollection | None, identity: BitrixIdentity) -> bool:
+    return (row.status == "published"
+            and _allowed(row.visibility, row.audience_rules, identity)
+            and (row.collection_id is None or (collection is not None
+                 and not collection.archived
+                 and _allowed(collection.visibility, collection.audience_rules, identity))))
+
+
 @router.get("/library")
 def library(session: Annotated[Session, Depends(get_session)], identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)]):
     collections = [row for row in session.exec(select(VideoCollection).where(VideoCollection.archived == False).order_by(VideoCollection.position, VideoCollection.title)).all() if _allowed(row.visibility,row.audience_rules,identity)]  # noqa: E712
-    allowed_collections={row.id for row in collections}
-    videos = [row for row in session.exec(select(VideoItem).where(VideoItem.status == "published").order_by(VideoItem.position, VideoItem.title)).all() if (row.collection_id is None or row.collection_id in allowed_collections) and _allowed(row.visibility,row.audience_rules,identity)]
+    by_collection = {row.id: row for row in collections}
+    videos = [row for row in session.exec(select(VideoItem).where(VideoItem.status == "published").order_by(VideoItem.position, VideoItem.title)).all() if _visible_video(row, by_collection.get(row.collection_id), identity)]
     progress = {row.video_id: row for row in session.exec(select(VideoProgress).where(VideoProgress.user_id == identity.user.id)).all()}
     counts = {row.id: sum(1 for item in videos if item.collection_id == row.id) for row in collections}
     return {"collections": [_collection(row, counts[row.id]) for row in collections], "videos": [_video(row, progress.get(row.id)) for row in videos]}
@@ -208,7 +216,9 @@ def move_video_to_folder(video_id: int, payload: VideoFolderWrite, session: Anno
 
 @router.post("/{video_id}/progress")
 def save_progress(video_id: int, payload: ProgressWrite, session: Annotated[Session, Depends(get_session)], identity: Annotated[BitrixIdentity, Depends(require_bitrix_identity)]):
-    if not session.get(VideoItem, video_id): raise HTTPException(404, "Видео не найдено")
+    video = session.get(VideoItem, video_id)
+    collection = session.get(VideoCollection, video.collection_id) if video and video.collection_id is not None else None
+    if not video or not _visible_video(video, collection, identity): raise HTTPException(404, "Видео не найдено")
     row=session.exec(select(VideoProgress).where(VideoProgress.video_id==video_id, VideoProgress.user_id==identity.user.id)).first() or VideoProgress(video_id=video_id,user_id=identity.user.id)
     row.watched_seconds=max(row.watched_seconds,payload.watchedSeconds); row.percent=max(row.percent,payload.percent); row.updated_at=utcnow()
     if row.percent>=90: row.percent=100; row.completed_at=row.completed_at or utcnow()

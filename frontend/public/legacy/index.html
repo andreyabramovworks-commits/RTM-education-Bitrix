@@ -142,7 +142,6 @@
           <button class="rail-btn " data-admin-view="materials" title="&#x423;&#x447;&#x435;&#x431;&#x43D;&#x44B;&#x435; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x44B;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21z"/><path d="M4 5.5V21"/><path d="M8 7h8"/></svg></button>
           <button class="rail-btn " data-admin-view="users" title="&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x438;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="3"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 4.13a3 3 0 0 1 0 5.74"/></svg></button>
           <button class="rail-btn " data-admin-view="database" title="&#x423;&#x43F;&#x440;&#x430;&#x432;&#x43B;&#x435;&#x43D;&#x438;&#x435; &#x411;&#x430;&#x437;&#x43E;&#x439; &#x437;&#x43D;&#x430;&#x43D;&#x438;&#x439;"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="7" ry="3"/><path d="M5 5v6c0 1.66 3.13 3 7 3s7-1.34 7-3V5"/><path d="M5 11v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6"/></svg></button>
-          <button class="rail-btn " data-admin-view="analytics" title="&#x410;&#x43D;&#x430;&#x43B;&#x438;&#x442;&#x438;&#x43A;&#x430;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V13"/><path d="M10 19V8"/><path d="M16 19v-5"/><path d="M21 19H3"/><rect x="3" y="13" width="3" height="6" rx="1"/><rect x="9" y="8" width="3" height="11" rx="1"/><rect x="15" y="14" width="3" height="5" rx="1"/></svg></button>
           <button class="rail-btn " data-admin-view="events" title="&#x421;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x44F;"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></button>
           <button class="rail-btn " data-admin-view="settings" title="&#x41D;&#x430;&#x441;&#x442;&#x440;&#x43E;&#x439;&#x43A;&#x438;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.04.04a2 2 0 0 1-2.83 2.83l-.04-.04A1.8 1.8 0 0 0 15 19.4a1.8 1.8 0 0 0-1 .6V20a2 2 0 0 1-4 0v-.06a1.8 1.8 0 0 0-1-.6 1.8 1.8 0 0 0-1.98.36l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-.6-1H4a2 2 0 0 1 0-4h.06a1.8 1.8 0 0 0 .6-1 1.8 1.8 0 0 0-.36-1.98l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.8 1.8 0 0 0 9 4.6a1.8 1.8 0 0 0 1-.6V4a2 2 0 0 1 4 0v.06a1.8 1.8 0 0 0 1 .6 1.8 1.8 0 0 0 1.98-.36l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04A1.8 1.8 0 0 0 19.4 9c.24.37.42.7.6 1H20a2 2 0 0 1 0 4h-.06c-.18.3-.36.63-.54 1Z"/></svg></button>
           <button class="rail-btn " data-admin-view="info" title="&#x41D;&#x430;&#x440;&#x430;&#x431;&#x43E;&#x442;&#x43A;&#x438; &#x441;&#x446;&#x435;&#x43D;"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10v6"/><path d="M12 7h.01"/></svg></button>
@@ -157,86 +156,6 @@
         </aside>
 
         <main class="admin-main">
-          <div id="adminDashboard" class="admin-view active">
-            <div class="admin-page-head">
-              <div>
-                <h1>&#x414;&#x430;&#x448;&#x431;&#x43E;&#x440;&#x434;</h1>
-                <p class="muted">&#x421;&#x432;&#x43E;&#x434;&#x43A;&#x430; &#x43F;&#x43E; &#x43F;&#x43E;&#x440;&#x442;&#x430;&#x43B;&#x443; &#x43E;&#x431;&#x443;&#x447;&#x435;&#x43D;&#x438;&#x44F;</p>
-              </div>
-              <button id="dashboardRefresh">&#x41E;&#x431;&#x43D;&#x43E;&#x432;&#x438;&#x442;&#x44C;</button>
-            </div>
-
-            <div class="dashboard-grid">
-              <div class="dash-card chart-card">
-                <h3>&#x41E;&#x431;&#x443;&#x447;&#x430;&#x435;&#x43C;&#x43E;&#x441;&#x442;&#x44C; (&#x440;&#x430;&#x441;&#x43F;&#x440;&#x435;&#x434;&#x435;&#x43B;&#x435;&#x43D;&#x438;&#x435; &#x441;&#x442;&#x430;&#x442;&#x443;&#x441;&#x43E;&#x432;)</h3>
-                <div class="donut-wrap">
-                  <div id="donut" class="donut"></div>
-                  <div class="legend">
-                    <span><i class="green-dot"></i>&#x41F;&#x440;&#x43E;&#x439;&#x434;&#x435;&#x43D;&#x43E;</span>
-                    <span><i class="red-dot"></i>&#x41F;&#x440;&#x43E;&#x432;&#x430;&#x43B;&#x435;&#x43D;&#x43E;</span>
-                    <span><i class="orange-dot"></i>&#x412; &#x43F;&#x440;&#x43E;&#x446;&#x435;&#x441;&#x441;&#x435;</span>
-                    <span><i class="gray-dot"></i>&#x41D;&#x435; &#x43D;&#x430;&#x447;&#x430;&#x442;&#x43E;</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="dash-card">
-                <div class="card-head">
-                  <h3>&#x41F;&#x43E;&#x441;&#x43B;&#x435;&#x434;&#x43D;&#x438;&#x435; &#x441;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x44F;</h3>
-                  <button id="openAllEventsBtn">&#x412;&#x441;&#x435; &#x441;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x44F;</button>
-                </div>
-                <div id="recentEventsList" class="event-list"></div>
-              </div>
-            </div>
-
-            <div class="stats-grid">
-              <div class="dash-stat"><span>&#x41C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x43E;&#x432; &#x432;&#x441;&#x435;&#x433;&#x43E;</span><b id="statMaterials">0</b></div>
-              <div class="dash-stat"><span>&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x435;&#x439; &#x432;&#x441;&#x435;&#x433;&#x43E;</span><b id="statUsers">0</b></div>
-              <div class="dash-stat"><span>&#x41F;&#x440;&#x43E;&#x439;&#x434;&#x435;&#x43D;&#x43E; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x43E;&#x432;</span><b id="statCompleted">0</b></div>
-              <div class="dash-stat"><span>&#x41C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x43E;&#x432; &#x432; &#x440;&#x430;&#x431;&#x43E;&#x442;&#x435;</span><b id="statInWork">0</b></div>
-            </div>
-
-            <div class="dash-card">
-              <div class="card-head">
-                <div>
-                  <h3>&#x41F;&#x43E;&#x441;&#x43B;&#x435;&#x434;&#x43D;&#x438;&#x435; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x44B;</h3>
-                  <p class="muted">5 &#x43F;&#x43E;&#x441;&#x43B;&#x435;&#x434;&#x43D;&#x438;&#x445; &#x441;&#x43E;&#x437;&#x434;&#x430;&#x43D;&#x43D;&#x44B;&#x445; &#x435;&#x434;&#x438;&#x43D;&#x438;&#x446; &#x43A;&#x43E;&#x43D;&#x442;&#x435;&#x43D;&#x442;&#x430;</p>
-                </div>
-                <button id="allMaterialsBtn">&#x412;&#x441;&#x435; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x44B;</button>
-              </div>
-              <div id="lastMaterialsList" class="last-materials"></div>
-            </div>
-          </div>
-
-          <div id="adminEvents" class="admin-view">
-            <div class="admin-page-head">
-              <div>
-                <h1>&#x421;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x44F;</h1>
-                <p class="muted">&#x41B;&#x435;&#x43D;&#x442;&#x430; &#x441;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x439; &#x43A;&#x43E;&#x43D;&#x442;&#x435;&#x43D;&#x442;&#x430; &#x43F;&#x43E; &#x43F;&#x43E;&#x440;&#x442;&#x430;&#x43B;&#x443;</p>
-              </div>
-              <button id="eventsRefresh">&#x41E;&#x431;&#x43D;&#x43E;&#x432;&#x438;&#x442;&#x44C;</button>
-            </div>
-            <div class="events-toolbar">
-              <input id="eventSearch" placeholder="&#x41F;&#x43E;&#x438;&#x441;&#x43A; &#x43F;&#x43E; &#x43F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44E;, &#x441;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x44E; &#x438;&#x43B;&#x438; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x443;">
-              <button id="eventsReportBtn">&#x21E9; &#x41E;&#x442;&#x447;&#x451;&#x442;</button>
-              <button>&#x2301;</button>
-            </div>
-            <div class="table-card">
-              <div class="table-top">
-                <h3>&#x421;&#x43F;&#x438;&#x441;&#x43E;&#x43A; &#x441;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x439;</h3>
-                <div><span id="eventsTotal">&#x412;&#x441;&#x435;&#x433;&#x43E;: 0</span> <select><option>20</option><option>50</option></select></div>
-              </div>
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th>&#x414;&#x430;&#x442;&#x430;/&#x432;&#x440;&#x435;&#x43C;&#x44F;</th><th>&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44C;</th><th>&#x421;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x435;</th><th>&#x41C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;</th><th>&#x414;&#x43B;&#x438;&#x442;&#x435;&#x43B;&#x44C;&#x43D;&#x43E;&#x441;&#x442;&#x44C;</th>
-                  </tr>
-                </thead>
-                <tbody id="eventsTable"></tbody>
-              </table>
-            </div>
-          </div>
-
           <div id="adminMaterials" class="admin-view">
             <div id="materialsListView">
               <div class="materials-card">
@@ -456,39 +375,10 @@
             </div>
           </div>
 
-          <div id="adminUsers" class="admin-view users-view">
-            <div class="admin-page-head">
-              <div>
-                <h1>&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x438;</h1>
-                <p class="muted">&#x412;&#x441;&#x435;&#x433;&#x43E;: <span id="usersTotal">0</span></p>
-              </div>
-              <button id="usersSyncBtn">&#x421;&#x438;&#x43D;&#x445;&#x440;&#x43E;&#x43D;&#x438;&#x437;&#x438;&#x440;&#x43E;&#x432;&#x430;&#x442;&#x44C;</button>
-            </div>
-            <div class="users-sync-note">&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x438; &#x438; &#x43E;&#x442;&#x434;&#x435;&#x43B;&#x44B; &#x431;&#x435;&#x440;&#x443;&#x442;&#x441;&#x44F; &#x438;&#x437; &#x411;&#x438;&#x442;&#x440;&#x438;&#x43A;&#x441;24. &#x420;&#x43E;&#x43B;&#x438; &#x43F;&#x440;&#x438;&#x43B;&#x43E;&#x436;&#x435;&#x43D;&#x438;&#x44F; &#x445;&#x440;&#x430;&#x43D;&#x44F;&#x442;&#x441;&#x44F; &#x432; entity &#x438; &#x43D;&#x435; &#x442;&#x435;&#x440;&#x44F;&#x44E;&#x442;&#x441;&#x44F; &#x43F;&#x440;&#x438; &#x43F;&#x435;&#x440;&#x435;&#x443;&#x441;&#x442;&#x430;&#x43D;&#x43E;&#x432;&#x43A;&#x435;.</div>
-            <div class="users-toolbar">
-              <input id="usersSearch" placeholder="&#x41F;&#x43E;&#x438;&#x441;&#x43A; &#x43F;&#x43E; &#x438;&#x43C;&#x435;&#x43D;&#x438; &#x438;&#x43B;&#x438; email">
-              <select id="usersDeptFilter"><option value="all">&#x412;&#x441;&#x435; &#x434;&#x435;&#x43F;&#x430;&#x440;&#x442;&#x430;&#x43C;&#x435;&#x43D;&#x442;&#x44B;</option></select>
-              <select id="usersRoleFilter"><option value="all">Все роли</option><option value="employee">Пользователь</option><option value="teacher">Преподаватель</option><option value="moderator">Редактор</option><option value="admin">Администратор</option><option value="developer">Разработчик</option></select>
-              <select id="usersSort"><option value="name">По алфавиту</option><option value="role">По роли</option></select>
-            </div>
-            <div class="table-card users-table-card">
-              <table class="admin-table users-table">
-                <thead><tr><th>&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44C;</th><th>&#x421;&#x442;&#x430;&#x442;&#x443;&#x441;</th><th>&#x414;&#x435;&#x43F;&#x430;&#x440;&#x442;&#x430;&#x43C;&#x435;&#x43D;&#x442;&#x44B;</th><th>&#x420;&#x43E;&#x43B;&#x44C;</th></tr></thead>
-                <tbody id="usersTable"></tbody>
-              </table>
-            </div>
-          </div>
           <div id="adminDatabase" class="admin-view">
             <div class="v538-admin-boot">Загрузка Управления Базой знаний…</div>
           </div>
 
-          <div id="adminAnalytics" class="admin-view analytics-view">
-            <div class="admin-page-head"><div><h1>&#x410;&#x43D;&#x430;&#x43B;&#x438;&#x442;&#x438;&#x43A;&#x430;</h1><p class="muted">&#x421;&#x442;&#x430;&#x442;&#x438;&#x441;&#x442;&#x438;&#x43A;&#x430; &#x43F;&#x43E; &#x43F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x44F;&#x43C; &#x438; &#x43C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x430;&#x43C;</p></div><button id="analyticsRefreshBtn">&#x41E;&#x431;&#x43D;&#x43E;&#x432;&#x438;&#x442;&#x44C;</button></div>
-            <div class="analytics-tabs"><button class="analytics-tab active" data-analytics-tab="overview">&#x41E;&#x431;&#x437;&#x43E;&#x440;</button><button class="analytics-tab" data-analytics-tab="users">&#x41F;&#x43E;&#x43B;&#x44C;&#x437;&#x43E;&#x432;&#x430;&#x442;&#x435;&#x43B;&#x438;</button><button class="analytics-tab" data-analytics-tab="top">&#x422;&#x43E;&#x43F;</button><button class="analytics-tab" data-analytics-tab="materials">&#x41C;&#x430;&#x442;&#x435;&#x440;&#x438;&#x430;&#x43B;&#x44B;</button><button class="analytics-tab" data-analytics-tab="events">&#x421;&#x43E;&#x431;&#x44B;&#x442;&#x438;&#x44F;</button><button class="analytics-tab" data-analytics-tab="kb">&#x421;&#x43F;&#x438;&#x441;&#x43E;&#x43A; &#x43F;&#x440;&#x43E;&#x435;&#x43A;&#x442;&#x43E;&#x432;</button></div>
-            <div id="analyticsFilters" class="analytics-filters"></div><div id="analyticsContent"></div>
-          </div>
-
-          <div id="adminSettings" class="admin-view placeholder-view"><h1>&#x41D;&#x430;&#x441;&#x442;&#x440;&#x43E;&#x439;&#x43A;&#x438;</h1><p class="muted">&#x411;&#x443;&#x434;&#x435;&#x442; &#x440;&#x435;&#x430;&#x43B;&#x438;&#x437;&#x43E;&#x432;&#x430;&#x43D;&#x43E; &#x441;&#x43B;&#x435;&#x434;&#x443;&#x44E;&#x449;&#x438;&#x43C; &#x44D;&#x442;&#x430;&#x43F;&#x43E;&#x43C;: &#x440;&#x43E;&#x43B;&#x438;, &#x43F;&#x440;&#x430;&#x432;&#x430;, &#x43E;&#x444;&#x43E;&#x440;&#x43C;&#x43B;&#x435;&#x43D;&#x438;&#x435; &#x438; &#x441;&#x438;&#x441;&#x442;&#x435;&#x43C;&#x43D;&#x44B;&#x435; &#x43D;&#x430;&#x441;&#x442;&#x440;&#x43E;&#x439;&#x43A;&#x438;.</p></div>
           <div id="adminInfo" class="admin-view placeholder-view"><h1>&#x41D;&#x430;&#x440;&#x430;&#x431;&#x43E;&#x442;&#x43A;&#x438; &#x441;&#x446;&#x435;&#x43D;</h1><p class="muted">&#x420;&#x430;&#x431;&#x43E;&#x447;&#x435;&#x435; &#x43F;&#x440;&#x43E;&#x441;&#x442;&#x440;&#x430;&#x43D;&#x441;&#x442;&#x432;&#x43E; &#x441;&#x446;&#x435;&#x43D; Excalidraw &#x434;&#x43B;&#x44F; &#x440;&#x430;&#x437;&#x440;&#x430;&#x431;&#x43E;&#x442;&#x447;&#x438;&#x43A;&#x430;.</p></div>
         </main>
       </div>
