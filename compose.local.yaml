@@ -1,0 +1,11 @@
+services:
+  backend:
+    volumes:
+      - video_media:/app/data/video-covers
+      - document_render_media:/app/data/document-renders
+  media-init:
+    volumes:
+      - video_media:/app/data/video-covers
+      - document_render_media:/app/data/document-renders
+volumes:
+  document_render_media:

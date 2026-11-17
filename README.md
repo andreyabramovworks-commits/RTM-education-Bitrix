@@ -179,6 +179,23 @@ Legacy API сохраняет совместимые сущности `rtm_prj`,
 
 ## Локальный запуск
 
+На Windows используйте Docker Desktop с запущенным Linux engine. После установки
+может потребоваться WSL 2 и перезагрузка Windows. Для локального запуска добавьте
+`compose.local.yaml`: он заменяет серверный каталог `/srv/rtm-education/document-renders`
+именованным Docker volume. Production продолжает использовать только `compose.yaml`.
+
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+docker compose -f compose.yaml -f compose.local.yaml up --build -d
+docker compose -f compose.yaml -f compose.local.yaml ps
+Invoke-RestMethod http://localhost/api/health
+Invoke-RestMethod http://localhost/api/ready
+```
+
+Локальный backend, база и миграции доступны для проверки, но полноценный интерфейс
+требует контекста авторизованного Bitrix24. Демонстрационный экран на localhost
+не является проверкой реальных ролей и сценариев портала.
+
 ```bash
 cp .env.example .env
 docker compose up --build -d

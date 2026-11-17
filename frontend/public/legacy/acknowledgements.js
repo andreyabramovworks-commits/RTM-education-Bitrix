@@ -204,17 +204,18 @@
   };
   function inferHelp(target){var key=target.dataset.helpKey;if(key&&HELP[key])return key;var route=target.dataset.adminRoute||target.dataset.adminView,routeKeys={dashboard:'dashboard',materials:'materials',users:'roles',database:'knowledge-base',knowledge:'knowledge-base',reviews:'review-center',checks:'review-center',analytics:'analytics',events:'events',settings:'settings'};if(routeKeys[route])return routeKeys[route];var text=(target.getAttribute('aria-label')||target.title||target.textContent||'').trim().replace(/\s+/g,' ').toLowerCase();if(/назад|закрыть|отмена/.test(text))return'back';if(/центр проверок|проверка тестов/.test(text))return'review-center';if(/база знаний|управление базой/.test(text))return'knowledge-base';if(/редакц/.test(text))return'edition';if(/синхрон/.test(text))return'sync';if(/роль|пользовател/.test(text)&&target.matches('[data-admin-view],#roleSelect'))return'roles';if(/дашборд/.test(text))return'dashboard';if(/материал|стать/.test(text))return'material';if(/курс/.test(text))return'course';if(/тест|ответ/.test(text))return'test';if(/назнач/.test(text))return'assignment';if(/публиков|черновик|предпросмотр/.test(text))return'publication';if(/аналитик|отч[её]т/.test(text))return'analytics';if(/событи/.test(text))return'events';if(/настройк|оформлен/.test(text))return'settings';if(/поиск|найти/.test(text))return'search';if(/удалить/.test(text))return'delete';return'';}
   var helpLayer,helpStack=[],hoverTimer,helpLeaveTimer;
-  function helpStorageKey(){var id=typeof currentUserId==='function'?currentUserId():'0';return'rtm_help_enabled_'+String(id||'0');}
   var helpMode=false;
+  var helpModeRevision=0;
   function helpEnabled(){return helpMode;}
   function applyHelpEnabled(value,persist){
-    var enabled=helpMode=Boolean(value);try{localStorage.setItem(helpStorageKey(),enabled?'1':'0');}catch(_){}
+    if(persist!==false)helpModeRevision++;
+    var enabled=helpMode=Boolean(value);
     if(document.documentElement&&document.documentElement.dataset)document.documentElement.dataset.rtmHelp=enabled?'on':'off';
     if(!enabled)closeHelpFrom(0);
     if(typeof window.dispatchEvent==='function'&&typeof CustomEvent==='function')window.dispatchEvent(new CustomEvent('rtm:help-change',{detail:{enabled:enabled}}));
     if(persist!==false)api('/api/v51/help/preferences/__mode__',{method:'PUT',body:JSON.stringify({hidden:!enabled})}).catch(function(error){console.warn('Help preference sync failed',error);});
   }
-  async function hydrateHelpMode(){try{var preferences=await api('/api/v51/help/preferences');applyHelpEnabled(preferences&&preferences.__mode__===false,false);}catch(error){console.warn('Help preference load failed',error);applyHelpEnabled(false,false);}}
+  async function hydrateHelpMode(){var revision=helpModeRevision;try{var preferences=await api('/api/v51/help/preferences');if(revision===helpModeRevision)applyHelpEnabled(preferences&&preferences.__mode__===false,false);}catch(error){console.warn('Help preference load failed',error);if(revision===helpModeRevision)applyHelpEnabled(false,false);}}
   function ensureHelpLayer(){if(!helpLayer){helpLayer=document.createElement('div');helpLayer.className='v51-help-layer';document.body.appendChild(helpLayer);}return helpLayer;}
   function closeHelpFrom(index){clearTimeout(hoverTimer);clearTimeout(helpLeaveTimer);helpStack.slice(index).forEach(function(item){item.card.remove();});helpStack=helpStack.slice(0,index);}
   function keepHelpOpen(){clearTimeout(helpLeaveTimer);}

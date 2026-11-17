@@ -389,6 +389,11 @@ function learnerSnapshot(){
   };
 }
 function emitLearnerSnapshot(){window.dispatchEvent(new CustomEvent('rtm:learner-change'));}
+ function setHintsEnabled(value){
+   if(window.RTMHelp)window.RTMHelp.setEnabled(Boolean(value));
+   emitAdminSnapshot();
+   emitLearnerSnapshot();
+ }
 async function hydrateLearnerItem(id){
   let item=await window.RTMV47.request('/api/v47/legacy/'+encodeURIComponent(E.items)+'/'+encodeURIComponent(id));
   let index=state.items.findIndex(function(row){return String(row.ID)===String(id)});
@@ -428,7 +433,7 @@ window.__RTM_LEARNER__={
   ,loadAcknowledgements:async function(force){if(!window.RTMV5100||!window.RTMV5100.getMine)throw new Error('Редакции ещё загружаются');return window.RTMV5100.getMine(Boolean(force))}
   ,loadEditions:async function(documentId,force){if(!window.RTMV5100||!window.RTMV5100.getEditions)throw new Error('История редакций ещё загружается');return window.RTMV5100.getEditions(documentId,Boolean(force))}
   ,openAcknowledgement:async function(id){if(!window.RTMV5100||!window.RTMV5100.openAssignmentById)throw new Error('Редакции ещё загружаются');return window.RTMV5100.openAssignmentById(id)}
-  ,setHintsEnabled:function(value){if(window.RTMHelp)window.RTMHelp.setEnabled(Boolean(value));emitLearnerSnapshot()}
+  ,setHintsEnabled:setHintsEnabled
   ,openHint:function(anchor,key){if(window.RTMHelp)window.RTMHelp.open(anchor,key)}
 };
 /* React owns the new admin shell and route activation. The legacy runtime keeps
@@ -481,7 +486,7 @@ window.__RTM_ADMIN__={
   },
   refresh:async function(){await loadAll(true);emitAdminSnapshot()},
   setMode:function(mode){setMode(mode);emitAdminSnapshot()},
-  setHintsEnabled:function(value){if(window.RTMHelp)window.RTMHelp.setEnabled(Boolean(value));emitAdminSnapshot();emitLearnerSnapshot()},
+  setHintsEnabled:setHintsEnabled,
   openHint:function(anchor,key){if(window.RTMHelp)window.RTMHelp.open(anchor,key)},
 };
 if(window.__RTM_V48__)window.__RTM_V48_INIT__=init;

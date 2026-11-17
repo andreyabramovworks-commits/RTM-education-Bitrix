@@ -11,7 +11,6 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field as PydanticField
-from sqlalchemy import delete
 from sqlmodel import Session, select
 
 from app.bitrix_auth import BitrixIdentity, bitrix_call, create_browser_session, require_admin, require_bitrix_identity
@@ -21,14 +20,11 @@ from app.models import (
     AppUser,
     ArticleDraft,
     Article,
-    Course,
-    CourseSection,
     DeveloperWorkspace,
     DeveloperWorkspaceRevision,
     ExcalidrawScene,
     KnowledgeTest,
     LegacyRecord,
-    Project,
     SystemSetting,
     TestAttempt,
     utcnow,
@@ -386,110 +382,6 @@ def _ensure_user(session: Session, imported: ImportedUser) -> AppUser:
     user.updated_at = utcnow()
     session.add(user)
     return user
-
-
-def _rebuild_normalized(session: Session) -> None:
-    for model in (ExcalidrawScene, KnowledgeTest, Article, CourseSection, Course, Project):
-        session.exec(delete(model))
-    session.flush()
-
-    project_map: dict[str, Project] = {}
-    course_map: dict[str, Course] = {}
-    section_map: dict[tuple[str, str], CourseSection] = {}
-    records = session.exec(select(LegacyRecord)).all()
-
-    for row in [r for r in records if r.entity == "rtm_prj"]:
-        props = row.properties
-        project = Project(
-            legacy_id=row.legacy_id,
-            title=row.name or "Проект",
-            description=str(props.get("description") or ""),
-            archived=props.get("deleted") == "Y",
-        )
-        session.add(project)
-        session.flush()
-        project_map[row.legacy_id] = project
-
-    item_rows = [r for r in records if r.entity == "rtm_items"]
-    for row in [r for r in item_rows if r.properties.get("type") == "course"]:
-        project = project_map.get(str(row.properties.get("projectId") or ""))
-        if not project:
-            continue
-        meta = _json(row.properties.get("meta"))
-        course = Course(
-            project_id=project.id,
-            legacy_id=row.legacy_id,
-            title=row.name or "Курс",
-            description=str(row.properties.get("content") or ""),
-            status=str(row.properties.get("status") or "draft"),
-            settings=meta,
-        )
-        session.add(course)
-        session.flush()
-        course_map[row.legacy_id] = course
-        sections = meta.get("sections") or [{"id": "nosection", "title": "Без секции", "order": 0}]
-        for index, section_data in enumerate(sections):
-            key = str(section_data.get("id") or f"section_{index}")
-            section = CourseSection(
-                course_id=course.id,
-                legacy_key=key,
-                title=str(section_data.get("title") or "Секция"),
-                position=int(section_data.get("order") or index * 100),
-            )
-            session.add(section)
-            session.flush()
-            section_map[(row.legacy_id, key)] = section
-
-    for row in item_rows:
-        kind = str(row.properties.get("type") or "")
-        if kind not in {"article", "test"}:
-            continue
-        parent_id = str(row.properties.get("parentId") or "")
-        course = course_map.get(parent_id)
-        if not course:
-            continue
-        meta = _json(row.properties.get("meta"))
-        section_key = str(meta.get("sectionId") or "nosection")
-        section = section_map.get((parent_id, section_key)) or section_map.get((parent_id, "nosection"))
-        if not section:
-            section = CourseSection(course_id=course.id, legacy_key=section_key, title="Без секции")
-            session.add(section)
-            session.flush()
-            section_map[(parent_id, section_key)] = section
-        position = int(meta.get("order") or 0)
-        if kind == "article":
-            article = Article(
-                section_id=section.id,
-                legacy_id=row.legacy_id,
-                title=row.name or "Статья",
-                description=str(meta.get("description") or ""),
-                status=str(row.properties.get("status") or "draft"),
-                required=meta.get("required") in {True, "Y"},
-                points=int(meta.get("points") or 0),
-                position=position,
-            )
-            session.add(article)
-            session.flush()
-            for index, page in enumerate(meta.get("pages") or []):
-                session.add(ExcalidrawScene(
-                    article_id=article.id,
-                    page_key=str(page.get("id") or f"page_{index}"),
-                    title=str(page.get("title") or row.name),
-                    legacy_meta=page,
-                    position=index * 100,
-                ))
-        else:
-            settings = {key: value for key, value in meta.items() if key != "questions"}
-            session.add(KnowledgeTest(
-                section_id=section.id,
-                legacy_id=row.legacy_id,
-                title=row.name or "Тест",
-                status=str(row.properties.get("status") or "draft"),
-                settings=settings,
-                questions=meta.get("questions") or [],
-                position=position,
-            ))
-    session.flush()
 
 
 def _seed_demo(session: Session) -> None:
