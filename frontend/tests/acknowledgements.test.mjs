@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../public/legacy/acknowledgements.js", import.meta.url), "utf8");
 
-test("legacy observer leaves the React-owned users heading alone", () => {
+test("v51 DOM observer reaches a fixed point after renaming the roles heading", () => {
   let observerCallback = null;
   let mutations = 0;
   let headingText = "Пользователи";
@@ -49,8 +49,8 @@ test("legacy observer leaves the React-owned users heading alone", () => {
 
   vm.runInNewContext(source, context, { filename: "acknowledgements.js" });
 
-  assert.equal(headingText, "Пользователи");
-  assert.equal(mutations, 0);
+  assert.equal(headingText, "Роли пользователей");
+  assert.equal(mutations, 1);
 });
 
 test("v51.4 keeps campaign assignments while the wizard changes mode", () => {

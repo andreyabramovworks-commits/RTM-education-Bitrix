@@ -76,7 +76,7 @@ test("route activation is restored after legacy rendering hooks", () => {
 });
 
 test("top-level navigation closes nested knowledge editors and reopens the selected root", () => {
-  assert.match(admin, /if \(nextRoute === route && !REACT_ROUTES\.has\(nextRoute\)\) \{[\s\S]*?bridge\.openRoute\(nextRoute\)/);
+  assert.match(admin, /if \(nextRoute === route\) \{[\s\S]*?bridge\.openRoute\(nextRoute\)/);
   assert.match(runtime, /state\.v540Workspace='';state\.knowledgeEditorReturn=false;state\.editorReturnCourseId=null/);
   assert.match(runtime, /if\(route==='materials'\)\{[\s\S]*?showMaterialsList\(\)/);
   assert.match(runtime, /bindLate\(\)/);

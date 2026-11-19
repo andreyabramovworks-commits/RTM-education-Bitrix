@@ -1,11 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./admin.css";
 import { VideoAdmin } from "./VideoAdmin";
-import { EventsAdmin } from "./EventsAdmin";
-import { UsersAdmin } from "./UsersAdmin";
-import { DashboardAdmin } from "./DashboardAdmin";
-import { SettingsAdmin } from "./SettingsAdmin";
-import { AnalyticsAdmin } from "./AnalyticsAdmin";
 
 const ICONS = {
   dashboard: "M3 11.5 12 4l9 7.5M5 10.5V20h5v-5h4v5h5v-9.5",
@@ -42,7 +37,6 @@ const GROUPS = [
   ]],
   ["Система", [["settings", "Настройки", "Оформление и параметры портала"]]],
 ];
-const REACT_ROUTES = new Set(["dashboard", "events", "users", "videos", "settings", "analytics"]);
 
 function useAdminSnapshot(bridge) {
   const [snapshot, setSnapshot] = useState(() => bridge.getSnapshot());
@@ -53,7 +47,6 @@ function useAdminSnapshot(bridge) {
 export function AdminApp({ active, bridge, onSetMode }) {
   const snapshot = useAdminSnapshot(bridge);
   const mountRef = useRef(null);
-  const pendingMaterialId = useRef(null);
   const [route, setRoute] = useState(() => bridge.getSnapshot().route || "dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
   const [routeError, setRouteError] = useState("");
@@ -70,31 +63,15 @@ export function AdminApp({ active, bridge, onSetMode }) {
   useEffect(() => {
     let active = true;
     setRouteError("");
-    if (REACT_ROUTES.has(route)) {
-      setMenuOpen(false);
-      return () => { active = false; };
-    }
-    Promise.resolve(bridge.openRoute(route)).then(() => {
-      if (active && route === "materials" && pendingMaterialId.current) {
-        const id = pendingMaterialId.current;
-        pendingMaterialId.current = null;
-        bridge.openMaterial?.(id);
-      }
-    }).catch((error) => {
+    Promise.resolve(bridge.openRoute(route)).catch((error) => {
       if (active) setRouteError(error?.message || "Не удалось открыть раздел");
     });
     setMenuOpen(false);
     return () => { active = false; };
   }, [bridge, route]);
 
-  useEffect(() => {
-    const open = (event) => setRoute(event.detail);
-    window.addEventListener("rtm:admin-route", open);
-    return () => window.removeEventListener("rtm:admin-route", open);
-  }, []);
-
   const selectRoute = (nextRoute) => {
-    if (nextRoute === route && !REACT_ROUTES.has(nextRoute)) {
+    if (nextRoute === route) {
       setRouteError("");
       Promise.resolve(bridge.openRoute(nextRoute)).catch((error) => {
         setRouteError(error?.message || "Не удалось открыть раздел");
@@ -102,11 +79,6 @@ export function AdminApp({ active, bridge, onSetMode }) {
     }
     else setRoute(nextRoute);
     setMenuOpen(false);
-  };
-
-  const openMaterial = (id) => {
-    pendingMaterialId.current = id;
-    setRoute("materials");
   };
 
   const toggleHints = () => {
@@ -140,11 +112,6 @@ export function AdminApp({ active, bridge, onSetMode }) {
       <main className="adm-workspace" data-admin-route={route} ref={mountRef}>
         {routeError && <div className="adm-route-error" role="alert">{routeError}</div>}
         {route === "videos" && <VideoAdmin />}
-        {route === "events" && <EventsAdmin />}
-        {route === "users" && <UsersAdmin bridge={bridge} />}
-        {route === "dashboard" && <DashboardAdmin onOpenRoute={selectRoute} onOpenMaterial={openMaterial} />}
-        {route === "settings" && <SettingsAdmin snapshot={snapshot} />}
-        {route === "analytics" && <AnalyticsAdmin />}
       </main>
     </div>
   </div>;
